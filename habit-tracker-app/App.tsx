@@ -1,35 +1,44 @@
-import React from 'react';
-import { StyleSheet, Text, View, SafeAreaView, StatusBar } from 'react-native';
+import React, {useState, useEffect} from 'react';
+import{
+  StyleSheet,
+  Text,
+  View,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  StatusBar,
+} from 'react-native';
+import { Ionicons, Feather, FontAwesome5} from '@expo/vector-icons';
 
-export default function App() {
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <Text style={styles.title}>Mi Monitor de Hábitos</Text>
-        <Text style={styles.subtitle}>Paso 1: Estructura Inicial</Text>
-      </View>
-    </SafeAreaView>
-  );
+interface DayItem{
+  day: string;
+  date: number;
+  fullDate: Date;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F7',
-  },
-  header: {
-    padding: 20,
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1C1C1E',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginTop: 4,
-  },
-});
+export function useCurrentWeek(){
+  const [daysOfWeek, setDaysOfWeek] = useState<DayItem[]>([]);
+  const [todayIndex, setTodayIndex] = useState<number>(0);
+
+  useEffect(() => {
+    const today = new Date();
+    const currentDayOfWeek = today.getDay();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - currentDayOfWeek);
+    const week: DayItem[] = [];
+
+    for (let i = 0; i<7; i++){
+      const nextDay = new Date(startOfWeek);
+      nextDay.setDate(startOfWeek.getDate() + i);
+      week.push({
+        day: nextDay.toLocaleDateString('en-US', {weekday: 'short'}),
+        date: nextDay.getDate(),
+        fullDate: nextDay,
+      });
+    }
+    setDaysOfWeek(week);
+    setTodayIndex(currentDayOfWeek);
+  }, []);
+  
+  return {daysOfWeek, todayIndex};
+}
