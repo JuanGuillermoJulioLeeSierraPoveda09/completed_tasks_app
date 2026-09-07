@@ -7,6 +7,7 @@ import{
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  SafeAreaViewBase,
 } from 'react-native';
 import { Ionicons, Feather, FontAwesome5} from '@expo/vector-icons';
 
@@ -14,6 +15,14 @@ interface DayItem{
   day: string;
   date: number;
   fullDate: Date;
+}
+
+interface Habit{
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
 }
 
 export function useCurrentWeek(){
@@ -42,3 +51,190 @@ export function useCurrentWeek(){
   
   return {daysOfWeek, todayIndex};
 }
+
+export default function App(){
+  const{daysOfWeek, todayIndex} = useCurrentWeek();
+  const [selectedDay, setSelectedDay] = useState<number>(0);
+  const [headerDateText, setHeaderDateText] = useState<string>('');
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+
+  useEffect(() => {
+    setSelectedDay(todayIndex);
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', {weekday: 'short'});
+    const monthName = today.toLocaleDateString('en-US', {month: 'short'});
+    const dayNum = today.getDate();
+    setHeaderDateText(`Today ${dayName}, ${monthName} ${dayNum}`);
+  }, [todayIndex]);
+
+  const handleCreateHabit = () => {
+    if (!newTitle.trim()) return;
+    const newHabit: Habit = {
+      id: Date.now().toString(),
+      title: newTitle,
+      description: newDescription,
+      icon: 'checkmark-circle-outline',
+      color: '#4F46E6',
+    };
+
+    setHabits([...habits, newHabit]);
+    setNewTitle('');
+    setNewDescription('');
+    setIsModalVisible(false);
+  };
+
+  return(
+    <SafeAreaViewBase style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        {daysOfWeek.map((item, index) => {
+          const isSelected = index === selectedDay;
+          return(
+            <TouchableOpacity
+              key={index}
+              style={[styles.dayCard, isSelected && styles.dayCardSelected]}
+              onPress={() => setSelectedDay(index)}
+            >
+              <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                {item.day}
+              </Text>
+              <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
+                {item.date}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaViewBase>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:{flex:1, backgroundColor: '#F9FAFB'},
+  navbar:{
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+  },
+  dateSelector: {flexDirection: 'row', alignItems: 'center', gap: 4},
+  dateText: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
+  navRight: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    gap: 4,
+  },
+  streakText: {fontWeight: '700', color: '#EF4444'},
+  iconButton: {padding: 4},
+  mainContent: {flex: 1},
+  daysContainer: {paddingVertical: 16, paddingHorizontal: 8},
+  dayCard:{
+    width: 50,
+    height: 65,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal:4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dayCardSelected: {backgroundColor: '#4F46E5', borderColor: '#4F46E5'},
+  dayText: {fontSize: 12, color: '#6B7280', marginBottom: 4},
+  dayTextSelected: {color: '#FFFFFF'},
+  dateNumber: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
+  dateNumberSelected: {color: '#FFFFFF'},
+  habitsSection: {paddingHorizontal: 16},
+  sectionTitle: {fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12},
+  emptyContainer:{
+    alignItems: 'center',
+    paddingVertical: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  emptyText: {color: '#4B5563', fontWeight: '600', fontSize: 14},
+  emptySubtext: {color: '#9CA3AF', fontSize: 12, marginTop: 4},
+  habitCard:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  iconContainer:{
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  habitInfo: {flex: 1, marginLeft: 12},
+  habitTitle: {fontSize: 15, fontWeight: '600', color: '#1F2937'},
+  habitDescription: {fontSize: 12, color: '#6B7280', marginTop:2},
+  optionsButton: {padding: 6},
+  createHabitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#4F46E5',
+    borderStyle: 'dashed',
+    marginTop: 8,
+    gap: 8,
+  },
+  createHabitText: {color: '#4F46E5', fontWeight: '600', fontSize: 15},
+  bottomBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  bottomTab: {alignItems: 'center'},
+  bottomTabText: {fontSize: 11, color: '#6B7280', marginTop: 2},
+
+  modalOverlay:{
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent:{
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {fontSize: 18, fontWeight: '700', marginBottom: 16, color: '#1F2937'},
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5D8',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  modalButtons: {flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8},
+  modalButton: {paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8},
+  cancelButton: {backgroundColor: '#F3F4F6'},
+  cancelButtonText: {color: '#4B5563', fontWeight: '600'},
+  saveButton: {backgroundColor: '#4F46E5'},
+  saveButtonText: {color: '#FFFFFF', fontWeight: '600'},
+});
