@@ -3,12 +3,12 @@ import{
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  SafeAreaViewBase,
+  TextInput,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, FontAwesome5} from '@expo/vector-icons';
 
 interface DayItem{
@@ -53,7 +53,7 @@ export function useCurrentWeek(){
 }
 
 export default function App(){
-  const{daysOfWeek, todayIndex} = useCurrentWeek();
+  const {daysOfWeek, todayIndex} = useCurrentWeek();
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const [headerDateText, setHeaderDateText] = useState<string>('');
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -87,29 +87,76 @@ export default function App(){
   };
 
   return(
-    <SafeAreaViewBase style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-    
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {daysOfWeek.map((item, index) => {
-          const isSelected = index === selectedDay;
-          return(
-            <TouchableOpacity
-              key={index}
-              style={[styles.dayCard, isSelected && styles.dayCardSelected]}
-              onPress={() => setSelectedDay(index)}
-            >
-              <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
-                {item.day}
-              </Text>
-              <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
-                {item.date}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      
+      <View style={styles.navbar}>
+        <TouchableOpacity style={styles.dateSelector}>
+          <Text style={styles.dateText}>{headerDateText}</Text>
+          <Ionicons name="chevron-down" size={18} color="#1F2937"/>
+        </TouchableOpacity>
+      </View>
+      
+      <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.daysContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {daysOfWeek.map((item, index) => {
+              const isSelected = index === selectedDay;
+              return(
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.dayCard, isSelected && styles.dayCardSelected]}
+                  onPress={() => setSelectedDay(index)}
+                >
+                  <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                    {item.day}
+                  </Text>
+                  <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
+                    {item.date}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.habitsSection}>
+          <Text style={styles.sectionTitle}>Your Habits</Text>
+          {habits.length === 0 ? (
+            <View style={styles.habitsSection}>
+              <Text style={styles.emptyText}>You don't have any habits yet</Text>
+              <Text style={styles.emptySubtext}>Create one to start your tracking</Text>
+            </View>
+          ) : (
+            habits.map((habit) => (
+              <View key={habit.id} style={styles.habitCard}>
+                <View style={[styles.iconContainer, {backgroundColor: habit.color + '20'}]}>
+                  <Ionicons name={habit.icon as any} size={24} color={habit.color} />
+                </View>
+
+                <View style={styles.habitInfo}>
+                  <Text style={styles.habitTitle}>{habit.title}</Text>
+                  <Text style={styles.habitDescription}>{habit.description}</Text>
+                </View>
+
+                <TouchableOpacity style={styles.optionsButton}>
+                  <Feather name="more-vertical" size={20} color="#9CA3AF"/>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+          <TouchableOpacity
+            style={styles.createHabitButton}
+            onPress={() => setIsModalVisible}
+          >
+            <Ionicons name="add-circle-outline" size={22} color="#4F46E5"/>
+            <Text style={styles.createHabitText}>Creat a new habit</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
-    </SafeAreaViewBase>
+      
+    </SafeAreaView>
   );
 }
 
