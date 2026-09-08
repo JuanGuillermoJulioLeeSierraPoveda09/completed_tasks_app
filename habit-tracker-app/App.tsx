@@ -96,7 +96,6 @@ export default function App(){
           <Ionicons name="chevron-down" size={18} color="#1F2937"/>
         </TouchableOpacity>
       </View>
-      
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
         <View style={styles.daysContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -145,17 +144,31 @@ export default function App(){
               </View>
             ))
           )}
-
-          <TouchableOpacity
-            style={styles.createHabitButton}
-            onPress={() => setIsModalVisible}
-          >
+          <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible}>
             <Ionicons name="add-circle-outline" size={22} color="#4F46E5"/>
             <Text style={styles.createHabitText}>Creat a new habit</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-      
+
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomBar}>
+          <Ionicons name="grid-outline" size={22} color="#4F46E5"/>
+          <Text style={[styles.bottomTabText, {color: '#4F46E5'}]}>Menú</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomBar} onPress={() => setIsModalVisible(true)}>
+          <Ionicons name="add-circle" size={22} color="#6B7280"/>
+          <Text style={styles.bottomTabText}>New Habit</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomBar}>
+          <Ionicons name="bar-chart-outline" size={22} color="#6B7280"/>
+          <Text style={styles.bottomTabText}>Analytics</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.bottomBar}>
+          <Ionicons name="person-outline" size={22} color="#6B7280"/>
+          <Text style={styles.bottomTabText}>Me</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -183,7 +196,7 @@ const styles = StyleSheet.create({
   mainContent: {flex: 1},
   daysContainer: {paddingVertical: 16, paddingHorizontal: 8},
   dayCard:{
-    width: 50,
+    width: 45,
     height: 65,
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
