@@ -6,6 +6,7 @@ import{
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Modal,
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -169,6 +170,41 @@ export default function App(){
           <Text style={styles.bottomTabText}>Me</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal visible={isModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Create A New Habit</Text>
+            <TextInput 
+              style={styles.input}
+              placeholder="Habit name"
+              value={newTitle}
+              onChangeText={setNewTitle}
+            />
+            <Text style={styles.modalSubtitle}>
+              Description
+            </Text>
+            <TextInput 
+              style={styles.input}
+              placeholder=""
+            />
+            <View style={styles.modalButton}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setIsModalVisible(false)}
+              >
+                <Text style={[styles.modalButton, styles.cancelButton]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleCreateHabit}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -283,6 +319,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalTitle: {fontSize: 18, fontWeight: '700', marginBottom: 16, color: '#1F2937'},
+  modalSubtitle: {fontSize: 14, fontWeight: '700', marginBottom:10, color: '#3b3b3b'},
   input: {
     borderWidth: 1,
     borderColor: '#D1D5D8',
