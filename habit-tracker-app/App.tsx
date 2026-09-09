@@ -229,10 +229,27 @@ export default function App(){
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.streaksRow}>
+              {/*Logged Days*/}
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#F59E0B"/>
                 <Text style={styles.streakLabel}>Logged Days</Text>
-                <Text style={[]}></Text>
+                <Text style={[styles.streakNumber, {color: '#F59E0B'}]}>0</Text>
+                <Text style={styles.streakSubtext}>current streak</Text>
+                <View style={styles.bestBadge}>
+                  <Ionicons name="trophy-outline" size={16} color="#D59E0B"/>
+                  <Text style={styles.bestText}>Best: </Text>
+                </View>
+              </View>
+              {/*Perfect Days*/}
+              <View style={styles.streakCard}>
+                <Ionicons name="flame" size={56} color="#10B981" />
+                <Text style={styles.streakLabel}>Perfect Days</Text>
+                <Text style={[styles.streakNumber, {color: '#10B981'}]}></Text>
+                <Text style={styles.streakSubtext}>current streak</Text>
+                <View style={styles.bestBadge}>
+                  <Ionicons  name="trophy-outline" size={16} color="#10B981"/>
+                  <Text style={styles.bestText}>Best: </Text>
+                </View>
               </View>
             </View>
           </ScrollView>
@@ -368,4 +385,25 @@ const styles = StyleSheet.create({
   cancelButtonText: {color: '#4B5563', fontWeight: '600'},
   saveButton: {backgroundColor: '#4F46E5'},
   saveButtonText: {color: '#FFFFFF', fontWeight: '600'},
+  streaksContainer: {flex: 1, backgroundColor: '#121212'},
+  streaksHeader:{
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  streaksTitle: {fontSize: 20, fontWeight: '700', color: '#FFFFFF'},
+  streaksRow:{
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  streakCard: {alignItems: 'center', flex: 1},
+  streakLabel: {fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8},
+  streakNumber: {fontSize: 36, fontWeight: '800', marginVertical: 2},
+  streakSubtext: {fontSize: 13, color: '#9CA3AF', marginBottom: 12},
+  bestBadge: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  bestText: {color: '#E5E7EB', fontWeight: '600', fontSize: 14},
 });
