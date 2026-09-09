@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import{
   StyleSheet,
   Text,
@@ -10,7 +10,7 @@ import{
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather, FontAwesome5} from '@expo/vector-icons';
+import { Ionicons, Feather} from '@expo/vector-icons';
 
 interface DayItem{
   day: string;
@@ -26,6 +26,7 @@ interface Habit{
   color: string;
 }
 
+type HabitLogs = Record<string, string[]>;
 export function useCurrentWeek(){
   const [daysOfWeek, setDaysOfWeek] = useState<DayItem[]>([]);
   const [todayIndex, setTodayIndex] = useState<number>(0);
@@ -53,15 +54,24 @@ export function useCurrentWeek(){
   return {daysOfWeek, todayIndex};
 }
 
+const formatDateKey = (date: Date) =>{
+  const year = date.getFullYear();
+  const month = String(date.getMonth()+1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function App(){
   const {daysOfWeek, todayIndex} = useCurrentWeek();
   const [selectedDay, setSelectedDay] = useState<number>(0);
   const [headerDateText, setHeaderDateText] = useState<string>('');
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [currentCalendarDate, setCurrentCalendarDate] = useState('');
 
   useEffect(() => {
     setSelectedDay(todayIndex);
@@ -71,6 +81,24 @@ export default function App(){
     const dayNum = today.getDate();
     setHeaderDateText(`Today ${dayName}, ${monthName} ${dayNum}`);
   }, [todayIndex]);
+
+  const activeDate = useMemo(() =>{
+    return daysOfWeek[selectedDay]?.fullDate || new Date();
+  }, [daysOfWeek, selectedDay]);
+  const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
+  const toggleHabitCompletion = (habitId: string) =>{
+    setHabitLogs((prevLogs) =>{
+      const currentCompleted = prevLogs[activeDateKey] || [];
+      const exists = currentCompleted.includes(habitId);
+      const updated = exists
+        ? currentCompleted.filter((id) => id !== habitId)
+        : [...currentCompleted, habitId];
+      return{
+        ...prevLogs,
+        [activeDateKey]: updated,
+      };
+    });
+  };
 
   const handleCreateHabit = () => {
     if (!newTitle.trim()) return;
