@@ -59,6 +59,7 @@ export default function App(){
   const [headerDateText, setHeaderDateText] = useState<string>('');
   const [habits, setHabits] = useState<Habit[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
@@ -87,12 +88,20 @@ export default function App(){
     setIsModalVisible(false);
   };
 
+  const handleSelectedCalendarDay = (dayNumber: number) => {
+    const foundIndex = daysOfWeek.findIndex((item) => item.date === dayNumber);
+    if (foundIndex !== -1){
+      setSelectedDay(foundIndex);
+    }
+    setIsStreaksModalVisible(false);
+  };
+
   return(
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       <View style={styles.navbar}>
-        <TouchableOpacity style={styles.dateSelector}>
+        <TouchableOpacity style={styles.dateSelector} onPress={() => setIsStreaksModalVisible(true)}>
           <Text style={styles.dateText}>{headerDateText}</Text>
           <Ionicons name="chevron-down" size={18} color="#1F2937"/>
         </TouchableOpacity>
@@ -145,7 +154,7 @@ export default function App(){
               </View>
             ))
           )}
-          <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible}>
+          <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
             <Ionicons name="add-circle-outline" size={22} color="#4F46E5"/>
             <Text style={styles.createHabitText}>Creat a new habit</Text>
           </TouchableOpacity>
@@ -153,19 +162,19 @@ export default function App(){
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="grid-outline" size={22} color="#4F46E5"/>
           <Text style={[styles.bottomTabText, {color: '#4F46E5'}]}>Menú</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomBar} onPress={() => setIsModalVisible(true)}>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => setIsModalVisible(true)}>
           <Ionicons name="add-circle" size={22} color="#6B7280"/>
           <Text style={styles.bottomTabText}>New Habit</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="bar-chart-outline" size={22} color="#6B7280"/>
           <Text style={styles.bottomTabText}>Analytics</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="person-outline" size={22} color="#6B7280"/>
           <Text style={styles.bottomTabText}>Me</Text>
         </TouchableOpacity>
@@ -187,13 +196,15 @@ export default function App(){
             <TextInput 
               style={styles.input}
               placeholder=""
+              value={newDescription}
+              onChangeText={setNewDescription}
             />
             <View style={styles.modalButton}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setIsModalVisible(false)}
               >
-                <Text style={[styles.modalButton, styles.cancelButton]}>Cancel</Text>
+                <Text style={styles.cancelButton}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
@@ -204,6 +215,28 @@ export default function App(){
             </View>
           </View>
         </View>
+      </Modal>
+
+      <Modal visible={isStreaksModalVisible} animationType='slide' transparent={false}>
+        <SafeAreaView style={styles.streaksContainer}>
+          <StatusBar barStyle="light-content" backgroundColor="#121212"/>
+          <View style={styles.streaksHeader}>
+            <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
+              <Ionicons name="close" size={28} color="#FFFFFF"/>
+            </TouchableOpacity>
+            <Text style={styles.streaksTitle}>My Streaks</Text>
+            <View style={{width: 28}}/>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.streaksRow}>
+              <View style={styles.streakCard}>
+                <Ionicons name="flame" size={56} color="#F59E0B"/>
+                <Text style={styles.streakLabel}>Logged Days</Text>
+                <Text style={[]}></Text>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -275,6 +308,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   habitInfo: {flex: 1, marginLeft: 12},
   habitTitle: {fontSize: 15, fontWeight: '600', color: '#1F2937'},
