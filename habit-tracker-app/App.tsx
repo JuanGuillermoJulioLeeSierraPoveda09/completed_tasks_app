@@ -71,7 +71,7 @@ export default function App(){
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [currentCalendarDate, setCurrentCalendarDate] = useState('');
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
   useEffect(() => {
     setSelectedDay(todayIndex);
@@ -116,8 +116,80 @@ export default function App(){
     setIsModalVisible(false);
   };
 
-  const handleSelectedCalendarDay = (dayNumber: number) => {
-    const foundIndex = daysOfWeek.findIndex((item) => item.date === dayNumber);
+  const streakStats = useMemo(() =>{
+    if (habits.length === 0){
+      return {loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0};
+    }
+    let loggedCurrent = 0;
+    let loggedBest = 0;
+    let perfectCurrent = 0;
+    let perfectBest = 0;
+    let tempLogged = 0;
+    let tempPerfect = 0;
+    const checkDate = new Date();
+    for (let i = 0; i<365; i++){
+      const key = formatDateKey(checkDate);
+      const completedCount = (habitLogs[key] || []).length;
+      if (completedCount > 0){
+        tempLogged++;
+        if (tempLogged > loggedBest) loggedBest = tempLogged;
+      }else{
+        if (i === 0) loggedCurrent = 0;
+        tempLogged = 0;
+      }
+      if (completedCount >= habits.length && habits.length > 0){
+        tempPerfect++;
+        if (tempPerfect > perfectBest) perfectBest = tempPerfect;
+      }else{
+        if (i === 0) perfectCurrent = 0;
+        tempPerfect = 0;
+      }
+      if (i === 0){
+        loggedCurrent = tempLogged;
+        perfectCurrent = tempPerfect;
+      }
+      checkDate.setDate(checkDate.getDate()-1);
+    }
+    return {loggedCurrent, loggedBest, perfectCurrent, perfectBest};
+  }, [habitLogs, habits]);
+
+  const calendarDays = useMemo(() =>{
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month +1, 0);
+    let startingDayOfWeek = firstDayOfMonth.getDay();   
+    const days = [];
+
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = startingDayOfWeek-1; i >= 0; i--){
+      const date = new Date(year, month -1, prevMonthLastDay -i);
+      days.push({date, isCurrentMonth: false});
+    }
+
+    for (let i = 1; i <= lastDayOfMonth.getDate(); i++){
+      const date = new Date(year, month, i);
+      days.push({date, isCurrentMonth: true});
+    }
+
+    const reaminingCells = (7 - (days.length % 7)) % 7;
+    for (let i = 1; i <= reaminingCells; i++){
+      const date = new Date(year, month + 1, i);
+      days.push({date, isCurrentMonth: false});
+    }
+    return days;
+  }, [currentCalendarDate]);
+
+  const changeMonth = (direction: 'prev' | 'next') =>{
+    const newDate = new Date(currentCalendarDate);
+    newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+    setCurrentCalendarDate(newDate);
+  };
+
+  const handleSelectedCalendarDay = (targetDate: Date) => {
+    const foundIndex = daysOfWeek.findIndex(
+      (item) => formatDateKey(item.fullDate) === formatDateKey(targetDate)
+    );
     if (foundIndex !== -1){
       setSelectedDay(foundIndex);
     }
@@ -166,7 +238,7 @@ export default function App(){
             </View>
           ) : (
             habits.map((habit) => (
-              <View key={habit.id} style={styles.habitCard}>
+              <TouchableOpacity style={styles.habitCard} onPress={() => toggleHabitCompletion(habit.id)}>
                 <View style={[styles.iconContainer, {backgroundColor: habit.color + '20'}]}>
                   <Ionicons name={habit.icon as any} size={24} color={habit.color} />
                 </View>
@@ -179,7 +251,7 @@ export default function App(){
                 <TouchableOpacity style={styles.optionsButton}>
                   <Feather name="more-vertical" size={20} color="#9CA3AF"/>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             ))
           )}
           <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
@@ -227,12 +299,12 @@ export default function App(){
               value={newDescription}
               onChangeText={setNewDescription}
             />
-            <View style={styles.modalButton}>
+            <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setIsModalVisible(false)}
               >
-                <Text style={styles.cancelButton}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.saveButton]}
@@ -261,24 +333,68 @@ export default function App(){
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#F59E0B"/>
                 <Text style={styles.streakLabel}>Logged Days</Text>
-                <Text style={[styles.streakNumber, {color: '#F59E0B'}]}>0</Text>
+                <Text style={[styles.streakNumber, {color: '#F59E0B'}]}>{streakStats.loggedCurrent}</Text>
                 <Text style={styles.streakSubtext}>current streak</Text>
                 <View style={styles.bestBadge}>
                   <Ionicons name="trophy-outline" size={16} color="#D59E0B"/>
-                  <Text style={styles.bestText}>Best: </Text>
+                  <Text style={styles.bestText}>Best: {streakStats.loggedBest}</Text>
                 </View>
               </View>
               {/*Perfect Days*/}
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#10B981" />
                 <Text style={styles.streakLabel}>Perfect Days</Text>
-                <Text style={[styles.streakNumber, {color: '#10B981'}]}></Text>
+                <Text style={[styles.streakNumber, {color: '#10B981'}]}>{streakStats.perfectCurrent}</Text>
                 <Text style={styles.streakSubtext}>current streak</Text>
                 <View style={styles.bestBadge}>
                   <Ionicons  name="trophy-outline" size={16} color="#10B981"/>
-                  <Text style={styles.bestText}>Best: </Text>
+                  <Text style={styles.bestText}>Best: {streakStats.perfectBest}</Text>
                 </View>
               </View>
+            </View>
+            {/*CALENDAR*/}
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity onPress={() => changeMonth('prev')}>
+                <Ionicons name="chevron-back" size={22} color="#FFFFFF"/>
+              </TouchableOpacity>
+              <Text style={styles.calendarMonthText}>
+                {currentCalendarDate.toLocaleDateString('en-US', {
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </Text>
+              <TouchableOpacity onPress={() => changeMonth('next')}>
+                <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.weekDaysHeader}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) =>(
+                <Text key={idx} style={styles.weekDayText}>
+                  {day}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((item, index) => {
+                const dateKey = formatDateKey(item.date);
+                const completedList = habitLogs[dateKey] || [];
+                const count = completedList.length;
+
+                let dotColor = '#374151';
+                if (count > 0){
+                  dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
+                }
+                return(
+                  <TouchableOpacity key={index} style={styles.calendarCell} onPress={() => handleSelectedCalendarDay(item.date)}>
+                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && {color: '#4B5563'},]}>
+                      {item.date.getDate()}
+                    </Text>
+                    <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -413,6 +529,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {color: '#4B5563', fontWeight: '600'},
   saveButton: {backgroundColor: '#4F46E5'},
   saveButtonText: {color: '#FFFFFF', fontWeight: '600'},
+  
   streaksContainer: {flex: 1, backgroundColor: '#121212'},
   streaksHeader:{
     flexDirection: 'row',
@@ -434,4 +551,13 @@ const styles = StyleSheet.create({
   streakSubtext: {fontSize: 13, color: '#9CA3AF', marginBottom: 12},
   bestBadge: {flexDirection: 'row', alignItems: 'center', gap: 6},
   bestText: {color: '#E5E7EB', fontWeight: '600', fontSize: 14},
+
+  calendarHeader: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16},
+  calendarMonthText: {fontSize: 18, fontWeight: '700', color: '#FFFFFF'},
+  weekDaysHeader: {flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12},
+  weekDayText: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
+  calendarGrid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20},
+  calendarCell: {width: '14.28%', alignItems: 'center', paddingVertical: 8},
+  calendarDayNum: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
+  statusDot: {width: 6, height: 6, borderRadius: 3, marginTop: 4},
 });
