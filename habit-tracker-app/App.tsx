@@ -38,6 +38,17 @@ export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
+  const handleHeaderDatePress = () =>{
+    const today = new Date();
+    const todayStr = formatDateKey(today);
+    const activeStr = formatDateKey(activeDate);
+    if (activeStr !== todayStr){
+      setWeekOffset(0);
+      setSelectedDayIndex(today.getDay());
+    } else{
+      setIsStreaksModalVisible(true);
+    }
+  };
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -208,7 +219,7 @@ export default function App() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.navbar}>
-        <TouchableOpacity style={styles.dateSelector} onPress={() => setIsStreaksModalVisible(true)}>
+        <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
           <Text style={styles.dateText}>{headerDateText}</Text>
           <Ionicons name="chevron-down" size={18} color="#1F2937" />
         </TouchableOpacity>
@@ -217,11 +228,18 @@ export default function App() {
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
         <View style={styles.calendarContainer}>
           <View style={styles.fixedHeaderRow}>
-            {WEEK_DAYS.map((day, idx) => (
-              <Text key={idx} style={styles.fixedDayText}>
-                {day}
-              </Text>
-            ))}
+            {WEEK_DAYS.map((day, idx) =>{
+              const isSelected = idx === selectedDayIndex;
+              return(
+                <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
+                  <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
+                    <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
+                      {day}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           <FlatList
@@ -238,30 +256,31 @@ export default function App() {
             })}
             onMomentumScrollEnd={handleScrollEnd}
             keyExtractor={(item) => item.toString()}
-            renderItem={({ item }) => {
+            renderItem={({ item }) =>{
               const targetOffset = weekOffset + item;
               const today = new Date();
+              const todayStr = formatDateKey(today);
               const currentDayOfWeek = today.getDay();
               const startOfWeek = new Date(today);
               startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
 
-              const days = Array.from({ length: 7 }).map((_, i) => {
+              const days = Array.from({ length: 7 }).map((_, i) =>{
                 const d = new Date(startOfWeek);
                 d.setDate(startOfWeek.getDate() + i);
                 return { date: d.getDate(), fullDate: d };
               });
 
-              return (
+              return(
                 <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
                   {days.map((dayItem, index) => {
-                    const isSelected = index === selectedDayIndex && item === 0;
-                    return (
+                    const isToday = formatDateKey(dayItem.fullDate) === todayStr;
+                    return(
                       <TouchableOpacity
                         key={index}
-                        style={[styles.dayCard, isSelected && styles.dayCardSelected]}
+                        style={styles.dayCard}
                         onPress={() => setSelectedDayIndex(index)}
                       >
-                        <Text style={[styles.dateNumber, isSelected && styles.dateNumberSelected]}>
+                        <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
                           {dayItem.date}
                         </Text>
                       </TouchableOpacity>
@@ -433,6 +452,8 @@ export default function App() {
             <View style={styles.calendarGrid}>
               {calendarDays.map((item, index) => {
                 const dateKey = formatDateKey(item.date);
+                const todayStr = formatDateKey(new Date());
+                const isToday = dateKey === todayStr;
                 const completedList = habitLogs[dateKey] || [];
                 const count = completedList.length;
 
@@ -446,10 +467,10 @@ export default function App() {
                     style={styles.calendarCell}
                     onPress={() => handleSelectedCalendarDay(item.date)}
                   >
-                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#4B5563' }]}>
+                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && {color: '#4B5563'}, isToday && styles.calendarDayNumToday]}>
                       {item.date.getDate()}
                     </Text>
-                    <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                    <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
                   </TouchableOpacity>
                 );
               })}
@@ -482,12 +503,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: 8,
   },
+  dayHeaderCell:{
+    width: (SCREEN_WIDTH - 64)/7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterCircle:{
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterCircleSelected:{
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    borderColor: '#4f46e5',
+  },
   fixedDayText: {
-    width: (SCREEN_WIDTH - 64) / 7,
-    textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#6B7280',
+  },
+  fixedDayTextSelected:{
+    color: '#4F46E5',
   },
   weekRow: {
     flexDirection: 'row',
@@ -496,13 +536,21 @@ const styles = StyleSheet.create({
   },
   dayCard: {
     width: (SCREEN_WIDTH - 64) / 7,
-    height: 44,
+    height: 36,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dateNumber:{
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2837',
+  },
+  dateNumberToday:{
+    color: '#4F46E5',
+    fontWeight: '800',
+  },
   dayCardSelected: { backgroundColor: '#4F46E5' },
-  dateNumber: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
   dateNumberSelected: { color: '#FFFFFF' },
   habitsSection: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
@@ -608,18 +656,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  streakCard: { alignItems: 'center', flex: 1 },
-  streakLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8 },
-  streakNumber: { fontSize: 36, fontWeight: '800', marginVertical: 2 },
-  streakSubtext: { fontSize: 13, color: '#9CA3AF', marginBottom: 12 },
-  bestBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  bestText: { color: '#E5E7EB', fontWeight: '600', fontSize: 14 },
-  calendarHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16 },
-  calendarMonthText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  weekDaysHeader: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12 },
-  weekDayText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20 },
-  calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
-  calendarDayNum: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
+  streakCard: {alignItems: 'center', flex: 1},
+  streakLabel: {fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8},
+  streakNumber: {fontSize: 36, fontWeight: '800', marginVertical: 2},
+  streakSubtext: {fontSize: 13, color: '#9CA3AF', marginBottom: 12},
+  bestBadge: {flexDirection: 'row', alignItems: 'center', gap: 6},
+  bestText: {color: '#E5E7EB', fontWeight: '600', fontSize: 14},
+  calendarHeader: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16},
+  calendarMonthText: {fontSize: 18, fontWeight: '700', color: '#FFFFFF'},
+  weekDaysHeader: {flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12},
+  weekDayText: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
+  calendarGrid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20},
+  calendarCell: {width: '14.28%', alignItems: 'center', paddingVertical: 8},
+  calendarDayNum: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
+  calendarDayNumToday: {color: '#4F46E5', fontSize: 16, fontWeight: '600'},
+  statusDot: {width: 6, height: 6, borderRadius: 3, marginTop: 4},
 });
