@@ -315,7 +315,10 @@ export default function App() {
             ref={flatListRef}
             data={[-1, 0, 1]}
             horizontal
-            pagingEnabled
+            pagingEnabled={false}
+            snapToInterval={SCREEN_WIDTH -32}
+            snapToAlignment="center"
+            decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             initialScrollIndex={1}
             getItemLayout={(_, index) => ({
