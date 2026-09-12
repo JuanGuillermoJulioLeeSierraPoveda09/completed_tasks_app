@@ -263,7 +263,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
 
       <View style={styles.navbar}>
         <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
@@ -295,82 +295,84 @@ export default function App() {
       </View>
 
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.calendarContainer}>
-          <View style={styles.fixedHeaderRow}>
-            {WEEK_DAYS.map((day, idx) => {
-              const isSelected = idx === selectedDayIndex;
-              return (
-                <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
-                  <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
-                    <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
-                      {day}
-                    </Text>
+        <View style={styles.calendarShadowBox}>
+          <View style={styles.calendarContainer}>
+            <View style={styles.fixedHeaderRow}>
+              {WEEK_DAYS.map((day, idx) => {
+                const isSelected = idx === selectedDayIndex;
+                return (
+                  <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
+                    <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
+                      <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
+                        {day}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <FlatList
+              ref={flatListRef}
+              data={[-1, 0, 1]}
+              horizontal
+              pagingEnabled={false}
+              snapToInterval={SCREEN_WIDTH - 32}
+              snapToAlignment="center"
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={1}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH - 32,
+                offset: (SCREEN_WIDTH - 32) * index,
+                index,
+              })}
+              onMomentumScrollEnd={handleScrollEnd}
+              keyExtractor={(item) => item.toString()}
+              renderItem={({ item }) => {
+                const targetOffset = weekOffset + item;
+                const today = new Date();
+                const todayStr = formatDateKey(today);
+                const currentDayOfWeek = today.getDay();
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
+
+                const days = Array.from({ length: 7 }).map((_, i) => {
+                  const d = new Date(startOfWeek);
+                  d.setDate(startOfWeek.getDate() + i);
+                  return { date: d.getDate(), fullDate: d };
+                });
+
+                return (
+                  <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
+                    {days.map((dayItem, index) => {
+                      const dateKey = formatDateKey(dayItem.fullDate);
+                      const isToday = dateKey === todayStr;
+                      const completedList = habitLogs[dateKey] || [];
+                      const count = completedList.length;
+                      let dotColor = '#D1D5DB';
+
+                      if (count > 0) {
+                        dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
+                      }
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.dayCard}
+                          onPress={() => setSelectedDayIndex(index)}
+                        >
+                          <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
+                            {dayItem.date}
+                          </Text>
+                          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                </TouchableOpacity>
-              );
-            })}
+                );
+              }}
+            />
           </View>
-
-          <FlatList
-            ref={flatListRef}
-            data={[-1, 0, 1]}
-            horizontal
-            pagingEnabled={false}
-            snapToInterval={SCREEN_WIDTH -32}
-            snapToAlignment="center"
-            decelerationRate="fast"
-            showsHorizontalScrollIndicator={false}
-            initialScrollIndex={1}
-            getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH - 32,
-              offset: (SCREEN_WIDTH - 32) * index,
-              index,
-            })}
-            onMomentumScrollEnd={handleScrollEnd}
-            keyExtractor={(item) => item.toString()}
-            renderItem={({ item }) => {
-              const targetOffset = weekOffset + item;
-              const today = new Date();
-              const todayStr = formatDateKey(today);
-              const currentDayOfWeek = today.getDay();
-              const startOfWeek = new Date(today);
-              startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
-
-              const days = Array.from({ length: 7 }).map((_, i) => {
-                const d = new Date(startOfWeek);
-                d.setDate(startOfWeek.getDate() + i);
-                return { date: d.getDate(), fullDate: d };
-              });
-
-              return (
-                <View style={[styles.weekRow, {width: SCREEN_WIDTH - 32}]}>
-                  {days.map((dayItem, index) => {
-                    const dateKey = formatDateKey(dayItem.fullDate);
-                    const isToday = dateKey === todayStr;
-                    const completedList = habitLogs[dateKey] || [];
-                    const count = completedList.length;
-                    let dotColor = '#D1D5DB';
-
-                    if (count > 0){
-                      dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
-                    }
-                    return(
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.dayCard}
-                        onPress={() => setSelectedDayIndex(index)}
-                      >
-                        <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
-                          {dayItem.date}
-                        </Text>
-                        <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              );
-            }}
-          />
         </View>
 
         <View style={styles.habitsSection}>
@@ -551,7 +553,7 @@ export default function App() {
                     <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#4B5563' }, isToday && styles.calendarDayNumToday]}>
                       {item.date.getDate()}
                     </Text>
-                    <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
+                    <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
                   </TouchableOpacity>
                 );
               })}
@@ -564,7 +566,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  container: { flex: 1, backgroundColor: '#f9f9f7' },
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -592,13 +594,25 @@ const styles = StyleSheet.create({
   settingsButton: { padding: 4 },
   mainContent: { flex: 1 },
   calendarContainer: {
-    backgroundColor: '#FFFFFF',
     paddingVertical: 12,
     borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  calendarShadowBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     marginHorizontal: 16,
+    marginTop: 6,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 3,
   },
   fixedHeaderRow: {
     flexDirection: 'row',
