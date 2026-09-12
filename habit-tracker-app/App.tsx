@@ -130,35 +130,79 @@ export default function App() {
     if (habits.length === 0) {
       return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
     }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const totalHabits = habits.length;
     let loggedCurrent = 0;
     let loggedBest = 0;
     let perfectCurrent = 0;
     let perfectBest = 0;
-    let tempLogged = 0;
-    let tempPerfect = 0;
-    const checkDate = new Date();
-    for (let i = 0; i < 365; i++) {
+    let countPerfect = 0;
+    let checkDate = new Date(today);
+    const todayKey = formatDateKey(today);
+    const todayCompletedCount = (habitLogs[todayKey] || []).length;
+    const isTodayPerfect = todayCompletedCount >= totalHabits;
+
+    if (!isTodayPerfect){
+      checkDate.setDate(checkDate.getDate()-1);
+    }
+
+    while (true){
       const key = formatDateKey(checkDate);
       const completedCount = (habitLogs[key] || []).length;
-      if (completedCount > 0) {
+
+      if (completedCount >= totalHabits){
+        countPerfect++;
+        checkDate.setDate(checkDate.getDate()-1);
+      } else{
+        break;
+      }
+    }
+    perfectCurrent = countPerfect;
+
+    let countLogged = 0;
+    checkDate = new Date(today);
+    const isTodayLogged = todayCompletedCount > 0;
+
+    if (!isTodayLogged){
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    while (true){
+      const key = formatDateKey(checkDate);
+      const completedCount = (habitLogs[key] || []).length;
+
+      if (completedCount > 0){
+        countLogged++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else{
+        break;
+      }
+    }
+    loggedCurrent = countLogged;
+
+    let tempLogged = 0;
+    let tempPerfect = 0;
+    const historicDate = new Date(today);
+
+    for (let i = 0; i < 365; i++) {
+      const key = formatDateKey(historicDate);
+      const completedCount = (habitLogs[key] || []).length;
+      
+      if (completedCount > 0){
         tempLogged++;
         if (tempLogged > loggedBest) loggedBest = tempLogged;
-      } else {
-        if (i === 0) loggedCurrent = 0;
+      } else{
         tempLogged = 0;
       }
-      if (completedCount >= habits.length && habits.length > 0) {
+      if (completedCount >= totalHabits) {
         tempPerfect++;
         if (tempPerfect > perfectBest) perfectBest = tempPerfect;
       } else {
         if (i === 0) perfectCurrent = 0;
         tempPerfect = 0;
       }
-      if (i === 0) {
-        loggedCurrent = tempLogged;
-        perfectCurrent = tempPerfect;
-      }
-      checkDate.setDate(checkDate.getDate() - 1);
+      historicDate.setDate(historicDate.getDate() - 1);
     }
     return { loggedCurrent, loggedBest, perfectCurrent, perfectBest };
   }, [habitLogs, habits]);
@@ -229,7 +273,7 @@ export default function App() {
             {(() => {
               const currentDayLogs = habitLogs[activeDateKey] || [];
               const isPerfectActive = habits.length > 0 && currentDayLogs.length >= habits.length;
-              const flameColor = hasLoggedToday ? '#F59E0B' : '#9CA3AF';
+              const flameColor = isPerfectActive ? '#F59E0B' : '#9CA3AF';
 
               return(
                 <>
