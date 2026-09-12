@@ -223,6 +223,27 @@ export default function App() {
           <Text style={styles.dateText}>{headerDateText}</Text>
           <Ionicons name="chevron-down" size={18} color="#1F2937" />
         </TouchableOpacity>
+        
+        <View style={styles.rightActions}>
+          <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
+            {(() => {
+              const currentDayLogs = habitLogs[activeDateKey] || [];
+              const isPerfectActive = habits.length > 0 && currentDayLogs.length >= habits.length;
+              const flameColor = hasLoggedToday ? '#F59E0B' : '#9CA3AF';
+
+              return(
+                <>
+                  <Ionicons name="flame" size={22} color={flameColor}/>
+                  <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
+                </>
+              );
+            })()}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.settingsButton}>
+            <Ionicons name="settings-outline" size={22} color="#1F2937"/>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
@@ -484,9 +505,31 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
-  navbar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dateText: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  navbar:{
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12
+  },
+  dateSelector:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  dateText: { fontSize: 22, fontWeight: '800', color: '#1F2937' },
+  streakBadge:{
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  streakText: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
+  settingsButton: {padding: 4},
   mainContent: { flex: 1 },
   calendarContainer: {
     backgroundColor: '#FFFFFF',
