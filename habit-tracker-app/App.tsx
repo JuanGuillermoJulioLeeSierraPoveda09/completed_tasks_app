@@ -346,7 +346,7 @@ export default function App() {
                     const isToday = dateKey === todayStr;
                     const completedList = habitLogs[dateKey] || [];
                     const count = completedList.length;
-                    let dotColor = 'transparent';
+                    let dotColor = '#D1D5DB';
 
                     if (count > 0){
                       dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
