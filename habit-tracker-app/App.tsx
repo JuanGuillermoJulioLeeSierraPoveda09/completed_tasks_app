@@ -38,14 +38,14 @@ export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
-  const handleHeaderDatePress = () =>{
+  const handleHeaderDatePress = () => {
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
-    if (activeStr !== todayStr){
+    if (activeStr !== todayStr) {
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
-    } else{
+    } else {
       setIsStreaksModalVisible(true);
     }
   };
@@ -119,10 +119,10 @@ export default function App() {
 
     if (pageIndex === 0) {
       setWeekOffset((prev) => prev - 1);
-      flatListRef.current?.scrollToIndex({index: 1, animated: false});
+      flatListRef.current?.scrollToIndex({ index: 1, animated: false });
     } else if (pageIndex === 2) {
       setWeekOffset((prev) => prev + 1);
-      flatListRef.current?.scrollToIndex({index: 1, animated: false});
+      flatListRef.current?.scrollToIndex({ index: 1, animated: false });
     }
   };
 
@@ -133,54 +133,53 @@ export default function App() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const totalHabits = habits.length;
-    let loggedCurrent = 0;
-    let loggedBest = 0;
-    let perfectCurrent = 0;
-    let perfectBest = 0;
-    let countPerfect = 0;
-    let checkDate = new Date(today);
     const todayKey = formatDateKey(today);
     const todayCompletedCount = (habitLogs[todayKey] || []).length;
     const isTodayPerfect = todayCompletedCount >= totalHabits;
 
-    if (!isTodayPerfect){
-      checkDate.setDate(checkDate.getDate()-1);
-    }
+    let countPerfect = 0;
+    let checkDate = new Date(today);
 
-    while (true){
+    if (isTodayPerfect) {
+      countPerfect++;
+    }
+    checkDate.setDate(checkDate.getDate() - 1);
+
+    while (true) {
       const key = formatDateKey(checkDate);
       const completedCount = (habitLogs[key] || []).length;
 
-      if (completedCount >= totalHabits){
+      if (completedCount >= totalHabits) {
         countPerfect++;
-        checkDate.setDate(checkDate.getDate()-1);
-      } else{
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
         break;
       }
     }
-    perfectCurrent = countPerfect;
 
     let countLogged = 0;
     checkDate = new Date(today);
     const isTodayLogged = todayCompletedCount > 0;
 
-    if (!isTodayLogged){
-      checkDate.setDate(checkDate.getDate() - 1);
+    if (isTodayLogged) {
+      countLogged++;
     }
+    checkDate.setDate(checkDate.getDate() - 1);
 
-    while (true){
+    while (true) {
       const key = formatDateKey(checkDate);
       const completedCount = (habitLogs[key] || []).length;
 
-      if (completedCount > 0){
+      if (completedCount > 0) {
         countLogged++;
         checkDate.setDate(checkDate.getDate() - 1);
-      } else{
+      } else {
         break;
       }
     }
-    loggedCurrent = countLogged;
 
+    let loggedBest = 0;
+    let perfectBest = 0;
     let tempLogged = 0;
     let tempPerfect = 0;
     const historicDate = new Date(today);
@@ -188,50 +187,54 @@ export default function App() {
     for (let i = 0; i < 365; i++) {
       const key = formatDateKey(historicDate);
       const completedCount = (habitLogs[key] || []).length;
-      
-      if (completedCount > 0){
+
+      if (completedCount > 0) {
         tempLogged++;
         if (tempLogged > loggedBest) loggedBest = tempLogged;
-      } else{
+      } else {
         tempLogged = 0;
       }
       if (completedCount >= totalHabits) {
         tempPerfect++;
         if (tempPerfect > perfectBest) perfectBest = tempPerfect;
       } else {
-        if (i === 0) perfectCurrent = 0;
         tempPerfect = 0;
       }
       historicDate.setDate(historicDate.getDate() - 1);
     }
-    return { loggedCurrent, loggedBest, perfectCurrent, perfectBest };
+    return {
+      loggedCurrent: countLogged,
+      loggedBest,
+      perfectCurrent: countPerfect,
+      perfectBest
+    };
   }, [habitLogs, habits]);
 
   const calendarDays = useMemo(() => {
-  const year = currentCalendarDate.getFullYear();
-  const month = currentCalendarDate.getMonth();
-  const firstDayOfMonth = new Date(year, month, 1);
-  const lastDayOfMonth = new Date(year, month + 1, 0);
-  const startingDayOfWeek = firstDayOfMonth.getDay();
-  const days = [];
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const startingDayOfWeek = firstDayOfMonth.getDay();
+    const days = [];
 
-  for (let i = startingDayOfWeek; i > 0; i--) {
-    const date = new Date(year, month, 1 - i);
-    days.push({ date, isCurrentMonth: false });
-  }
+    for (let i = startingDayOfWeek; i > 0; i--) {
+      const date = new Date(year, month, 1 - i);
+      days.push({ date, isCurrentMonth: false });
+    }
 
-  for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
-    const date = new Date(year, month, i);
-    days.push({ date, isCurrentMonth: true });
-  }
+    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+      const date = new Date(year, month, i);
+      days.push({ date, isCurrentMonth: true });
+    }
 
-  const remainingCells = (7 - (days.length % 7)) % 7;
-  for (let i = 1; i <= remainingCells; i++) {
-    const date = new Date(year, month + 1, i);
-    days.push({ date, isCurrentMonth: false });
-  }
-  return days;
-}, [currentCalendarDate]);
+    const remainingCells = (7 - (days.length % 7)) % 7;
+    for (let i = 1; i <= remainingCells; i++) {
+      const date = new Date(year, month + 1, i);
+      days.push({ date, isCurrentMonth: false });
+    }
+    return days;
+  }, [currentCalendarDate]);
 
   const changeMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentCalendarDate);
@@ -240,23 +243,23 @@ export default function App() {
   };
 
   const handleSelectedCalendarDay = (targetDate: Date) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(targetDate);
-  target.setHours(0, 0, 0, 0);
-  const startOfCurrentWeek = new Date(today);
-  startOfCurrentWeek.setDate(today.getDate() - today.getDay());
-  const startOfTargetWeek = new Date(target);
-  startOfTargetWeek.setDate(target.getDate() - target.getDay());
-  const diffInDays = Math.round(
-    (startOfTargetWeek.getTime() - startOfCurrentWeek.getTime()) / (1000 * 3600 * 24)
-  );
-  const computedWeekOffset = Math.round(diffInDays / 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(targetDate);
+    target.setHours(0, 0, 0, 0);
+    const startOfCurrentWeek = new Date(today);
+    startOfCurrentWeek.setDate(today.getDate() - today.getDay());
+    const startOfTargetWeek = new Date(target);
+    startOfTargetWeek.setDate(target.getDate() - target.getDay());
+    const diffInDays = Math.round(
+      (startOfTargetWeek.getTime() - startOfCurrentWeek.getTime()) / (1000 * 3600 * 24)
+    );
+    const computedWeekOffset = Math.round(diffInDays / 7);
 
-  setSelectedDayIndex(target.getDay());
-  setWeekOffset(computedWeekOffset);
-  setIsStreaksModalVisible(false);
-};
+    setSelectedDayIndex(target.getDay());
+    setWeekOffset(computedWeekOffset);
+    setIsStreaksModalVisible(false);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -267,17 +270,18 @@ export default function App() {
           <Text style={styles.dateText}>{headerDateText}</Text>
           <Ionicons name="chevron-down" size={18} color="#1F2937" />
         </TouchableOpacity>
-        
+
         <View style={styles.rightActions}>
           <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
             {(() => {
-              const currentDayLogs = habitLogs[activeDateKey] || [];
-              const isPerfectActive = habits.length > 0 && currentDayLogs.length >= habits.length;
-              const flameColor = isPerfectActive ? '#F59E0B' : '#9CA3AF';
+              const todayStr = formatDateKey(new Date());
+              const todayLogs = habitLogs[todayStr] || [];
+              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habits.length;
+              const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
-              return(
+              return (
                 <>
-                  <Ionicons name="flame" size={22} color={flameColor}/>
+                  <Ionicons name="flame" size={22} color={flameColor} />
                   <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
                 </>
               );
@@ -285,7 +289,7 @@ export default function App() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={22} color="#1F2937"/>
+            <Ionicons name="settings-outline" size={22} color="#1F2937" />
           </TouchableOpacity>
         </View>
       </View>
@@ -293,9 +297,9 @@ export default function App() {
       <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
         <View style={styles.calendarContainer}>
           <View style={styles.fixedHeaderRow}>
-            {WEEK_DAYS.map((day, idx) =>{
+            {WEEK_DAYS.map((day, idx) => {
               const isSelected = idx === selectedDayIndex;
-              return(
+              return (
                 <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
                   <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
                     <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
@@ -321,7 +325,7 @@ export default function App() {
             })}
             onMomentumScrollEnd={handleScrollEnd}
             keyExtractor={(item) => item.toString()}
-            renderItem={({ item }) =>{
+            renderItem={({ item }) => {
               const targetOffset = weekOffset + item;
               const today = new Date();
               const todayStr = formatDateKey(today);
@@ -329,16 +333,24 @@ export default function App() {
               const startOfWeek = new Date(today);
               startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
 
-              const days = Array.from({ length: 7 }).map((_, i) =>{
+              const days = Array.from({ length: 7 }).map((_, i) => {
                 const d = new Date(startOfWeek);
                 d.setDate(startOfWeek.getDate() + i);
                 return { date: d.getDate(), fullDate: d };
               });
 
-              return(
-                <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
+              return (
+                <View style={[styles.weekRow, {width: SCREEN_WIDTH - 32}]}>
                   {days.map((dayItem, index) => {
-                    const isToday = formatDateKey(dayItem.fullDate) === todayStr;
+                    const dateKey = formatDateKey(dayItem.fullDate);
+                    const isToday = dateKey === todayStr;
+                    const completedList = habitLogs[dateKey] || [];
+                    const count = completedList.length;
+                    let dotColor = 'transparent';
+
+                    if (count > 0){
+                      dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
+                    }
                     return(
                       <TouchableOpacity
                         key={index}
@@ -348,6 +360,7 @@ export default function App() {
                         <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
                           {dayItem.date}
                         </Text>
+                        <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
                       </TouchableOpacity>
                     );
                   })}
@@ -532,7 +545,7 @@ export default function App() {
                     style={styles.calendarCell}
                     onPress={() => handleSelectedCalendarDay(item.date)}
                   >
-                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && {color: '#4B5563'}, isToday && styles.calendarDayNumToday]}>
+                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#4B5563' }, isToday && styles.calendarDayNumToday]}>
                       {item.date.getDate()}
                     </Text>
                     <View style={[styles.statusDot, {backgroundColor: dotColor}]} />
@@ -549,20 +562,20 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9FAFB' },
-  navbar:{
+  navbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12
   },
-  dateSelector:{
+  dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6
   },
   dateText: { fontSize: 22, fontWeight: '800', color: '#1F2937' },
-  streakBadge:{
+  streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -572,8 +585,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  streakText: {fontSize: 16, fontWeight: '700', color: '#1F2937'},
-  settingsButton: {padding: 4},
+  streakText: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  settingsButton: { padding: 4 },
   mainContent: { flex: 1 },
   calendarContainer: {
     backgroundColor: '#FFFFFF',
@@ -590,19 +603,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     marginBottom: 8,
   },
-  dayHeaderCell:{
-    width: (SCREEN_WIDTH - 64)/7,
+  dayHeaderCell: {
+    width: (SCREEN_WIDTH - 64) / 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  letterCircle:{
+  letterCircle: {
     width: 28,
     height: 28,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  letterCircleSelected:{
+  letterCircleSelected: {
     backgroundColor: '#EEF2FF',
     borderWidth: 1.5,
     borderRadius: 14,
@@ -613,7 +626,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6B7280',
   },
-  fixedDayTextSelected:{
+  fixedDayTextSelected: {
     color: '#4F46E5',
   },
   weekRow: {
@@ -624,16 +637,16 @@ const styles = StyleSheet.create({
   dayCard: {
     width: (SCREEN_WIDTH - 64) / 7,
     height: 36,
-    borderRadius: 12,
+    //borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dateNumber:{
+  dateNumber: {
     fontSize: 15,
     fontWeight: '600',
     color: '#1F2837',
   },
-  dateNumberToday:{
+  dateNumberToday: {
     color: '#4F46E5',
     fontWeight: '800',
   },
@@ -743,19 +756,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  streakCard: {alignItems: 'center', flex: 1},
-  streakLabel: {fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8},
-  streakNumber: {fontSize: 36, fontWeight: '800', marginVertical: 2},
-  streakSubtext: {fontSize: 13, color: '#9CA3AF', marginBottom: 12},
-  bestBadge: {flexDirection: 'row', alignItems: 'center', gap: 6},
-  bestText: {color: '#E5E7EB', fontWeight: '600', fontSize: 14},
-  calendarHeader: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16},
-  calendarMonthText: {fontSize: 18, fontWeight: '700', color: '#FFFFFF'},
-  weekDaysHeader: {flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12},
-  weekDayText: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
-  calendarGrid: {flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20},
-  calendarCell: {width: '14.28%', alignItems: 'center', paddingVertical: 8},
-  calendarDayNum: {color: '#FFFFFF', fontSize: 16, fontWeight: '600'},
-  calendarDayNumToday: {color: '#4F46E5', fontSize: 16, fontWeight: '600'},
-  statusDot: {width: 6, height: 6, borderRadius: 3, marginTop: 4},
+  streakCard: { alignItems: 'center', flex: 1 },
+  streakLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8 },
+  streakNumber: { fontSize: 36, fontWeight: '800', marginVertical: 2 },
+  streakSubtext: { fontSize: 13, color: '#9CA3AF', marginBottom: 12 },
+  bestBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bestText: { color: '#E5E7EB', fontWeight: '600', fontSize: 14 },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16 },
+  calendarMonthText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
+  weekDaysHeader: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12 },
+  weekDayText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20 },
+  calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
+  calendarDayNum: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  calendarDayNumToday: { color: '#4F46E5', fontSize: 16, fontWeight: '600' },
+  statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
 });
