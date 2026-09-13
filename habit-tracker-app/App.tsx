@@ -12,10 +12,10 @@ import {
   Dimensions,
   ImageBackgroundComponent,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {Ionicons, Feather} from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
-interface Habit{
+interface Habit {
   id: string;
   title: string;
   description: string;
@@ -24,7 +24,7 @@ interface Habit{
 }
 
 type HabitLogs = Record<string, string[]>;
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const AVAILABLE_COLORS = [
@@ -33,24 +33,42 @@ const AVAILABLE_COLORS = [
   '#84CC16', '#14B8A6', '#6366F1', '#D97706',
 ];
 
-const AVAILABLE_ICONS = [
-  'fitness-outline', 'book-outline', 'water-outline', 'walk-outline',
-  'barbell-outline', 'code-slash-outline', 'restaurant-outline', 'bed-outline',
-  'leaf-outline', 'heart-outline', 'bicycle-outline', 'musical-notes-outline',
-];
+const ICON_CATEGORIES = {
+  All: [
+    'fitness-outline', 'book-outline', 'water-outline', 'walk-outline',
+    'barbell-outline', 'code-slash-outline', 'restaurant-outline', 'bed-outline',
+    'leaf-outline', 'heart-outline', 'bicycle-outline', 'musical-notes-outline',
+    'cafe-outline', 'pizza-outline', 'fast-food-outline', 'nutrition-outline',
+    'game-controller-outline', 'camera-outline', 'brush-outline', 'laptop-outline',
+  ],
+  Food: [
+    'restaurant-outline', 'cafe-outline', 'pizza-outline', 'fast-food-outline',
+    'nutrition-outline', 'beer-outline', 'wine-outline', 'ice-cream-outline',
+  ],
+  Lifestyle: [
+    'fitness-outline', 'water-outline', 'walk-outline', 'barbell-outline',
+    'bed-outline', 'leaf-outline', 'heart-outline', 'bicycle-outline',
+    'medkit-outline', 'sunny-outline',
+  ],
+  Hobby: [
+    'book-outline', 'code-slash-outline', 'musical-notes-outline',
+    'game-controller-outline', 'camera-outline', 'brush-outline', 'laptop-outline',
+    'headset-outline', 'tv-outline',
+  ],
+};
 
 const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const formatDateKey = (date: Date) =>{
+const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-export default function App(){
+export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -58,32 +76,39 @@ export default function App(){
   const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
+
   const [habitType, setHabitType] = useState<'Build a habit' | 'Quit a habit' | 'Task'>('Build a habit');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedIcon, setSelectedIcon] = useState(() => getRandomItem(AVAILABLE_ICONS)); 
+  const [selectedIcon, setSelectedIcon] = useState(() => getRandomItem(ICON_CATEGORIES.All));
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [activeIconCategory, setActiveIconCategory] = useState<keyof typeof ICON_CATEGORIES>('All');
+
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
+  const [isFrecuencyModalOpen, setIsFrecuencyModalOpen] = useState(false);
+  const [frecuencyType, setFrecuencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
+  const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
+  const [frecuencyDisplay, setFrecuencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
-  const handleHeaderDatePress = () =>{
+  const handleHeaderDatePress = () => {
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
-    if (activeStr !== todayStr){
+    if (activeStr !== todayStr) {
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
-    } else{
+    } else {
       setIsStreaksModalVisible(true);
     }
   };
 
-  const activeDate = useMemo(() =>{
+  const activeDate = useMemo(() => {
     const today = new Date();
     const currentDayOfWeek = today.getDay();
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset *7);
+    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset * 7);
 
     const selectedDate = new Date(startOfWeek);
     selectedDate.setDate(startOfWeek.getDate() + selectedDayIndex);
@@ -91,19 +116,19 @@ export default function App(){
   }, [weekOffset, selectedDayIndex]);
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
-  useEffect(() =>{
+  useEffect(() => {
     const todayStr = formatDateKey(new Date());
     const activeStr = formatDateKey(activeDate);
     const isToday = todayStr === activeStr;
 
-    const dayName = activeDate.toLocaleDateString('en-US', {weekday: 'short'});
-    const monthName = activeDate.toLocaleDateString('en-US', {month: 'short'});
+    const dayName = activeDate.toLocaleDateString('en-US', { weekday: 'short' });
+    const monthName = activeDate.toLocaleDateString('en-US', { month: 'short' });
     const dayNum = activeDate.getDate();
 
     setHeaderDateText(`${isToday ? 'Today, ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate]);
 
-  const toggleHabitCompletion = (habitId: string) =>{
+  const toggleHabitCompletion = (habitId: string) => {
     setHabitLogs((prevLogs) => {
       const currentCompleted = prevLogs[activeDateKey] || [];
       const exists = currentCompleted.includes(habitId);
@@ -132,14 +157,14 @@ export default function App(){
     setIsModalVisible(false);
   };
 
-  const resetForm = () =>{
+  const resetForm = () => {
     setNewTitle('');
     setNewDescription('');
-    setSelectedIcon(getRandomItem(AVAILABLE_ICONS));
+    setSelectedIcon(getRandomItem(ICON_CATEGORIES.All));
     setSelectedColor(getRandomItem(AVAILABLE_COLORS));
     setHabitType('Build a habit');
     setIsDropdownOpen(false);
-};
+  };
 
   const flatListRef = React.useRef<FlatList>(null);
   const handleScrollEnd = (event: any) => {
@@ -471,10 +496,10 @@ export default function App(){
 
       <Modal visible={isModalVisible} animationType="slide" transparent={false}>
         <SafeAreaView style={styles.createHabitModalContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF"/>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
           <View style={styles.createHabitHeader}>
             <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={26} color="#1F2937"/>
+              <Ionicons name="close" size={26} color="#1F2937" />
             </TouchableOpacity>
 
             <View style={styles.dropdownWrapper}>
@@ -487,12 +512,12 @@ export default function App(){
                 />
               </TouchableOpacity>
 
-              {isDropdownOpen &&(
+              {isDropdownOpen && (
                 <View style={styles.dropdownMenu}>
                   {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => (
-                    <TouchableOpacity 
-                      key={type} 
-                      style={styles.dropdownOption} 
+                    <TouchableOpacity
+                      key={type}
+                      style={styles.dropdownOption}
                       onPress={() => {
                         setHabitType(type);
                         setIsDropdownOpen(false);
@@ -507,21 +532,21 @@ export default function App(){
               )}
             </View>
 
-            <View style={{width: 26}}/>
+            <View style={{ width: 26 }} />
           </View>
 
           <ScrollView style={styles.createHabitBody} showsVerticalScrollIndicator={false}>
             <View style={styles.iconSelectionSection}>
-              <View style={[styles.iconBoxBackground, {backgroundColor: selectedColor + '15'}]}>
+              <View style={[styles.iconBoxBackground, { backgroundColor: selectedColor + '15' }]}>
                 <TouchableOpacity
-                  style={[styles.iconCircleButton, {backgroundColor: selectedColor}]}
+                  style={[styles.iconCircleButton, { backgroundColor: selectedColor }]}
                   onPress={() => setIsIconPickerOpen(true)}
                 >
-                  <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF"/>
+                  <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             </View>
-            
+
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>New habit</Text>
               <TextInput
@@ -543,58 +568,91 @@ export default function App(){
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>Color</Text>
               <View style={styles.colorGrid}>
-                {AVAILABLE_COLORS.map((color) =>{
+                {AVAILABLE_COLORS.map((color) => {
                   const isSelected = selectedColor === color;
-                  return(
+                  return (
                     <TouchableOpacity
                       key={color}
-                      style={[styles.colorOption, {backgroundColor: color}, isSelected && styles.colorOptionSelected]}
-                      onPress ={() => setSelectedColor(color)}
+                      style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
+                      onPress={() => setSelectedColor(color)}
                     >
-                      {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF"/>}
+                      {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
                     </TouchableOpacity>
                   );
                 })}
               </View>
             </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>Frecuency</Text>
+              <TouchableOpacity style={styles.frecuencyInputSelector} onPress={() => setIsFrecuencyModalOpen(true)}>
+                <Text style={styles.frecuencyValueText}>{frecuencyDisplay}</Text>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
           </ScrollView>
 
           <View style={styles.createHabitFooter}>
-            <TouchableOpacity style={[styles.saveHabitButton, {backgroundColor: selectedColor}]} onPress={handleCreateHabit}>
+            <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: selectedColor }]} onPress={handleCreateHabit}>
               <Text style={styles.saveButtonText}>Save Habit</Text>
             </TouchableOpacity>
           </View>
-
-          
-        <Modal visible={isIconPickerOpen} transparent={true} animationType="fade">
-            <View style={styles.pickerOverlay}>
-              <View style={styles.pickerCard}>
-                <Text style={styles.pickerTitle}>Choose an Icon</Text>
-                <View style={styles.iconGrid}>
-                  {AVAILABLE_ICONS.map((icon) => (
-                    <TouchableOpacity
-                      key={icon}
-                      style={styles.iconPickerItem}
-                      onPress={() => {
-                        setSelectedIcon(icon);
-                        setIsIconPickerOpen(false);
-                      }}
-                    >
-                      <Ionicons name={icon as any} size={28} color="#1F2937" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TouchableOpacity
-                  style={styles.closePickerButton}
-                  onPress={() => setIsIconPickerOpen(false)}
-                >
-                  <Text style={styles.closePickerText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
         </SafeAreaView>
       </Modal>
+
+      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide">
+        <SafeAreaView style={styles.fullscreenModalContainer}>
+          <View style={styles.fullscreenModalHeader}>
+            <TouchableOpacity onPress={() => setIsIconPickerOpen}>
+              <Ionicons name="close" size={26} color="#1F2937"/>
+            </TouchableOpacity>
+            <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
+            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
+              <Text style={styles.headerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.categoryNavbar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
+              {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) =>{
+                const isActive = activeIconCategory === cat;
+                return(
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryTab, isActive && styles.categoryTabActive]}
+                    onPress={() => setActiveIconCategory(cat)}
+                  >
+                    <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.iconCategoryGrid}>
+              {ICON_CATEGORIES[activeIconCategory].map((iconName) =>{
+                const isSelected = selectedIcon === iconName;
+                return(
+                  <TouchableOpacity
+                    key={iconName}
+                    style={[styles.sectionTitle, isSelected && {borderColor: selectedColor, backgroundColor: selectedColor + '10'}]}
+                    onPress={() => {
+                      setSelectedIcon(iconName)
+                    }}
+                  >
+                    <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor: '#374151'}/>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/*  <Modal visible></Modal> */}
 
       <Modal visible={isStreaksModalVisible} animationType="slide" transparent={false}>
         <SafeAreaView style={styles.streaksContainer}>
@@ -881,11 +939,11 @@ const styles = StyleSheet.create({
   saveButton: { backgroundColor: '#4F46E5' },
   saveButtonText: { color: '#FFFFFF', fontWeight: '600' },
 
-  createHabitModalContainer:{
+  createHabitModalContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF'
   },
-  createHabitHeader:{
+  createHabitHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -895,26 +953,26 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
     zIndex: 10,
   },
-  closeButton:{
+  closeButton: {
     padding: 4,
   },
-  dropdownWrapper:{
+  dropdownWrapper: {
     position: 'relative',
     alignItems: 'center',
   },
-  dropdownSelector:{
+  dropdownSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  dropdownTitle:{
+  dropdownTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: '#1F2937',
   },
-  dropdownMenu:{
+  dropdownMenu: {
     position: 'absolute',
     top: 32,
     backgroundColor: '#FFFFFF',
@@ -930,52 +988,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#F3F4F6',
   },
-  dropdownOption:{
+  dropdownOption: {
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
-  dropdownOptionText:{
+  dropdownOptionText: {
     fontSize: 14,
     color: '#4B5563',
     fontWeight: '500',
   },
-  dropdownOptionSelected:{
+  dropdownOptionSelected: {
     color: '#4F46E5',
     fontWeight: '700',
   },
-  createHabitBody:{
+  createHabitBody: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  iconSelectionSection:{
-    alignItems: 'flex-start',
+  iconSelectionSection: {
+    alignItems: 'center',
     marginBottom: 24,
   },
-  iconBoxBackground:{
+  iconBoxBackground: {
     width: 72,
     height: 72,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconCircleButton:{
+  iconCircleButton: {
     width: 52,
     height: 52,
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  formGroup:{
+  formGroup: {
     marginBottom: 24,
   },
-  fieldLabel:{
+  fieldLabel: {
     fontSize: 15,
     fontWeight: '700',
     color: '#1F2937',
     marginBottom: 8,
   },
-  formInput:{
+  formInput: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -985,84 +1043,118 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
   },
-  colorGrid:{
+  frecuencyInputSelector:{
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  frecuencyValueText:{fontSize: 15, fontWeight: '600', color: '#1F2937'},
+  colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     marginTop: 4,
   },
-  colorOption:{
+  colorOption: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  colorOptionSelected:{
+  colorOptionSelected: {
     borderWidth: 3,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 4,
   },
-  createHabitFooter:{
+  createHabitFooter: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
-  saveHabitButton:{
+  saveHabitButton: {
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
   },
-  saveHabitButtonText:{
+  saveHabitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
 
-  pickerOverlay:{
-    flex:1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  pickerCard:{
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-  },
-  pickerTitle:{
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  iconGrid:{
+  fullscreenModalContainer:{flex:1, backgroundColor: '#FFFFFF'},
+  fullscreenModalHeader:{
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    gap: 12,
-    marginBottom: 16,
-  },
-  iconPickerItem:{
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
-  },
-  closePickerButton:{
-    paddingVertical: 12,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  closePickerText:{
-    color: '#6B7280',
-    fontWeight: '600',
+  fullscreenModalTitle:{fontSize: 18, fontWeight: '700', color: '#1F2937'},
+  headerDoneText: {fontSize:16, fontWeight: '700', color: '#4F46E5'},
+
+  categoryNavbar:{
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    backgroundColor: '#FAFAFA'
   },
+  categoryNavContent: {paddingHorizontal: 16, paddingVertical: 10, gap: 8},
+  categoryTab:{
+    paddingHorizontal: 16, 
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#E5E7EB'
+  },
+  categoryTabActive: {backgroundColor: '#1F2937'},
+  categoryTabText: {fontSize: 13, fontWeight: '600', color: '#4B5563'},
+  categoryTabTextActive: {color: '#FFFFFF'},
+  iconScrollContainer: {flex: 1, padding: 16},
+  iconCategoryGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-start'},
+  iconTile:{
+    width: (SCREEN_WIDTH - 68)/4,
+    height: (SCREEN_WIDTH - 68)/4,
+    borderRadius: 16,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+
+  frequencyBody: {flex: 1, padding: 16},
+  frequencyOptionCard:{
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  frequencyOptionHeader: {flexDirection: 'row', alignItems: 'center', gap: 12},
+  frequencyOptionTitle: {fontSize: 15, fontWeight: '600', color: '#1F2937'},
+  weekDaysPickerRow: {flexDirection: 'row', justifyContent: 'space-between', marginTop: 16},
+  weekDayCircle:{
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekDayCircleText: {fontSize: 13, fontWeight: '700', color: '#4B5563'},
 
   streaksContainer: { flex: 1, backgroundColor: '#121212' },
   streaksHeader: {
