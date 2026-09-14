@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, use } from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,10 +12,10 @@ import {
   Dimensions,
   ImageBackgroundComponent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {Ionicons, Feather} from '@expo/vector-icons';
 
-interface Habit {
+interface Habit{
   id: string;
   title: string;
   description: string;
@@ -24,7 +24,7 @@ interface Habit {
 }
 
 type HabitLogs = Record<string, string[]>;
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const AVAILABLE_COLORS = [
@@ -61,14 +61,14 @@ const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const formatDateKey = (date: Date) => {
+const formatDateKey = (date: Date) =>{
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-export default function App() {
+export default function App(){
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -86,29 +86,39 @@ export default function App() {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
-  const [isFrecuencyModalOpen, setIsFrecuencyModalOpen] = useState(false);
-  const [frecuencyType, setFrecuencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
+  const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
+  const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
-  const [frecuencyDisplay, setFrecuencyDisplay] = useState('Everyday');
+  const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
-  const handleHeaderDatePress = () => {
+  const updateFrecuancyDisplay = (daysArr: boolean[]) =>{
+    const allSelected = daysArr.every((val) => val === true);
+    if (allSelected){
+      setFrequencyDisplay('Everyday');
+    } else{
+      const count = daysArr.filter(Boolean).length;
+      setFrequencyDisplay(`${count} days / week`);
+    }
+  };
+  
+  const handleHeaderDatePress = () =>{
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
-    if (activeStr !== todayStr) {
+    if (activeStr !== todayStr){
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
-    } else {
+    } else{
       setIsStreaksModalVisible(true);
     }
   };
 
-  const activeDate = useMemo(() => {
+  const activeDate = useMemo(() =>{
     const today = new Date();
     const currentDayOfWeek = today.getDay();
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset * 7);
+    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset *7);
 
     const selectedDate = new Date(startOfWeek);
     selectedDate.setDate(startOfWeek.getDate() + selectedDayIndex);
@@ -116,19 +126,19 @@ export default function App() {
   }, [weekOffset, selectedDayIndex]);
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
-  useEffect(() => {
+  useEffect(() =>{
     const todayStr = formatDateKey(new Date());
     const activeStr = formatDateKey(activeDate);
     const isToday = todayStr === activeStr;
 
-    const dayName = activeDate.toLocaleDateString('en-US', { weekday: 'short' });
-    const monthName = activeDate.toLocaleDateString('en-US', { month: 'short' });
+    const dayName = activeDate.toLocaleDateString('en-US', {weekday: 'short'});
+    const monthName = activeDate.toLocaleDateString('en-US', {month: 'short'});
     const dayNum = activeDate.getDate();
 
     setHeaderDateText(`${isToday ? 'Today, ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate]);
 
-  const toggleHabitCompletion = (habitId: string) => {
+  const toggleHabitCompletion = (habitId: string) =>{
     setHabitLogs((prevLogs) => {
       const currentCompleted = prevLogs[activeDateKey] || [];
       const exists = currentCompleted.includes(habitId);
@@ -157,13 +167,23 @@ export default function App() {
     setIsModalVisible(false);
   };
 
-  const resetForm = () => {
+  const resetForm = () =>{
     setNewTitle('');
     setNewDescription('');
     setSelectedIcon(getRandomItem(ICON_CATEGORIES.All));
     setSelectedColor(getRandomItem(AVAILABLE_COLORS));
     setHabitType('Build a habit');
     setIsDropdownOpen(false);
+    setSelectedWeekDays([true, true, true, true, true, true, true]);
+    setFrequencyType('days_of_week');
+    setFrequencyDisplay('Everyday');
+  };
+
+  const toggleWeekDaySelection = (index: number) =>{
+    const updated = [...selectedWeekDays];
+    updated[index] = !updated[index];
+    setSelectedWeekDays(updated);
+    updateFrecuancyDisplay(updated);
   };
 
   const flatListRef = React.useRef<FlatList>(null);
@@ -584,9 +604,9 @@ export default function App() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>Frecuency</Text>
-              <TouchableOpacity style={styles.frecuencyInputSelector} onPress={() => setIsFrecuencyModalOpen(true)}>
-                <Text style={styles.frecuencyValueText}>{frecuencyDisplay}</Text>
+              <Text style={styles.fieldLabel}>Frequency</Text>
+              <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
+                <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
                 <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
@@ -603,7 +623,7 @@ export default function App() {
       <Modal visible={isIconPickerOpen} transparent={false} animationType="slide">
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
-            <TouchableOpacity onPress={() => setIsIconPickerOpen}>
+            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
               <Ionicons name="close" size={26} color="#1F2937"/>
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
@@ -652,7 +672,94 @@ export default function App() {
         </SafeAreaView>
       </Modal>
 
-      {/*  <Modal visible></Modal> */}
+      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false}>
+        <SafeAreaView style={styles.fullscreenModalContainer}>
+          <View style={styles.fullscreenModalHeader}>
+            <TouchableOpacity onPress={() => setIsFrequencyModalOpen(false)}>
+              <Ionicons name="close" size={26} color="#1F2937"/>
+            </TouchableOpacity>
+            <Text style={styles.fullscreenModalTitle}>Frequency</Text>
+            <TouchableOpacity onPress={() => setIsFrequencyModalOpen(false)}>
+              <Text style={styles.headerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
+            <TouchableOpacity 
+              style={styles.frequencyOptionCard} 
+              onPress={() =>{
+                setFrequencyType('days_of_week');
+                updateFrecuancyDisplay(selectedWeekDays);
+              }}
+            >
+              <View style={styles.frequencyOptionHeader}>
+                <Ionicons
+                  name={frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={frequencyType === 'days_of_week' ? selectedColor : '#9CA3AF'}
+                />
+                <Text style={styles.frequencyOptionTitle}>Specific days of the week</Text>
+              </View>
+
+              {frequencyType === 'days_of_week' &&(
+                <View style={styles.weekDaysPickerRow}>
+                  {WEEK_DAYS.map((day, idx) =>{
+                    const isSelected = selectedWeekDays[idx];
+                    return(
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.weekDayCircle,
+                          isSelected && {backgroundColor: selectedColor}
+                        ]}
+                        onPress={() => toggleWeekDaySelection(idx)}
+                      >
+                        <Text style={[styles.weekDayCircleText, isSelected && {color:'#FFFFFF'}]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.frequencyOptionCard}
+              onPress={() =>{
+                setFrequencyType('days_of_month');
+                setFrequencyDisplay('Specific days of month');
+              }}
+            >
+              <View style={styles.frequencyOptionHeader}>
+                <Ionicons
+                  name={frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={frequencyType === 'days_of_month' ? selectedColor : '#9CA3AF'}
+                />
+                <Text style={styles.frequencyOptionTitle}>Specific days of the month</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.frequencyOptionCard}
+              onPress={() => {
+                setFrequencyType('some_days');
+                setFrequencyDisplay('Some days of week');
+              }}
+            >
+              <View style={styles.frequencyOptionHeader}>
+                <Ionicons
+                  name={frequencyType === 'some_days' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={frequencyType === 'some_days' ? selectedColor : '#9CA3AF'}
+                />
+                <Text style={styles.frequencyOptionTitle}>Some days of the week</Text>
+              </View>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       <Modal visible={isStreaksModalVisible} animationType="slide" transparent={false}>
         <SafeAreaView style={styles.streaksContainer}>
@@ -662,7 +769,7 @@ export default function App() {
               <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.streaksTitle}>My Streaks</Text>
-            <View style={{ width: 28 }} />
+            <View style={{width: 28}} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.streaksRow}>
@@ -1043,7 +1150,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
   },
-  frecuencyInputSelector:{
+  frequencyInputSelector:{
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1054,7 +1161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  frecuencyValueText:{fontSize: 15, fontWeight: '600', color: '#1F2937'},
+  frequencyValueText:{fontSize: 15, fontWeight: '600', color: '#1F2937'},
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
