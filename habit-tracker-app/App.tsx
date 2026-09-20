@@ -21,6 +21,8 @@ interface Habit{
   description: string;
   icon: string;
   color: string;
+  frequency: string;
+  selectedWeekDays?: boolean[];
 }
 
 type HabitLogs = Record<string, string[]>;
@@ -92,14 +94,65 @@ export default function App(){
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
-  const updateFrecuancyDisplay = (daysArr: boolean[]) =>{
-    const allSelected = daysArr.every((val) => val === true);
-    if (allSelected){
+  const updateFrequancyDisplay = (daysArr: boolean[]) =>{
+    const [sun, mon, tue, wed, thu, fri, sat] = daysArr;
+    const count = daysArr.filter(Boolean).length;
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    if (count === 7){
       setFrequencyDisplay('Everyday');
-    } else{
-      const count = daysArr.filter(Boolean).length;
-      setFrequencyDisplay(`${count} days / week`);
+      return;
+    } else if (count === 6){
+      const missingIndex = daysArr.findIndex((val) => !val);
+      setFrequencyDisplay(`Everyday but ${dayNames[missingIndex]}`);
+      return;
+    } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat){
+      setFrequencyDisplay('Weekdays');
+      return;
+    } else if (count == 3 && tue && wed &&thu && !sun && !mon && !fri && !sat){
+      setFrequencyDisplay('Midweek');
+      return;
+    } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri){
+      setFrequencyDisplay('Weekend');
+      return;
+    } else if (count === 4 || count === 5){
+      const extendedDays = [...daysArr, ...daysArr];
+      let startIdx = -1;
+      for (let i = 0; i < 7; i++){
+        let isConsecutive = true;
+        for (let j = 0; j < count; j++){
+          if (!extendedDays[i+j]){
+            isConsecutive = false;
+            break;
+          }
+        }
+        if (isConsecutive){
+          startIdx = i;
+          break;
+        }
+      }
+      
+      if (startIdx !== -1){
+        const endIdx = (startIdx + count -1)%7;
+        setFrequencyDisplay(`From ${dayNames[startIdx]} to ${dayNames[endIdx]}`);
+        return;
+      }
+    } else if (count === 0){
+      setFrequencyDisplay('Select at least 1 day');
+      return;
     }
+    const selectedNames = daysArr
+      .map((isSelected, index) => (isSelected ? dayNames[index] : null))
+      .filter(Boolean);
+
+    setFrequencyDisplay(selectedNames.join(', '));
+  };
+
+  const handleCloseFrequencyModal = () =>{
+    const count = selectedWeekDays.filter(Boolean).length;
+    if (frequencyType === 'days_of_week' && count === 0){
+      return;
+    }
+    setIsFrequencyModalOpen(false);
   };
   
   const handleHeaderDatePress = () =>{
@@ -160,6 +213,8 @@ export default function App(){
       description: newDescription,
       icon: selectedIcon,
       color: selectedColor,
+      frequency: frequencyDisplay,
+      selectedWeekDays: frequencyType === 'days_of_week' ? [...selectedWeekDays]: undefined,
     };
 
     setHabits([...habits, newHabit]);
@@ -183,8 +238,18 @@ export default function App(){
     const updated = [...selectedWeekDays];
     updated[index] = !updated[index];
     setSelectedWeekDays(updated);
-    updateFrecuancyDisplay(updated);
+    updateFrequancyDisplay(updated);
   };
+
+  const visibleHabits = useMemo(() =>{
+    const currentDayOfWeek = activeDate.getDay();
+    return habits.filter((habit) =>{
+      if (habit.selectedWeekDays){
+        return habit.selectedWeekDays[currentDayOfWeek];
+      }
+      return true;
+    });
+  }, [habits, activeDate]);
 
   const flatListRef = React.useRef<FlatList>(null);
   const handleScrollEnd = (event: any) => {
@@ -451,13 +516,13 @@ export default function App(){
 
         <View style={styles.habitsSection}>
           <Text style={styles.sectionTitle}>Your Habits</Text>
-          {habits.length === 0 ? (
+          {visibleHabits.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>You don't have any habits yet</Text>
               <Text style={styles.emptySubtext}>Create one to start tracking</Text>
             </View>
           ) : (
-            habits.map((habit) => {
+            visibleHabits.map((habit) => {
               const isCompleted = (habitLogs[activeDateKey] || []).includes(habit.id);
               return (
                 <TouchableOpacity
@@ -675,11 +740,15 @@ export default function App(){
       <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
-            <TouchableOpacity onPress={() => setIsFrequencyModalOpen(false)}>
+            <TouchableOpacity 
+              onPress= {handleCloseFrequencyModal}
+            >
               <Ionicons name="close" size={26} color="#1F2937"/>
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>Frequency</Text>
-            <TouchableOpacity onPress={() => setIsFrequencyModalOpen(false)}>
+            <TouchableOpacity 
+              onPress={handleCloseFrequencyModal}
+            >
               <Text style={styles.headerDoneText}>Done</Text>
             </TouchableOpacity>
           </View>
@@ -689,7 +758,7 @@ export default function App(){
               style={styles.frequencyOptionCard} 
               onPress={() =>{
                 setFrequencyType('days_of_week');
-                updateFrecuancyDisplay(selectedWeekDays);
+                updateFrequancyDisplay(selectedWeekDays);
               }}
             >
               <View style={styles.frequencyOptionHeader}>
