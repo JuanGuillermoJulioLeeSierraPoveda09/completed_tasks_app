@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useMemo} from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,10 +12,10 @@ import {
   Dimensions,
   ImageBackgroundComponent,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {Ionicons, Feather} from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons, Feather } from '@expo/vector-icons';
 
-interface Habit{
+interface Habit {
   id: string;
   title: string;
   description: string;
@@ -23,10 +23,11 @@ interface Habit{
   color: string;
   frequency: string;
   selectedWeekDays?: boolean[];
+  selectedMonthDays?: number[];
 }
 
 type HabitLogs = Record<string, string[]>;
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const AVAILABLE_COLORS = [
@@ -63,14 +64,14 @@ const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const formatDateKey = (date: Date) =>{
+const formatDateKey = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
-export default function App(){
+export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -90,53 +91,56 @@ export default function App(){
   const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
   const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
+
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
 
-  const updateFrequancyDisplay = (daysArr: boolean[]) =>{
+  const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([]);
+
+  const updateFrequencyDisplay = (daysArr: boolean[]) => {
     const [sun, mon, tue, wed, thu, fri, sat] = daysArr;
     const count = daysArr.filter(Boolean).length;
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    if (count === 7){
+    if (count === 7) {
       setFrequencyDisplay('Everyday');
       return;
-    } else if (count === 6){
+    } else if (count === 6) {
       const missingIndex = daysArr.findIndex((val) => !val);
       setFrequencyDisplay(`Everyday but ${dayNames[missingIndex]}`);
       return;
-    } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat){
+    } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat) {
       setFrequencyDisplay('Weekdays');
       return;
-    } else if (count == 3 && tue && wed &&thu && !sun && !mon && !fri && !sat){
+    } else if (count == 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
       setFrequencyDisplay('Midweek');
       return;
-    } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri){
+    } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri) {
       setFrequencyDisplay('Weekend');
       return;
-    } else if (count === 4 || count === 5){
+    } else if (count === 4 || count === 5) {
       const extendedDays = [...daysArr, ...daysArr];
       let startIdx = -1;
-      for (let i = 0; i < 7; i++){
+      for (let i = 0; i < 7; i++) {
         let isConsecutive = true;
-        for (let j = 0; j < count; j++){
-          if (!extendedDays[i+j]){
+        for (let j = 0; j < count; j++) {
+          if (!extendedDays[i + j]) {
             isConsecutive = false;
             break;
           }
         }
-        if (isConsecutive){
+        if (isConsecutive) {
           startIdx = i;
           break;
         }
       }
-      
-      if (startIdx !== -1){
-        const endIdx = (startIdx + count -1)%7;
+
+      if (startIdx !== -1) {
+        const endIdx = (startIdx + count - 1) % 7;
         setFrequencyDisplay(`From ${dayNames[startIdx]} to ${dayNames[endIdx]}`);
         return;
       }
-    } else if (count === 0){
+    } else if (count === 0) {
       setFrequencyDisplay('Select at least 1 day');
       return;
     }
@@ -147,31 +151,68 @@ export default function App(){
     setFrequencyDisplay(selectedNames.join(', '));
   };
 
-  const handleCloseFrequencyModal = () =>{
-    const count = selectedWeekDays.filter(Boolean).length;
-    if (frequencyType === 'days_of_week' && count === 0){
-      return;
+  const getOrdinalSuffix = (day: number) => {
+    if (day > 3 && day < 21) return `${day}th`;
+    switch (day % 10) {
+      case 1: return `${day}st`;
+      case 2: return `${day}nd`;
+      case 3: return `${day}rd`;
+      default: return `${day}th`;
+    }
+  };
+
+  const formatMonthDaysDisplay = (days: number[]): string => {
+    if (days.length === 0) return 'Select at least 1 day';
+
+    const sorted = [...days].sort((a, b) => a - b);
+    const ranges: string[] = [];
+    let rangeStart = sorted[0];
+    let prevDay = sorted[0];
+
+    for (let i = 1; i <= sorted.length; i++) {
+      const currentDay = sorted[i];
+      if (currentDay !== prevDay + 1) {
+        if (rangeStart === prevDay) {
+          ranges.push(getOrdinalSuffix(rangeStart));
+        } else if (prevDay === rangeStart + 1) {
+          ranges.push(`${getOrdinalSuffix(rangeStart)}, ${getOrdinalSuffix(prevDay)}`);
+        } else {
+          ranges.push(`${getOrdinalSuffix(rangeStart)} - ${getOrdinalSuffix(prevDay)}`);
+        }
+        rangeStart = currentDay;
+      }
+      prevDay = currentDay;
+    }
+    return `${ranges.join(', ')} of each month`;
+  };
+
+  const handleCloseFrequencyModal = () => {
+    if (frequencyType === 'days_of_week') {
+      const count = selectedWeekDays.filter(Boolean).length;
+      if (count === 0) return;
+    } else if (frequencyType === 'days_of_month') {
+      if (selectedMonthDays.length === 0) return;
     }
     setIsFrequencyModalOpen(false);
   };
-  
-  const handleHeaderDatePress = () =>{
+
+  const handleHeaderDatePress = () => {
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
-    if (activeStr !== todayStr){
+    if (activeStr !== todayStr) {
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
-    } else{
+    } else {
       setIsStreaksModalVisible(true);
     }
   };
 
-  const activeDate = useMemo(() =>{
+  const activeDate = useMemo(() => {
     const today = new Date();
     const currentDayOfWeek = today.getDay();
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset *7);
+    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset * 7);
 
     const selectedDate = new Date(startOfWeek);
     selectedDate.setDate(startOfWeek.getDate() + selectedDayIndex);
@@ -179,19 +220,19 @@ export default function App(){
   }, [weekOffset, selectedDayIndex]);
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
-  useEffect(() =>{
+  useEffect(() => {
     const todayStr = formatDateKey(new Date());
     const activeStr = formatDateKey(activeDate);
     const isToday = todayStr === activeStr;
 
-    const dayName = activeDate.toLocaleDateString('en-US', {weekday: 'short'});
-    const monthName = activeDate.toLocaleDateString('en-US', {month: 'short'});
+    const dayName = activeDate.toLocaleDateString('en-US', { weekday: 'short' });
+    const monthName = activeDate.toLocaleDateString('en-US', { month: 'short' });
     const dayNum = activeDate.getDate();
 
     setHeaderDateText(`${isToday ? 'Today, ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate]);
 
-  const toggleHabitCompletion = (habitId: string) =>{
+  const toggleHabitCompletion = (habitId: string) => {
     setHabitLogs((prevLogs) => {
       const currentCompleted = prevLogs[activeDateKey] || [];
       const exists = currentCompleted.includes(habitId);
@@ -214,7 +255,8 @@ export default function App(){
       icon: selectedIcon,
       color: selectedColor,
       frequency: frequencyDisplay,
-      selectedWeekDays: frequencyType === 'days_of_week' ? [...selectedWeekDays]: undefined,
+      selectedWeekDays: frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
+      selectedMonthDays: frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
     };
 
     setHabits([...habits, newHabit]);
@@ -222,7 +264,7 @@ export default function App(){
     setIsModalVisible(false);
   };
 
-  const resetForm = () =>{
+  const resetForm = () => {
     setNewTitle('');
     setNewDescription('');
     setSelectedIcon(getRandomItem(ICON_CATEGORIES.All));
@@ -230,22 +272,38 @@ export default function App(){
     setHabitType('Build a habit');
     setIsDropdownOpen(false);
     setSelectedWeekDays([true, true, true, true, true, true, true]);
+    setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
     setFrequencyDisplay('Everyday');
   };
 
-  const toggleWeekDaySelection = (index: number) =>{
+  const toggleWeekDaySelection = (index: number) => {
     const updated = [...selectedWeekDays];
     updated[index] = !updated[index];
     setSelectedWeekDays(updated);
-    updateFrequancyDisplay(updated);
+    updateFrequencyDisplay(updated);
   };
 
-  const visibleHabits = useMemo(() =>{
+  const toggleMonthDaySelection = (day: number) => {
+    let updated: number[];
+    if (selectedMonthDays.includes(day)) {
+      updated = selectedMonthDays.filter((d) => d !== day);
+    } else {
+      updated = [...selectedMonthDays, day];
+    }
+    setSelectedMonthDays(updated);
+    setFrequencyDisplay(formatMonthDaysDisplay(updated));
+  };
+
+  const visibleHabits = useMemo(() => {
     const currentDayOfWeek = activeDate.getDay();
-    return habits.filter((habit) =>{
-      if (habit.selectedWeekDays){
+    const currentDayOfMonth = activeDate.getDate();
+    return habits.filter((habit) => {
+      if (habit.selectedWeekDays) {
         return habit.selectedWeekDays[currentDayOfWeek];
+      }
+      if (habit.selectedMonthDays) {
+        return habit.selectedMonthDays.includes(currentDayOfMonth);
       }
       return true;
     });
@@ -265,16 +323,31 @@ export default function App(){
     }
   };
 
+  const getHabitsForDate = (date: Date) =>{
+    const dayOfWeek = date.getDay();
+    const dayOfMonth = date.getDate();
+    return habits.filter((habit) =>{
+      if (habit.selectedWeekDays){
+        return habit.selectedWeekDays[dayOfWeek];
+      }
+      if (habit.selectedMonthDays){
+        return habit.selectedMonthDays.includes(dayOfMonth);
+      }
+      return true;
+    });
+  };
+
   const streakStats = useMemo(() => {
     if (habits.length === 0) {
-      return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
+      return {loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0};
     }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const totalHabits = habits.length;
     const todayKey = formatDateKey(today);
     const todayCompletedCount = (habitLogs[todayKey] || []).length;
-    const isTodayPerfect = todayCompletedCount >= totalHabits;
+    const habitsToday = getHabitsForDate(today);
+    const isTodayPerfect = habitsToday.length > 0 && todayCompletedCount >= habitsToday.length;
 
     let countPerfect = 0;
     let checkDate = new Date(today);
@@ -287,8 +360,10 @@ export default function App(){
     while (true) {
       const key = formatDateKey(checkDate);
       const completedCount = (habitLogs[key] || []).length;
+      const habitsOnCheckDate = getHabitsForDate(checkDate);
+      const isPerfect = habitsOnCheckDate.length > 0 && completedCount >= habitsOnCheckDate.length;
 
-      if (completedCount >= totalHabits) {
+      if (isPerfect){
         countPerfect++;
         checkDate.setDate(checkDate.getDate() - 1);
       } else {
@@ -326,6 +401,8 @@ export default function App(){
     for (let i = 0; i < 365; i++) {
       const key = formatDateKey(historicDate);
       const completedCount = (habitLogs[key] || []).length;
+      const habitsOnHistoricDate = getHabitsForDate(historicDate);
+      const isPerfectHistoric = habitsOnHistoricDate.length > 0 && completedCount >= habitsOnHistoricDate.length;
 
       if (completedCount > 0) {
         tempLogged++;
@@ -333,7 +410,7 @@ export default function App(){
       } else {
         tempLogged = 0;
       }
-      if (completedCount >= totalHabits) {
+      if (isPerfectHistoric) {
         tempPerfect++;
         if (tempPerfect > perfectBest) perfectBest = tempPerfect;
       } else {
@@ -490,9 +567,10 @@ export default function App(){
                       const completedList = habitLogs[dateKey] || [];
                       const count = completedList.length;
                       let dotColor = '#D1D5DB';
+                      const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
 
                       if (count > 0) {
-                        dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
+                        dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
                       }
                       return (
                         <TouchableOpacity
@@ -689,7 +767,7 @@ export default function App(){
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-              <Ionicons name="close" size={26} color="#1F2937"/>
+              <Ionicons name="close" size={26} color="#1F2937" />
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
@@ -699,9 +777,9 @@ export default function App(){
 
           <View style={styles.categoryNavbar}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
-              {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) =>{
+              {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) => {
                 const isActive = activeIconCategory === cat;
-                return(
+                return (
                   <TouchableOpacity
                     key={cat}
                     style={[styles.categoryTab, isActive && styles.categoryTabActive]}
@@ -718,17 +796,17 @@ export default function App(){
 
           <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.iconCategoryGrid}>
-              {ICON_CATEGORIES[activeIconCategory].map((iconName) =>{
+              {ICON_CATEGORIES[activeIconCategory].map((iconName) => {
                 const isSelected = selectedIcon === iconName;
-                return(
+                return (
                   <TouchableOpacity
                     key={iconName}
-                    style={[styles.sectionTitle, isSelected && {borderColor: selectedColor, backgroundColor: selectedColor + '10'}]}
+                    style={[styles.sectionTitle, isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '10' }]}
                     onPress={() => {
                       setSelectedIcon(iconName)
                     }}
                   >
-                    <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor: '#374151'}/>
+                    <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor : '#374151'} />
                   </TouchableOpacity>
                 );
               })}
@@ -740,13 +818,13 @@ export default function App(){
       <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
-            <TouchableOpacity 
-              onPress= {handleCloseFrequencyModal}
+            <TouchableOpacity
+              onPress={handleCloseFrequencyModal}
             >
-              <Ionicons name="close" size={26} color="#1F2937"/>
+              <Ionicons name="close" size={26} color="#1F2937" />
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>Frequency</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={handleCloseFrequencyModal}
             >
               <Text style={styles.headerDoneText}>Done</Text>
@@ -754,11 +832,11 @@ export default function App(){
           </View>
 
           <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity 
-              style={styles.frequencyOptionCard} 
-              onPress={() =>{
+            <TouchableOpacity
+              style={styles.frequencyOptionCard}
+              onPress={() => {
                 setFrequencyType('days_of_week');
-                updateFrequancyDisplay(selectedWeekDays);
+                updateFrequencyDisplay(selectedWeekDays);
               }}
             >
               <View style={styles.frequencyOptionHeader}>
@@ -770,20 +848,20 @@ export default function App(){
                 <Text style={styles.frequencyOptionTitle}>Specific days of the week</Text>
               </View>
 
-              {frequencyType === 'days_of_week' &&(
+              {frequencyType === 'days_of_week' && (
                 <View style={styles.weekDaysPickerRow}>
-                  {WEEK_DAYS.map((day, idx) =>{
+                  {WEEK_DAYS.map((day, idx) => {
                     const isSelected = selectedWeekDays[idx];
-                    return(
+                    return (
                       <TouchableOpacity
                         key={idx}
                         style={[
                           styles.weekDayCircle,
-                          isSelected && {backgroundColor: selectedColor}
+                          isSelected && { backgroundColor: selectedColor }
                         ]}
                         onPress={() => toggleWeekDaySelection(idx)}
                       >
-                        <Text style={[styles.weekDayCircleText, isSelected && {color:'#FFFFFF'}]}>
+                        <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
                           {day}
                         </Text>
                       </TouchableOpacity>
@@ -795,9 +873,9 @@ export default function App(){
 
             <TouchableOpacity
               style={styles.frequencyOptionCard}
-              onPress={() =>{
+              onPress={() => {
                 setFrequencyType('days_of_month');
-                setFrequencyDisplay('Specific days of month');
+                setFrequencyDisplay(formatMonthDaysDisplay(selectedMonthDays));
               }}
             >
               <View style={styles.frequencyOptionHeader}>
@@ -808,23 +886,75 @@ export default function App(){
                 />
                 <Text style={styles.frequencyOptionTitle}>Specific days of the month</Text>
               </View>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.frequencyOptionCard}
-              onPress={() => {
-                setFrequencyType('some_days');
-                setFrequencyDisplay('Some days of week');
-              }}
-            >
-              <View style={styles.frequencyOptionHeader}>
-                <Ionicons
-                  name={frequencyType === 'some_days' ? 'radio-button-on' : 'radio-button-off'}
-                  size={20}
-                  color={frequencyType === 'some_days' ? selectedColor : '#9CA3AF'}
-                />
-                <Text style={styles.frequencyOptionTitle}>Some days of the week</Text>
-              </View>
+              {frequencyType === 'days_of_month' && (
+                <View style={styles.monthDaysGridContainer}>
+                  <View style={[styles.monthDaysRow, styles.monthDaysRowFirst]}>
+                    {[1, 2, 3, 4, 5].map((day) => {
+                      const isSelected = selectedMonthDays.includes(day);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.monthDayCircle,
+                            isSelected && {backgroundColor: selectedColor}
+                          ]}
+                          onPress={() => toggleMonthDaySelection(day)}
+                        >
+                          <Text style={[styles.monthDayText, isSelected && {color: '#FFFFFF'}]}>
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {[
+                    [6, 7, 8, 9, 10, 11, 12],
+                    [13, 14, 15, 16, 17, 18, 19],
+                    [20, 21, 22, 23, 24, 25, 26],
+                  ].map((rowDays, rowIndex) => (
+                    <View key={rowIndex} style={styles.monthDaysRow}>
+                      {rowDays.map((day) => {
+                        const isSelected = selectedMonthDays.includes(day);
+                        return (
+                          <TouchableOpacity
+                            key={day}
+                            style={[
+                              styles.monthDayCircle,
+                              isSelected && { backgroundColor: selectedColor },
+                            ]}
+                            onPress={() => toggleMonthDaySelection(day)}
+                          >
+                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                              {day}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                  <View style={[styles.monthDaysRow, styles.monthDaysRowEnd]}>
+                    {[27, 28, 29, 30, 31].map((day) => {
+                      const isSelected = selectedMonthDays.includes(day);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.monthDayCircle,
+                            isSelected && {backgroundColor: selectedColor},
+                          ]}
+                          onPress={() => toggleMonthDaySelection(day)}
+                        >
+                          <Text style={[styles.monthDayText, isSelected && {color: '#FFFFFF'}]}>
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -838,7 +968,7 @@ export default function App(){
               <Ionicons name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
             <Text style={styles.streaksTitle}>My Streaks</Text>
-            <View style={{width: 28}} />
+            <View style={{ width: 28 }} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.streaksRow}>
@@ -894,10 +1024,10 @@ export default function App(){
                 const isToday = dateKey === todayStr;
                 const completedList = habitLogs[dateKey] || [];
                 const count = completedList.length;
-
+                const habitsForCell = getHabitsForDate(item.date);
                 let dotColor = '#374151';
                 if (count > 0) {
-                  dotColor = habits.length > 0 && count >= habits.length ? '#10B981' : '#F59E0B';
+                  dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
                 }
                 return (
                   <TouchableOpacity
@@ -1219,7 +1349,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2937',
   },
-  frequencyInputSelector:{
+  frequencyInputSelector: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1230,7 +1360,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  frequencyValueText:{fontSize: 15, fontWeight: '600', color: '#1F2937'},
+  frequencyValueText: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1269,8 +1399,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  fullscreenModalContainer:{flex:1, backgroundColor: '#FFFFFF'},
-  fullscreenModalHeader:{
+  fullscreenModalContainer: { flex: 1, backgroundColor: '#FFFFFF' },
+  fullscreenModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1279,29 +1409,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  fullscreenModalTitle:{fontSize: 18, fontWeight: '700', color: '#1F2937'},
-  headerDoneText: {fontSize:16, fontWeight: '700', color: '#4F46E5'},
+  fullscreenModalTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
+  headerDoneText: { fontSize: 16, fontWeight: '700', color: '#4F46E5' },
 
-  categoryNavbar:{
+  categoryNavbar: {
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     backgroundColor: '#FAFAFA'
   },
-  categoryNavContent: {paddingHorizontal: 16, paddingVertical: 10, gap: 8},
-  categoryTab:{
-    paddingHorizontal: 16, 
+  categoryNavContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  categoryTab: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#E5E7EB'
   },
-  categoryTabActive: {backgroundColor: '#1F2937'},
-  categoryTabText: {fontSize: 13, fontWeight: '600', color: '#4B5563'},
-  categoryTabTextActive: {color: '#FFFFFF'},
-  iconScrollContainer: {flex: 1, padding: 16},
-  iconCategoryGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-start'},
-  iconTile:{
-    width: (SCREEN_WIDTH - 68)/4,
-    height: (SCREEN_WIDTH - 68)/4,
+  categoryTabActive: { backgroundColor: '#1F2937' },
+  categoryTabText: { fontSize: 13, fontWeight: '600', color: '#4B5563' },
+  categoryTabTextActive: { color: '#FFFFFF' },
+  iconScrollContainer: { flex: 1, padding: 16 },
+  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-start' },
+  iconTile: {
+    width: (SCREEN_WIDTH - 68) / 4,
+    height: (SCREEN_WIDTH - 68) / 4,
     borderRadius: 16,
     backgroundColor: '#F9FAFB',
     borderWidth: 1.5,
@@ -1310,8 +1440,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
 
-  frequencyBody: {flex: 1, padding: 16},
-  frequencyOptionCard:{
+  frequencyBody: { flex: 1, padding: 16 },
+  frequencyOptionCard: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -1319,10 +1449,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  frequencyOptionHeader: {flexDirection: 'row', alignItems: 'center', gap: 12},
-  frequencyOptionTitle: {fontSize: 15, fontWeight: '600', color: '#1F2937'},
-  weekDaysPickerRow: {flexDirection: 'row', justifyContent: 'space-between', marginTop: 16},
-  weekDayCircle:{
+  frequencyOptionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  frequencyOptionTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  weekDaysPickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+  weekDayCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -1330,9 +1460,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weekDayCircleText: {fontSize: 13, fontWeight: '700', color: '#4B5563'},
+  weekDayCircleText: { fontSize: 13, fontWeight: '700', color: '#4B5563' },
 
-  streaksContainer: { flex: 1, backgroundColor: '#121212' },
+  monthDaysGridContainer: {
+    marginTop: 16,
+    alignItems: 'center',
+    width: '100%'
+  },
+  monthDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+    width: '100%'
+  },
+  monthDaysRowFirst: {
+    justifyContent: 'flex-end',
+    paddingRight: 9
+  },
+  monthDaysRowEnd: {
+    justifyContent: 'flex-start',
+    paddingLeft: 9
+  },
+  monthDayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthDayText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563'
+  },
+
+  streaksContainer: {
+    flex: 1, 
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20
+  },
   streaksHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
