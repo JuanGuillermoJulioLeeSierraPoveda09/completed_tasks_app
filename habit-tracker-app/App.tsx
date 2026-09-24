@@ -631,16 +631,16 @@ export default function App() {
             })
           )}
           <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
-            <Ionicons name="add-circle-outline" size={22} color="#4F46E5" />
-            <Text style={styles.createHabitText}>Create a new habit</Text>
+            <Ionicons name="add" size={22} color="#FFFFFF"  />
+            {/*<Text style={styles.createHabitText}>Create a new habit</Text>*/}
           </TouchableOpacity>
         </View>
       </ScrollView>
 
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.bottomTab}>
-          <Ionicons name="grid-outline" size={22} color="#4F46E5" />
-          <Text style={[styles.bottomTabText, { color: '#4F46E5' }]}>Menú</Text>
+          <Ionicons name="grid-outline" size={22} color="#00B763" />
+          <Text style={[styles.bottomTabText, { color: '#00B763' }]}>Menú</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomTab} onPress={() => setIsModalVisible(true)}>
           <Ionicons name="add-circle" size={22} color="#6B7280" />
@@ -1120,10 +1120,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   letterCircleSelected: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#000',
     borderWidth: 1.5,
     borderRadius: 14,
-    borderColor: '#4f46e5',
+    borderColor: '#000',
   },
   fixedDayText: {
     fontSize: 13,
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   fixedDayTextSelected: {
-    color: '#4F46E5',
+    color: '#FFFFFF',
   },
   weekRow: {
     flexDirection: 'row',
@@ -1151,10 +1151,9 @@ const styles = StyleSheet.create({
     color: '#1F2837',
   },
   dateNumberToday: {
-    color: '#4F46E5',
+    color: '#00B763',
     fontWeight: '800',
   },
-  dayCardSelected: { backgroundColor: '#4F46E5' },
   dateNumberSelected: { color: '#FFFFFF' },
   habitsSection: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
@@ -1196,15 +1195,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#4F46E5',
-    borderStyle: 'dashed',
+    padding: 12,
+    borderRadius: 22,
+    backgroundColor: '#00B763',
     marginTop: 8,
     gap: 8,
   },
-  createHabitText: { color: '#4F46E5', fontWeight: '600', fontSize: 15 },
+  createHabitText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
   bottomBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1244,7 +1241,7 @@ const styles = StyleSheet.create({
   modalButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   cancelButton: { backgroundColor: '#F3F4F6' },
   cancelButtonText: { color: '#4B5563', fontWeight: '600' },
-  saveButton: { backgroundColor: '#4F46E5' },
+  saveButton: { backgroundColor: '#00B763' },
   saveButtonText: { color: '#FFFFFF', fontWeight: '600' },
 
   createHabitModalContainer: {
@@ -1306,7 +1303,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dropdownOptionSelected: {
-    color: '#4F46E5',
+    color: '#00B763',
     fontWeight: '700',
   },
   createHabitBody: {
@@ -1412,7 +1409,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F3F4F6',
   },
   fullscreenModalTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  headerDoneText: { fontSize: 16, fontWeight: '700', color: '#4F46E5' },
+  headerDoneText: { fontSize: 16, fontWeight: '700', color: '#00B763' },
 
   categoryNavbar: {
     borderBottomWidth: 1,
@@ -1577,6 +1574,6 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 5 },
   calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
   calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
-  calendarDayNumToday: { color: '#4F46E5', fontSize: 16, fontWeight: '600' },
+  calendarDayNumToday: { color: '#00B763', fontSize: 16, fontWeight: '800' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
 });
