@@ -323,14 +323,14 @@ export default function App() {
     }
   };
 
-  const getHabitsForDate = (date: Date) =>{
+  const getHabitsForDate = (date: Date) => {
     const dayOfWeek = date.getDay();
     const dayOfMonth = date.getDate();
-    return habits.filter((habit) =>{
-      if (habit.selectedWeekDays){
+    return habits.filter((habit) => {
+      if (habit.selectedWeekDays) {
         return habit.selectedWeekDays[dayOfWeek];
       }
-      if (habit.selectedMonthDays){
+      if (habit.selectedMonthDays) {
         return habit.selectedMonthDays.includes(dayOfMonth);
       }
       return true;
@@ -339,7 +339,7 @@ export default function App() {
 
   const streakStats = useMemo(() => {
     if (habits.length === 0) {
-      return {loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0};
+      return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
     }
 
     const today = new Date();
@@ -363,7 +363,7 @@ export default function App() {
       const habitsOnCheckDate = getHabitsForDate(checkDate);
       const isPerfect = habitsOnCheckDate.length > 0 && completedCount >= habitsOnCheckDate.length;
 
-      if (isPerfect){
+      if (isPerfect) {
         countPerfect++;
         checkDate.setDate(checkDate.getDate() - 1);
       } else {
@@ -637,7 +637,6 @@ export default function App() {
         </View>
       </ScrollView>
 
-      {/* Bottom Bar & Modals stay unchanged */}
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="grid-outline" size={22} color="#4F46E5" />
@@ -897,11 +896,11 @@ export default function App() {
                           key={day}
                           style={[
                             styles.monthDayCircle,
-                            isSelected && {backgroundColor: selectedColor}
+                            isSelected && { backgroundColor: selectedColor }
                           ]}
                           onPress={() => toggleMonthDaySelection(day)}
                         >
-                          <Text style={[styles.monthDayText, isSelected && {color: '#FFFFFF'}]}>
+                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
                             {day}
                           </Text>
                         </TouchableOpacity>
@@ -942,11 +941,11 @@ export default function App() {
                           key={day}
                           style={[
                             styles.monthDayCircle,
-                            isSelected && {backgroundColor: selectedColor},
+                            isSelected && { backgroundColor: selectedColor },
                           ]}
                           onPress={() => toggleMonthDaySelection(day)}
                         >
-                          <Text style={[styles.monthDayText, isSelected && {color: '#FFFFFF'}]}>
+                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
                             {day}
                           </Text>
                         </TouchableOpacity>
@@ -965,13 +964,13 @@ export default function App() {
           <StatusBar barStyle="light-content" backgroundColor="#121212" />
           <View style={styles.streaksHeader}>
             <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
-              <Ionicons name="close" size={28} color="#FFFFFF" />
+              <Ionicons name="close" size={28} color="#1F2937" />
             </TouchableOpacity>
             <Text style={styles.streaksTitle}>My Streaks</Text>
             <View style={{ width: 28 }} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.streaksRow}>
+            <View style={styles.streaksTopBox}>
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#F59E0B" />
                 <Text style={styles.streakLabel}>Logged Days</Text>
@@ -982,6 +981,7 @@ export default function App() {
                   <Text style={styles.bestText}>Best: {streakStats.loggedBest}</Text>
                 </View>
               </View>
+              <View style={styles.streakDivider} />
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#10B981" />
                 <Text style={styles.streakLabel}>Perfect Days</Text>
@@ -994,54 +994,56 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => changeMonth('prev')}>
-                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.calendarMonthText}>
-                {currentCalendarDate.toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
-              <TouchableOpacity onPress={() => changeMonth('next')}>
-                <Ionicons name="chevron-forward" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.weekDaysHeader}>
-              {WEEK_DAYS.map((day, idx) => (
-                <Text key={idx} style={styles.weekDayText}>
-                  {day}
+            <View style={styles.calendarSectionBox}>
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthNavButton}>
+                  <Ionicons name="chevron-back" size={22} color="#1F2937" />
+                </TouchableOpacity>
+                <Text style={styles.calendarMonthText}>
+                  {currentCalendarDate.toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
                 </Text>
-              ))}
-            </View>
+                <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthNavButton}>
+                  <Ionicons name="chevron-forward" size={22} color="#1F2937" />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.calendarGrid}>
-              {calendarDays.map((item, index) => {
-                const dateKey = formatDateKey(item.date);
-                const todayStr = formatDateKey(new Date());
-                const isToday = dateKey === todayStr;
-                const completedList = habitLogs[dateKey] || [];
-                const count = completedList.length;
-                const habitsForCell = getHabitsForDate(item.date);
-                let dotColor = '#374151';
-                if (count > 0) {
-                  dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
-                }
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.calendarCell}
-                    onPress={() => handleSelectedCalendarDay(item.date)}
-                  >
-                    <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#4B5563' }, isToday && styles.calendarDayNumToday]}>
-                      {item.date.getDate()}
-                    </Text>
-                    <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                  </TouchableOpacity>
-                );
-              })}
+              <View style={styles.weekDaysHeader}>
+                {WEEK_DAYS.map((day, idx) => (
+                  <Text key={idx} style={styles.weekDayText}>
+                    {day}
+                  </Text>
+                ))}
+              </View>
+
+              <View style={styles.calendarGrid}>
+                {calendarDays.map((item, index) => {
+                  const dateKey = formatDateKey(item.date);
+                  const todayStr = formatDateKey(new Date());
+                  const isToday = dateKey === todayStr;
+                  const completedList = habitLogs[dateKey] || [];
+                  const count = completedList.length;
+                  const habitsForCell = getHabitsForDate(item.date);
+                  let dotColor = '#CBD5E1';
+                  if (count > 0) {
+                    dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.calendarCell}
+                      onPress={() => handleSelectedCalendarDay(item.date)}
+                    >
+                      <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
+                        {item.date.getDate()}
+                      </Text>
+                      <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -1497,11 +1499,8 @@ const styles = StyleSheet.create({
   },
 
   streaksContainer: {
-    flex: 1, 
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20
+    flex: 1,
+    backgroundColor: '#FFFFFF'
   },
   streaksHeader: {
     flexDirection: 'row',
@@ -1509,8 +1508,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderWidth: 1.3,
+    borderColor: '#F3F4F6'
   },
-  streaksTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
+  streaksTitle: { fontSize: 20, fontWeight: '700', color: '#1F2937' },
+
+  streaksTopBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 20,
+    paddingHorizontal: 12,
+    paddingBottom: 40
+  },
+
   streaksRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -1518,18 +1528,55 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   streakCard: { alignItems: 'center', flex: 1 },
-  streakLabel: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginTop: 8 },
-  streakNumber: { fontSize: 36, fontWeight: '800', marginVertical: 2 },
-  streakSubtext: { fontSize: 13, color: '#9CA3AF', marginBottom: 12 },
-  bestBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  bestText: { color: '#E5E7EB', fontWeight: '600', fontSize: 14 },
-  calendarHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 24, marginVertical: 16 },
-  calendarMonthText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  weekDaysHeader: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, marginBottom: 12 },
-  weekDayText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20 },
+  streakDivider: {
+    width: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  streakLabel: { fontSize: 15, fontWeight: '700', color: '#1F2937', marginTop: 8 },
+  streakNumber: { fontSize: 32, fontWeight: '800', marginVertical: 2 },
+  streakSubtext: { fontSize: 13, color: '#6B7280', marginBottom: 10 },
+  bestBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F9FAFB',
+    borderColor: '#F3F4F6',
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  bestText: { color: '#374151', fontWeight: '600', fontSize: 14 },
+  calendarSectionBox: {
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    paddingBottom: 200
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 26,
+  },
+  monthNavButton: {
+    padding: 6,
+  },
+  calendarMonthText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  weekDaysHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 5,
+    marginBottom: 12,
+  },
+  weekDayText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 5 },
   calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
-  calendarDayNum: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
   calendarDayNumToday: { color: '#4F46E5', fontSize: 16, fontWeight: '600' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
 });
