@@ -29,6 +29,8 @@ interface Habit {
 type HabitLogs = Record<string, string[]>;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
+const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
 
 const AVAILABLE_COLORS = [
   '#4F46E5', '#10B981', '#F59E0B', '#EF4444',
@@ -112,7 +114,7 @@ export default function App() {
     } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat) {
       setFrequencyDisplay('Weekdays');
       return;
-    } else if (count == 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
+    } else if (count === 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
       setFrequencyDisplay('Midweek');
       return;
     } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri) {
@@ -310,6 +312,7 @@ export default function App() {
   }, [habits, activeDate]);
 
   const flatListRef = React.useRef<FlatList>(null);
+  const calendarFlatListRef = React.useRef<FlatList>(null);
   const handleScrollEnd = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const pageIndex = Math.round(contentOffsetX / (SCREEN_WIDTH - 32));
@@ -320,6 +323,20 @@ export default function App() {
     } else if (pageIndex === 2) {
       setWeekOffset((prev) => prev + 1);
       flatListRef.current?.scrollToIndex({ index: 1, animated: false });
+    }
+  };
+
+  const handleCalendarScrollEnd = (event: any) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const cardWidth = SCREEN_WIDTH - 64;
+    const pageIndex = Math.round(contentOffsetX / cardWidth);
+
+    if (pageIndex === 0) {
+      changeMonth('prev');
+      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
+    } else if (pageIndex == 2) {
+      changeMonth('next');
+      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
     }
   };
 
@@ -426,9 +443,10 @@ export default function App() {
     };
   }, [habitLogs, habits]);
 
-  const calendarDays = useMemo(() => {
-    const year = currentCalendarDate.getFullYear();
-    const month = currentCalendarDate.getMonth();
+  const getCalendarDaysForMonth = (baseDate: Date, monthOffset: number) => {
+    const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
     const firstDayOfMonth = new Date(year, month, 1);
     const lastDayOfMonth = new Date(year, month + 1, 0);
     const startingDayOfWeek = firstDayOfMonth.getDay();
@@ -438,19 +456,17 @@ export default function App() {
       const date = new Date(year, month, 1 - i);
       days.push({ date, isCurrentMonth: false });
     }
-
     for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
       const date = new Date(year, month, i);
       days.push({ date, isCurrentMonth: true });
     }
-
     const remainingCells = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remainingCells; i++) {
       const date = new Date(year, month + 1, i);
       days.push({ date, isCurrentMonth: false });
     }
     return days;
-  }, [currentCalendarDate]);
+  };
 
   const changeMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentCalendarDate);
@@ -631,7 +647,7 @@ export default function App() {
             })
           )}
           <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
-            <Ionicons name="add" size={22} color="#FFFFFF"  />
+            <Ionicons name="add" size={22} color="#FFFFFF" />
             {/*<Text style={styles.createHabitText}>Create a new habit</Text>*/}
           </TouchableOpacity>
         </View>
@@ -800,7 +816,9 @@ export default function App() {
                 return (
                   <TouchableOpacity
                     key={iconName}
-                    style={[styles.sectionTitle, isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '10' }]}
+                    style={[
+                      styles.iconTile, 
+                      isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '15' }]}
                     onPress={() => {
                       setSelectedIcon(iconName)
                     }}
@@ -848,7 +866,7 @@ export default function App() {
               </View>
 
               {frequencyType === 'days_of_week' && (
-                <View style={styles.weekDaysPickerRow}>
+                <View style={styles.weekDaysPickerRow} >
                   {WEEK_DAYS.map((day, idx) => {
                     const isSelected = selectedWeekDays[idx];
                     return (
@@ -959,7 +977,7 @@ export default function App() {
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isStreaksModalVisible} animationType="slide" transparent={false}>
+      <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false}>
         <SafeAreaView style={styles.streaksContainer}>
           <StatusBar barStyle="light-content" backgroundColor="#121212" />
           <View style={styles.streaksHeader}>
@@ -969,7 +987,7 @@ export default function App() {
             <Text style={styles.streaksTitle}>My Streaks</Text>
             <View style={{ width: 28 }} />
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          
             <View style={styles.streaksTopBox}>
               <View style={styles.streakCard}>
                 <Ionicons name="flame" size={56} color="#F59E0B" />
@@ -1012,40 +1030,65 @@ export default function App() {
 
               <View style={styles.weekDaysHeader}>
                 {WEEK_DAYS.map((day, idx) => (
-                  <Text key={idx} style={styles.weekDayText}>
-                    {day}
-                  </Text>
+                  <View key={idx} style={styles.weekDayCell}>
+                    <Text style={styles.weekDayText}>
+                      {day}
+                    </Text>
+                  </View>
                 ))}
               </View>
 
-              <View style={styles.calendarGrid}>
-                {calendarDays.map((item, index) => {
-                  const dateKey = formatDateKey(item.date);
-                  const todayStr = formatDateKey(new Date());
-                  const isToday = dateKey === todayStr;
-                  const completedList = habitLogs[dateKey] || [];
-                  const count = completedList.length;
-                  const habitsForCell = getHabitsForDate(item.date);
-                  let dotColor = '#CBD5E1';
-                  if (count > 0) {
-                    dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
-                  }
-                  return (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.calendarCell}
-                      onPress={() => handleSelectedCalendarDay(item.date)}
-                    >
-                      <Text style={[styles.calendarDayNum, !item.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
-                        {item.date.getDate()}
-                      </Text>
-                      <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                    </TouchableOpacity>
-                  );
+              <FlatList
+                ref={calendarFlatListRef}
+                data={[-1, 0, 1]}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={SCREEN_WIDTH - 32}
+                snapToAlignment="center"
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                initialScrollIndex={1}
+                getItemLayout={(_, index) => ({
+                  length: SCREEN_WIDTH - 32,
+                  offset: (SCREEN_WIDTH - 32) * index,
+                  index,
                 })}
-              </View>
+                onMomentumScrollEnd={handleCalendarScrollEnd}
+                keyExtractor={(item) => item.toString()}
+                renderItem={({ item }) => {
+                  const days = getCalendarDaysForMonth(currentCalendarDate, item);
+                  return (
+                    <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32}]}  >
+                      {days.map((dayItem, index) => {
+                        const dateKey = formatDateKey(dayItem.date);
+                        const todayStr = formatDateKey(new Date());
+                        const isToday = dateKey === todayStr;
+                        const completedList = habitLogs[dateKey] || [];
+                        const count = completedList.length;
+                        const habitsForCell = getHabitsForDate(dayItem.date);
+                        let dotColor = '#CBD5E1';
+                        if (count > 0) {
+                          dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
+                        }
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.calendarCell}
+                            onPress={() => handleSelectedCalendarDay(dayItem.date)}
+                          >
+                            <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
+                              {dayItem.date.getDate()}
+                            </Text>
+                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                }}
+              >
+              </FlatList>
             </View>
-          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1427,10 +1470,10 @@ const styles = StyleSheet.create({
   categoryTabText: { fontSize: 13, fontWeight: '600', color: '#4B5563' },
   categoryTabTextActive: { color: '#FFFFFF' },
   iconScrollContainer: { flex: 1, padding: 16 },
-  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-start' },
+  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
   iconTile: {
-    width: (SCREEN_WIDTH - 68) / 4,
-    height: (SCREEN_WIDTH - 68) / 4,
+    width: (SCREEN_WIDTH - 64 ) / 6,
+    height: (SCREEN_WIDTH - 64 ) / 6,
     borderRadius: 16,
     backgroundColor: '#F9FAFB',
     borderWidth: 1.5,
@@ -1497,7 +1540,7 @@ const styles = StyleSheet.create({
 
   streaksContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF'
+    backgroundColor: '#FFFFFF',
   },
   streaksHeader: {
     flexDirection: 'row',
@@ -1566,13 +1609,18 @@ const styles = StyleSheet.create({
   },
   weekDaysHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     paddingHorizontal: 5,
     marginBottom: 12,
   },
+  weekDayCell:{
+    width: CELL_WIDTH,
+    alignItems: 'center',
+
+  },
   weekDayText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 5 },
-  calendarCell: { width: '14.28%', alignItems: 'center', paddingVertical: 8 },
+  calendarGrid: { paddingLeft: 2,flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH, },
+  calendarCell: { width: CELL_WIDTH, justifyContent: 'center', alignItems: 'center', paddingVertical: 8,},
   calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
   calendarDayNumToday: { color: '#00B763', fontSize: 16, fontWeight: '800' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
