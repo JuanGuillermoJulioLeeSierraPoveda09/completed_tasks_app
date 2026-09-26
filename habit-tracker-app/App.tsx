@@ -199,6 +199,12 @@ export default function App() {
     setIsFrequencyModalOpen(false);
   };
 
+  const handleMonthCurrent = () => {
+    const now = new Date();
+    setCalendarMonth(now);
+    setCurrentCalendarDate(now);
+  }
+
   const handleHeaderDatePress = () => {
     const today = new Date();
     const todayStr = formatDateKey(today);
@@ -477,6 +483,14 @@ export default function App() {
     newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
     setCurrentCalendarDate(newDate);
   };
+
+  const handleCalendarScrollEndWithArrows = (movement: 'prev' | 'next') => {
+    if (movement === 'prev') {
+      calendarFlatListRef.current?.scrollToIndex({ index: 0, animated: true });
+    } else if (movement == 'next') {
+      calendarFlatListRef.current?.scrollToIndex({ index: 2, animated: true });
+    }
+  }
 
   const handleSelectedCalendarDay = (targetDate: Date) => {
     const today = new Date();
@@ -1018,16 +1032,18 @@ export default function App() {
 
           <View style={styles.calendarSectionBox}>
             <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthNavButton}>
+              <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('prev')} style={styles.monthNavButton}>
                 <Ionicons name="chevron-back" size={22} color="#1F2937" />
               </TouchableOpacity>
-              <Text style={styles.calendarMonthText}>
-                {currentCalendarDate.toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
+              <TouchableOpacity>
+                <Text style={styles.calendarMonthText} onPress={handleMonthCurrent}>
+                  {currentCalendarDate.toLocaleDateString('en-US', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
               </Text>
-              <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthNavButton}>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('next')} style={styles.monthNavButton}>
                 <Ionicons name="chevron-forward" size={22} color="#1F2937" />
               </TouchableOpacity>
             </View>
