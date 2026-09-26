@@ -97,6 +97,7 @@ export default function App() {
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([]);
 
@@ -202,6 +203,9 @@ export default function App() {
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
+    const now = new Date();
+    setCalendarMonth(now);
+    setCurrentCalendarDate(now);
     if (activeStr !== todayStr) {
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
@@ -817,7 +821,7 @@ export default function App() {
                   <TouchableOpacity
                     key={iconName}
                     style={[
-                      styles.iconTile, 
+                      styles.iconTile,
                       isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '15' }]}
                     onPress={() => {
                       setSelectedIcon(iconName)
@@ -987,108 +991,108 @@ export default function App() {
             <Text style={styles.streaksTitle}>My Streaks</Text>
             <View style={{ width: 28 }} />
           </View>
-          
-            <View style={styles.streaksTopBox}>
-              <View style={styles.streakCard}>
-                <Ionicons name="flame" size={56} color="#F59E0B" />
-                <Text style={styles.streakLabel}>Logged Days</Text>
-                <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
-                <Text style={styles.streakSubtext}>current streak</Text>
-                <View style={styles.bestBadge}>
-                  <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
-                  <Text style={styles.bestText}>Best: {streakStats.loggedBest}</Text>
-                </View>
-              </View>
-              <View style={styles.streakDivider} />
-              <View style={styles.streakCard}>
-                <Ionicons name="flame" size={56} color="#10B981" />
-                <Text style={styles.streakLabel}>Perfect Days</Text>
-                <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
-                <Text style={styles.streakSubtext}>current streak</Text>
-                <View style={styles.bestBadge}>
-                  <Ionicons name="trophy-outline" size={16} color="#10B981" />
-                  <Text style={styles.bestText}>Best: {streakStats.perfectBest}</Text>
-                </View>
+
+          <View style={styles.streaksTopBox}>
+            <View style={styles.streakCard}>
+              <Ionicons name="flame" size={56} color="#F59E0B" />
+              <Text style={styles.streakLabel}>Logged Days</Text>
+              <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
+              <Text style={styles.streakSubtext}>current streak</Text>
+              <View style={styles.bestBadge}>
+                <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
+                <Text style={styles.bestText}>Best: {streakStats.loggedBest}</Text>
               </View>
             </View>
-
-            <View style={styles.calendarSectionBox}>
-              <View style={styles.calendarHeader}>
-                <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthNavButton}>
-                  <Ionicons name="chevron-back" size={22} color="#1F2937" />
-                </TouchableOpacity>
-                <Text style={styles.calendarMonthText}>
-                  {currentCalendarDate.toLocaleDateString('en-US', {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </Text>
-                <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthNavButton}>
-                  <Ionicons name="chevron-forward" size={22} color="#1F2937" />
-                </TouchableOpacity>
+            <View style={styles.streakDivider} />
+            <View style={styles.streakCard}>
+              <Ionicons name="flame" size={56} color="#10B981" />
+              <Text style={styles.streakLabel}>Perfect Days</Text>
+              <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
+              <Text style={styles.streakSubtext}>current streak</Text>
+              <View style={styles.bestBadge}>
+                <Ionicons name="trophy-outline" size={16} color="#10B981" />
+                <Text style={styles.bestText}>Best: {streakStats.perfectBest}</Text>
               </View>
+            </View>
+          </View>
 
-              <View style={styles.weekDaysHeader}>
-                {WEEK_DAYS.map((day, idx) => (
-                  <View key={idx} style={styles.weekDayCell}>
-                    <Text style={styles.weekDayText}>
-                      {day}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <FlatList
-                ref={calendarFlatListRef}
-                data={[-1, 0, 1]}
-                horizontal
-                pagingEnabled={false}
-                snapToInterval={SCREEN_WIDTH - 32}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                showsHorizontalScrollIndicator={false}
-                initialScrollIndex={1}
-                getItemLayout={(_, index) => ({
-                  length: SCREEN_WIDTH - 32,
-                  offset: (SCREEN_WIDTH - 32) * index,
-                  index,
+          <View style={styles.calendarSectionBox}>
+            <View style={styles.calendarHeader}>
+              <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthNavButton}>
+                <Ionicons name="chevron-back" size={22} color="#1F2937" />
+              </TouchableOpacity>
+              <Text style={styles.calendarMonthText}>
+                {currentCalendarDate.toLocaleDateString('en-US', {
+                  month: 'long',
+                  year: 'numeric',
                 })}
-                onMomentumScrollEnd={handleCalendarScrollEnd}
-                keyExtractor={(item) => item.toString()}
-                renderItem={({ item }) => {
-                  const days = getCalendarDaysForMonth(currentCalendarDate, item);
-                  return (
-                    <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32}]}  >
-                      {days.map((dayItem, index) => {
-                        const dateKey = formatDateKey(dayItem.date);
-                        const todayStr = formatDateKey(new Date());
-                        const isToday = dateKey === todayStr;
-                        const completedList = habitLogs[dateKey] || [];
-                        const count = completedList.length;
-                        const habitsForCell = getHabitsForDate(dayItem.date);
-                        let dotColor = '#CBD5E1';
-                        if (count > 0) {
-                          dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
-                        }
-                        return (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.calendarCell}
-                            onPress={() => handleSelectedCalendarDay(dayItem.date)}
-                          >
-                            <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
-                              {dayItem.date.getDate()}
-                            </Text>
-                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  );
-                }}
-              >
-              </FlatList>
+              </Text>
+              <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthNavButton}>
+                <Ionicons name="chevron-forward" size={22} color="#1F2937" />
+              </TouchableOpacity>
             </View>
+
+            <View style={styles.weekDaysHeader}>
+              {WEEK_DAYS.map((day, idx) => (
+                <View key={idx} style={styles.weekDayCell}>
+                  <Text style={styles.weekDayText}>
+                    {day}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <FlatList
+              ref={calendarFlatListRef}
+              data={[-1, 0, 1]}
+              horizontal
+              pagingEnabled={false}
+              snapToInterval={SCREEN_WIDTH - 32}
+              snapToAlignment="center"
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={1}
+              getItemLayout={(_, index) => ({
+                length: SCREEN_WIDTH - 32,
+                offset: (SCREEN_WIDTH - 32) * index,
+                index,
+              })}
+              onMomentumScrollEnd={handleCalendarScrollEnd}
+              keyExtractor={(item) => item.toString()}
+              renderItem={({ item }) => {
+                const days = getCalendarDaysForMonth(currentCalendarDate, item);
+                return (
+                  <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32 }]}  >
+                    {days.map((dayItem, index) => {
+                      const dateKey = formatDateKey(dayItem.date);
+                      const todayStr = formatDateKey(new Date());
+                      const isToday = dateKey === todayStr;
+                      const completedList = habitLogs[dateKey] || [];
+                      const count = completedList.length;
+                      const habitsForCell = getHabitsForDate(dayItem.date);
+                      let dotColor = '#CBD5E1';
+                      if (count > 0) {
+                        dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
+                      }
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.calendarCell}
+                          onPress={() => handleSelectedCalendarDay(dayItem.date)}
+                        >
+                          <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
+                            {dayItem.date.getDate()}
+                          </Text>
+                          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              }}
+            >
+            </FlatList>
+          </View>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -1472,8 +1476,8 @@ const styles = StyleSheet.create({
   iconScrollContainer: { flex: 1, padding: 16 },
   iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
   iconTile: {
-    width: (SCREEN_WIDTH - 64 ) / 6,
-    height: (SCREEN_WIDTH - 64 ) / 6,
+    width: (SCREEN_WIDTH - 64) / 6,
+    height: (SCREEN_WIDTH - 64) / 6,
     borderRadius: 16,
     backgroundColor: '#F9FAFB',
     borderWidth: 1.5,
@@ -1613,14 +1617,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     marginBottom: 12,
   },
-  weekDayCell:{
+  weekDayCell: {
     width: CELL_WIDTH,
     alignItems: 'center',
 
   },
   weekDayText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
-  calendarGrid: { paddingLeft: 2,flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH, },
-  calendarCell: { width: CELL_WIDTH, justifyContent: 'center', alignItems: 'center', paddingVertical: 8,},
+  calendarGrid: { paddingLeft: 2, flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH, },
+  calendarCell: { width: CELL_WIDTH, justifyContent: 'center', alignItems: 'center', paddingVertical: 8, },
   calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
   calendarDayNumToday: { color: '#00B763', fontSize: 16, fontWeight: '800' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
