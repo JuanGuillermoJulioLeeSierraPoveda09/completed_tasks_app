@@ -10,8 +10,16 @@ import {
   TextInput,
   FlatList,
   Dimensions,
-  ImageBackgroundComponent,
+  Switch,
+  Platform,
+  LayoutAnimation,
 } from 'react-native';
+import Animated, { 
+  FadeInUp, 
+  FadeOutUp, 
+  LinearTransition 
+} from 'react-native-reanimated';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
@@ -93,6 +101,9 @@ export default function App() {
   const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
   const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
+  const [isReminderEnabled, setIsReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
@@ -274,6 +285,24 @@ export default function App() {
     setHabits([...habits, newHabit]);
     resetForm();
     setIsModalVisible(false);
+  };
+
+  const toggleSwitch = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsReminderEnabled((previousState) => !previousState);
+  };
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowPicker(false);
+    }
+    if (selectedDate) {
+      setReminderTime(selectedDate);
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleDateString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const resetForm = () => {
@@ -786,6 +815,55 @@ export default function App() {
                 <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>Reminder</Text>
+              <Animated.View layout={LinearTransition.duration(250)} style={styles.reminderCardContainer}>
+                <View style={styles.reminderHeaderRow}>
+                  <Text style={styles.frequencyValueText}>Reminder</Text>
+                  <Switch
+                    trackColor={{ false: '#767577', true: selectedColor + '10' }}
+                    thumbColor={isReminderEnabled ? selectedColor : '#F4F3F4'}
+                    ios_backgroundColor="#3E3E3E"
+                    onValueChange={toggleSwitch}
+                    value={isReminderEnabled}
+                  />
+                </View>
+
+                {isReminderEnabled && (
+                  <Animated.View style={styles.reminderExpandedContent}>
+                    <View style={styles.reminderDivider} />
+                    {Platform.OS === 'ios' ? (
+                      <DateTimePicker
+                        value={reminderTime}
+                        mode="time"
+                        display="spinner"
+                        onChange={handleTimeChange}
+                        style={styles.reminderTimePickerIOS}
+                      />
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          style={styles.reminderTimeButton}
+                          onPress={() => setShowPicker(true)}
+                        >
+                          <Text style={styles.reminderTimeButtonText}>{formatTime(reminderTime)}</Text>
+                        </TouchableOpacity>
+
+                        {showPicker && (
+                          <DateTimePicker
+                            value={reminderTime}
+                            mode='time'
+                            display='default'
+                            onValueChange={handleTimeChange}
+                          />
+                        )}
+                      </>
+                    )}
+                  </Animated.View>
+                )}
+              </Animated.View>
+            </View>
           </ScrollView>
 
           <View style={styles.createHabitFooter}>
@@ -1041,7 +1119,7 @@ export default function App() {
                     month: 'long',
                     year: 'numeric',
                   })}
-              </Text>
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('next')} style={styles.monthNavButton}>
                 <Ionicons name="chevron-forward" size={22} color="#1F2937" />
@@ -1644,4 +1722,55 @@ const styles = StyleSheet.create({
   calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
   calendarDayNumToday: { color: '#00B763', fontSize: 16, fontWeight: '800' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
+
+  reminderCardContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 5,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  reminderHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reminderTextContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  reminderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  reminderDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    zIndex: 10,
+    marginBottom: 16
+  },
+  reminderExpandedContent: {
+    paddingBottom: 12,
+  },
+  reminderTimeButton: {
+    backgroundColor: '#E5E7EB',
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    marginHorizontal: 45,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  reminderTimeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  reminderTimePickerIOS: {
+    height: 120,
+    marginTop: -10,
+  },
 });
