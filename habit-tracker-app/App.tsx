@@ -13,6 +13,8 @@ import {
   Switch,
   Platform,
   LayoutAnimation,
+  NativeScrollEvent,
+  NativeSyntheticEvent
 } from 'react-native';
 import Animated, {
   FadeInUp,
@@ -39,7 +41,8 @@ interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
   reminderSelectedMinute: string;
-  onConfirm: (hour: string, minute: string) => void;
+  reminderSelectedPeriod: 'AM' | 'PM';
+  onConfirm: (hour: string, minute: string, period: 'AM' | 'PM') => void;
   onClose: () => void;
 }
 
@@ -49,8 +52,13 @@ const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
 const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
 const REMINDER_ITEM_HEIGHT = 45;
-const REMINDER_HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const REMINDER_MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+const VISIBLE_ITEMS = 3;
+const CONTAINER_HEIGHT = REMINDER_ITEM_HEIGHT * VISIBLE_ITEMS;
+const VERTICAL_PADDING = (CONTAINER_HEIGHT - REMINDER_ITEM_HEIGHT) / 2;
+const REMINDER_PERIODS = ["AM", "PM"] as const;
+const LOOP_FACTOR = 100;
+const INFINITE_HOURS = Array.from({ length: 12 * LOOP_FACTOR }, (_, i) => String((i % 12) + 1));
+const INFINITE_MINUTES = Array.from({ length: 60 * LOOP_FACTOR }, (_, i) => String(i % 60).padStart(2, '0'));
 
 const AVAILABLE_COLORS = [
   '#4F46E5', '#10B981', '#F59E0B', '#EF4444',
@@ -93,111 +101,246 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+// 1. Creamos las listas con espaciadores vacíos ('') al inicio y al final
+const PADDED_HOURS = ['', ...INFINITE_HOURS, ''];
+const PADDED_MINUTES = ['', ...INFINITE_MINUTES, ''];
+const PADDED_PERIODS = ['', ...REMINDER_PERIODS, ''];
+
 export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   visible,
   reminderSelectedHour,
   reminderSelectedMinute,
+  reminderSelectedPeriod,
   onConfirm,
   onClose,
 }) => {
-  const hourRef = React.useRef<string>(reminderSelectedHour);
-  const minuteRef = React.useRef<string>(reminderSelectedMinute);
+  const [hour, setHour] = useState(reminderSelectedHour);
+  const [minute, setMinute] = useState(reminderSelectedMinute);
+  const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
 
-  const handleScrollReminder = (
-    event: any,
-    data: string[],
-    setRef: (val: string) => void
-  ) => {
-    const offsetY = event.nativeEvent.contentOffset.y;
-    const index = Math.round(offsetY / REMINDER_ITEM_HEIGHT);
-    if (data[index]) {
-      setRef(data[index]);
+  const hourFlatListRef = React.useRef<FlatList>(null);
+  const minuteFlatListRef = React.useRef<FlatList>(null);
+  const periodFlatListRef = React.useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setHour(reminderSelectedHour);
+      setMinute(reminderSelectedMinute);
+      setPeriod(reminderSelectedPeriod);
+
+      const baseHour = parseInt(reminderSelectedHour, 10) || 8;
+      const targetHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
+
+      const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
+      const targetMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
+
+      const targetPeriodIndex = reminderSelectedPeriod === 'AM' ? 0 : 1;
+
+      // Usamos scrollToOffset en lugar de scrollToIndex. Es 100% exacto y no tiene bugs.
+      setTimeout(() => {
+        hourFlatListRef.current?.scrollToOffset({
+          offset: targetHourIndex * REMINDER_ITEM_HEIGHT,
+          animated: false,
+        });
+        minuteFlatListRef.current?.scrollToOffset({
+          offset: targetMinuteIndex * REMINDER_ITEM_HEIGHT,
+          animated: false,
+        });
+        periodFlatListRef.current?.scrollToOffset({
+          offset: targetPeriodIndex * REMINDER_ITEM_HEIGHT,
+          animated: false,
+        });
+      }, 100);
     }
+  }, [visible, reminderSelectedHour, reminderSelectedMinute, reminderSelectedPeriod]);
+
+  const handleScrollEnd = <T extends string>(
+    offsetY: number,
+    originalData: readonly T[],
+    setter: (val: T) => void,
+    listRef: React.RefObject<FlatList <any> | null>
+  ) => {
+    const validOffsetY = Math.max(0, offsetY);
+    const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
+    const safeIndex = Math.min(Math.max(0, index), originalData.length - 1);
+    listRef.current?.scrollToOffset({
+      offset: safeIndex * REMINDER_ITEM_HEIGHT,
+      animated: true
+    });
+
+    setter(originalData[safeIndex]);
   };
 
-  const renderItem = (item: string, isSelected: boolean) => (
-    <View style={[styles.reminderPickerItem, isSelected && styles.reminderPickerItemSelected]}>
-      <Text style={[styles.reminderPickerText, isSelected && styles.reminderPickerTextSelected]}>
-        {item}
-      </Text>
-    </View>
-  );
+  const handleScrollProgress = <T extends string>(
+    offsetY: number,
+    originalData: readonly T[],
+    setter: (val: T) => void
+  ) => {
+    const validOffsetY = Math.max(0, offsetY);
+    const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
+    const safeIndex = Math.min(Math.max(0, index), originalData.length - 1);
+    setter(originalData[safeIndex]);
+  };
+
+  const renderPickerItem = (item: string, currentValue: string) => {
+    if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }} />;
+    const isSelected = item === currentValue;
+    return (
+      <View style={styles.reminderPickerItem}>
+        <Text style={[styles.reminderPickerText, isSelected && styles.reminderPickerTextSelected]}>
+          {item}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <Modal
       visible={visible}
       transparent={true}
-      animationType='slide'
+      animationType='fade'
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.reminderPickerContainer}>
-          <View style={styles.reminderModalHeader}>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.reminderCancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => onConfirm(hourRef.current, minuteRef.current)}
-            >
-              <Text style={styles.reminderConfirmText}>Guardar</Text>
+        <View style={styles.reminderWindowCardContainer}>
+          <View style={styles.reminderCardHeader}>
+            <Text style={styles.reminderCardTitle}>Time</Text>
+            <TouchableOpacity onPress={onClose} style={styles.reminderCloseButton}>
+              <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.reminderPickerWrapper}>
-            <View style={styles.reminderSelectionHighlight} />
-            <View style={styles.reminderScrollable}>
-              <FlatList
-                data={REMINDER_HOURS}
-                keyExtractor={(item) => `h-${item}`}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={REMINDER_ITEM_HEIGHT}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingVertical: REMINDER_ITEM_HEIGHT }}
-                initialScrollIndex={REMINDER_HOURS.indexOf(reminderSelectedHour) !== -1 ? REMINDER_HOURS.indexOf(reminderSelectedHour) : 0}
-                getItemLayout={(_, index) => ({
-                  length: REMINDER_ITEM_HEIGHT,
-                  offset: REMINDER_ITEM_HEIGHT * index,
-                  index,
-                })}
-                onMomentumScrollEnd={(e) =>
-                  handleScrollReminder(e, REMINDER_HOURS, (val) => (hourRef.current = val))
-                }
-                renderItem={({ item }) =>
-                  renderItem(item, item === hourRef.current)
-                }
-              />
+            <FlatList
+              ref={hourFlatListRef}
+              data={PADDED_HOURS}
+              style={{ height: CONTAINER_HEIGHT }}
+              keyExtractor={(_, index) => `h-${index}`}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={REMINDER_ITEM_HEIGHT}
+              snapToAlignment="start"
+              decelerationRate="normal"
+              disableIntervalMomentum={false}
+              bounces={false}
+              getItemLayout={(_, index) => ({
+                length: REMINDER_ITEM_HEIGHT,
+                offset: REMINDER_ITEM_HEIGHT * index,
+                index,
+              })}
+              scrollEventThrottle={16}
+              onScroll={(e) => handleScrollProgress(e.nativeEvent.contentOffset.y, INFINITE_HOURS, setHour)}
+              onMomentumScrollEnd={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y, INFINITE_HOURS, setHour, hourFlatListRef)}
+              onScrollEndDrag={(e) => {
+                const validOffsetY = Math.max(0, e.nativeEvent.contentOffset.y);
+                const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
+                const safeIndex = Math.min(Math.max(0, index), INFINITE_HOURS.length - 1);
+                setHour(INFINITE_HOURS[safeIndex]);
+              }}
+              renderItem={({ item }) => renderPickerItem(item, hour)}
+            />
+
+            <View style={{ height: CONTAINER_HEIGHT, justifyContent: 'center' }}>
+              <Text style={styles.reminderTimeSeparator}>:</Text>
             </View>
-            <Text style={styles.reminderTimeSeparator}>:</Text>
-            <View style={styles.reminderScrollable}>
-              <FlatList
-                data={REMINDER_MINUTES}
-                keyExtractor={(item) => `m-${item}`}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={REMINDER_ITEM_HEIGHT}
-                decelerationRate="fast"
-                contentContainerStyle={{ paddingVertical: REMINDER_ITEM_HEIGHT }}
-                initialScrollIndex={REMINDER_MINUTES.indexOf(reminderSelectedMinute) !== -1 ? REMINDER_MINUTES.indexOf(reminderSelectedMinute) : 0}
-                getItemLayout={(_, index) => ({
-                  length: REMINDER_ITEM_HEIGHT,
-                  offset: REMINDER_ITEM_HEIGHT * index,
-                  index,
-                })}
-                onMomentumScrollEnd={(e) =>
-                  handleScrollReminder(e, REMINDER_MINUTES, (val) => (minuteRef.current = val))
-                }
-                renderItem={({ item }) =>
-                  renderItem(item, item === minuteRef.current)
-                }
-              />
-            </View>
+
+            <FlatList
+              ref={minuteFlatListRef}
+              data={PADDED_MINUTES}
+              style={{ height: CONTAINER_HEIGHT }}
+              keyExtractor={(_, index) => `m-${index}`}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={REMINDER_ITEM_HEIGHT}
+              snapToAlignment="start"
+              decelerationRate="normal"
+              disableIntervalMomentum={false}
+              bounces={false}
+              getItemLayout={(_, index) => ({
+                length: REMINDER_ITEM_HEIGHT,
+                offset: REMINDER_ITEM_HEIGHT * index,
+                index,
+              })}
+              scrollEventThrottle={16}
+              onScroll={(e) => handleScrollProgress(e.nativeEvent.contentOffset.y, INFINITE_MINUTES, setMinute)}
+              onMomentumScrollEnd={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y, INFINITE_MINUTES, setMinute, minuteFlatListRef)}
+              onScrollEndDrag={(e) => {
+                const validOffsetY = Math.max(0, e.nativeEvent.contentOffset.y);
+                const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
+                const safeIndex = Math.min(Math.max(0, index), INFINITE_MINUTES.length - 1);
+                setMinute(INFINITE_MINUTES[safeIndex]);
+              }}
+              renderItem={({ item }) => renderPickerItem(item, minute)}
+            />
+
+            {/* PERIODO (AM/PM) */}
+            <FlatList
+              ref={periodFlatListRef}
+              data={PADDED_PERIODS}
+              style={{ height: CONTAINER_HEIGHT }}
+              keyExtractor={(item, index) => `p-${index}-${item}`}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={REMINDER_ITEM_HEIGHT}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              disableIntervalMomentum={true}
+              bounces={false}
+              getItemLayout={(_, index) => ({
+                length: REMINDER_ITEM_HEIGHT,
+                offset: REMINDER_ITEM_HEIGHT * index,
+                index,
+              })}
+              scrollEventThrottle={16}
+              onScroll={(e) => handleScrollProgress(e.nativeEvent.contentOffset.y, REMINDER_PERIODS, setPeriod)}
+              onMomentumScrollEnd={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y, REMINDER_PERIODS, setPeriod, periodFlatListRef)}
+              onScrollEndDrag={(e) => {
+                const validOffsetY = Math.max(0, e.nativeEvent.contentOffset.y);
+                const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
+                const safeIndex = Math.min(Math.max(0, index), REMINDER_PERIODS.length - 1);
+                setPeriod(REMINDER_PERIODS[safeIndex]);
+              }}
+              renderItem={({ item }) => renderPickerItem(item, period)}
+            />
           </View>
+
+          <TouchableOpacity
+            style={styles.reminderSaveButton}
+            onPress={() => onConfirm(hour, minute, period)}
+          >
+            <Text style={styles.reminderSaveButtonText}>Save</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 };
+{/*
+export async function scheduleHabitReminders(
+  habitTitle: string,
+  hour: number,
+  minute: number,
+  selectedWeekDays: boolean[]
+) {
+  if (!selectedWeekDays || selectedWeekDays.length === 0) return;
+  for (let dayIndex = 0; dayIndex < selectedWeekDays.length; dayIndex++) {
+    if (selectedWeekDays[dayIndex]) {
+      const weekdayForExpo = dayIndex + 1; // 1-7
 
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '¡Hora de tu hábito!',
+          body: `Es momento de completar: ${habitTitle}`,
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+          weekday: weekdayForExpo,
+          hour: hour,
+          minute: minute,
+        },
+      });
+    }
+  }
+}
+*/}
 export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
@@ -221,6 +364,7 @@ export default function App() {
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
   const [reminderSelectedHour, setRemiderSelectedHour] = useState('08');
   const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
+  const [reminderPeriod, setReminderPeriod] = useState<'AM' | 'PM'>('AM');
   const [reminderTime, setReminderTime] = useState(new Date());
   const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
 
@@ -412,9 +556,10 @@ export default function App() {
     setIsReminderEnabled((previousState) => !previousState);
   };
 
-  const handleReminderSaveTime = (hour: string, minute: string) => {
+  const handleReminderSaveTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
     setRemiderSelectedHour(hour);
     setReminderSelectedMinute(minute);
+    setReminderPeriod(period);
     setIsReminderPickerVisible(false);
   };
 
@@ -964,7 +1109,7 @@ export default function App() {
                     <View style={styles.reminderDivider} />
                     <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
                       <Text style={styles.reminderTimeButtonText}>
-                        {`${reminderSelectedHour}:${reminderSelectedMinute}`}
+                        {`${reminderSelectedHour}:${reminderSelectedMinute} ${reminderPeriod}`}
                       </Text>
                     </TouchableOpacity>
                   </Animated.View>
@@ -974,7 +1119,8 @@ export default function App() {
                   visible={isReminderPickerVisible}
                   reminderSelectedHour={reminderSelectedHour}
                   reminderSelectedMinute={reminderSelectedMinute}
-                  onConfirm={handleReminderSaveTime}
+                  reminderSelectedPeriod={reminderPeriod}
+                  onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
                   onClose={() => setIsReminderPickerVisible(false)}
                 />
               </Animated.View>
@@ -1864,7 +2010,6 @@ const styles = StyleSheet.create({
   },
   reminderTimeButton: {
     backgroundColor: '#E5E7EB',
-    borderColor: '#E5E7EB',
     paddingVertical: 12,
     marginHorizontal: 45,
     borderRadius: 10,
@@ -1875,82 +2020,80 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
-  backdrop: {
-    flex: 1,
-  },
-  reminderPickerContainer: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#E5E7EB',
-    borderWidth: 1,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
-    width: SCREEN_WIDTH,
-
-  },
-  reminderModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  reminderSaveButton: {
+    width: '100%',
+    backgroundColor: '#00B763',
+    paddingVertical: 14,
+    borderRadius: 25,
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1.3,
-    borderBottomColor: '#E5E7EB',
+    marginTop: 10,
   },
-  reminderCancelText: {
-    color: '#9CA3AF',
-    fontSize: 15,
-    fontWeight: '700'
-  },
-  reminderConfirmText: {
-    color: '#00B763',
-    fontSize: 15,
+  reminderSaveButtonText: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  reminderWindowCardContainer: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
+    alignItems: 'center',
+  },
+  reminderCardHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 10,
+  },
+  reminderCardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  reminderCloseButton: {
+    position: 'absolute',
+    right: 0,
+    padding: 4,
   },
   reminderPickerWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: REMINDER_ITEM_HEIGHT * 3,
-    marginVertical: 10,
-  },
-  reminderSelectionHighlight: {
-    position: 'absolute',
-    height: REMINDER_ITEM_HEIGHT,
+    height: CONTAINER_HEIGHT,
     width: '100%',
-    backgroundColor: '#374151',
-    borderRadius: 8,
-    opacity: 0.5,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  reminderScrollable: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 15,
+    marginVertical: 10,
   },
   reminderPickerItem: {
     height: REMINDER_ITEM_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
+    width: 60,
   },
   reminderPickerItemSelected: {
     backgroundColor: 'transparent',
   },
   reminderPickerText: {
-    color: '#1F2937'+'10',
-    fontSize: 23,
-    alignItems: 'center',
-    justifyContent: 'center'
+    fontSize: 18,
+    color: '#D1D5DB',
+    fontWeight: '400',
+    lineHeight: REMINDER_ITEM_HEIGHT,
+    textAlign: 'center'
   },
   reminderPickerTextSelected: {
-    color: '#1F2937',
-    fontSize: 25,
-    fontWeight: 'bold',
+    fontSize: 20,
+    color: '#000000',
+    fontWeight: '600',
+    lineHeight: REMINDER_ITEM_HEIGHT,
+    marginHorizontal: 10,
+    textAlign: 'center',
   },
   reminderTimeSeparator: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 24,
     fontWeight: 'bold',
     marginHorizontal: 10,
