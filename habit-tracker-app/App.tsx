@@ -25,7 +25,17 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-
+{/*
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: false
+  }),
+});
+ */}
 interface Habit {
   id: string;
   title: string;
@@ -101,11 +111,38 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-// 1. Creamos las listas con espaciadores vacíos ('') al inicio y al final
 const PADDED_HOURS = ['', ...INFINITE_HOURS, ''];
 const PADDED_MINUTES = ['', ...INFINITE_MINUTES, ''];
 const PADDED_PERIODS = ['', ...REMINDER_PERIODS, ''];
+{/*
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
 
+  if (finalStatus !== 'granted') {
+    console.log('Fallo al obtener el token para notificaciones push!');
+    return false;
+  }
+  return true;
+}
+
+useEffect(() => {
+  registerForPushNotificationsAsync();
+}, []);
+ */}
 export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   visible,
   reminderSelectedHour,
@@ -117,7 +154,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   const [hour, setHour] = useState(reminderSelectedHour);
   const [minute, setMinute] = useState(reminderSelectedMinute);
   const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
-
   const hourFlatListRef = React.useRef<FlatList>(null);
   const minuteFlatListRef = React.useRef<FlatList>(null);
   const periodFlatListRef = React.useRef<FlatList>(null);
@@ -127,16 +163,11 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       setHour(reminderSelectedHour);
       setMinute(reminderSelectedMinute);
       setPeriod(reminderSelectedPeriod);
-
       const baseHour = parseInt(reminderSelectedHour, 10) || 8;
       const targetHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
-
       const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
       const targetMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
-
       const targetPeriodIndex = reminderSelectedPeriod === 'AM' ? 0 : 1;
-
-      // Usamos scrollToOffset en lugar de scrollToIndex. Es 100% exacto y no tiene bugs.
       setTimeout(() => {
         hourFlatListRef.current?.scrollToOffset({
           offset: targetHourIndex * REMINDER_ITEM_HEIGHT,
@@ -158,7 +189,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
     offsetY: number,
     originalData: readonly T[],
     setter: (val: T) => void,
-    listRef: React.RefObject<FlatList <any> | null>
+    listRef: React.RefObject<FlatList<any> | null>
   ) => {
     const validOffsetY = Math.max(0, offsetY);
     const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
@@ -167,7 +198,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       offset: safeIndex * REMINDER_ITEM_HEIGHT,
       animated: true
     });
-
     setter(originalData[safeIndex]);
   };
 
@@ -271,7 +301,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               renderItem={({ item }) => renderPickerItem(item, minute)}
             />
 
-            {/* PERIODO (AM/PM) */}
             <FlatList
               ref={periodFlatListRef}
               data={PADDED_PERIODS}
@@ -314,29 +343,38 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
 };
 {/*
 export async function scheduleHabitReminders(
+  habitID: string,
   habitTitle: string,
-  hour: number,
-  minute: number,
-  selectedWeekDays: boolean[]
+  hourStr: string,
+  minuteStr: string,
+  period: 'AM' | 'PM',
+  frequencyType: string,
+  selectedWeekDays?: boolean[],
+  selectedMonthDays?: number[]
 ) {
-  if (!selectedWeekDays || selectedWeekDays.length === 0) return;
-  for (let dayIndex = 0; dayIndex < selectedWeekDays.length; dayIndex++) {
-    if (selectedWeekDays[dayIndex]) {
-      const weekdayForExpo = dayIndex + 1; // 1-7
-
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '¡Hora de tu hábito!',
-          body: `Es momento de completar: ${habitTitle}`,
-          sound: true,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday: weekdayForExpo,
-          hour: hour,
-          minute: minute,
-        },
-      });
+  let hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+  if (period === 'PM' && hour !== 12) hour += 12;
+  if (period === 'AM' && hour === 12) hour = 0;
+  if (frequencyType === 'days_of_week' && selectedWeekDays) {
+    for (let dayIndex = 0; dayIndex < selectedWeekDays.length; dayIndex++) {
+      if (selectedWeekDays[dayIndex]) {
+        const weekdayForExpo = dayIndex + 1;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '¡Hora de tu hábito!',
+            body: `Es momento de completar: ${habitTitle}`,
+            sound: true,
+            data: { habitID },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: weekdayForExpo,
+            hour: hour,
+            minute: minute,
+          },
+        });
+      }
     }
   }
 }
@@ -533,8 +571,9 @@ export default function App() {
     });
   };
 
-  const handleCreateHabit = () => {
+  const handleCreateHabit = async () => {
     if (!newTitle.trim()) return;
+    const newId = Date.now().toString();
     const newHabit: Habit = {
       id: Date.now().toString(),
       title: newTitle,
@@ -545,7 +584,20 @@ export default function App() {
       selectedWeekDays: frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
       selectedMonthDays: frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
     };
-
+  {/*
+    if (isReminderEnabled) {
+      await scheduleHabitReminders(
+        newId,
+        newTitle,
+        reminderSelectedHour,
+        reminderSelectedMinute,
+        reminderPeriod,
+        frequencyType,
+        selectedWeekDays,
+        selectedMonthDays
+      );
+    }
+  */}
     setHabits([...habits, newHabit]);
     resetForm();
     setIsModalVisible(false);
@@ -2040,7 +2092,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 20,
-    alignItems: 'center',
+  alignItems: 'center',
   },
   reminderCardHeader: {
     width: '100%',
