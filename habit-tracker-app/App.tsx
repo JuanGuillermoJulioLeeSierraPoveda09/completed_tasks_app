@@ -14,14 +14,15 @@ import {
   Platform,
   LayoutAnimation,
 } from 'react-native';
-import Animated, { 
-  FadeInUp, 
-  FadeOutUp, 
-  LinearTransition 
+import Animated, {
+  FadeInUp,
+  FadeOutUp,
+  LinearTransition
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 interface Habit {
   id: string;
@@ -34,11 +35,22 @@ interface Habit {
   selectedMonthDays?: number[];
 }
 
+interface CustomTimePickerModalProps {
+  visible: boolean;
+  reminderSelectedHour: string;
+  reminderSelectedMinute: string;
+  onConfirm: (hour: string, minute: string) => void;
+  onClose: () => void;
+}
+
 type HabitLogs = Record<string, string[]>;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
 const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
+const REMINDER_ITEM_HEIGHT = 45;
+const REMINDER_HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const REMINDER_MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
 
 const AVAILABLE_COLORS = [
   '#4F46E5', '#10B981', '#F59E0B', '#EF4444',
@@ -81,6 +93,111 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
+  visible,
+  reminderSelectedHour,
+  reminderSelectedMinute,
+  onConfirm,
+  onClose,
+}) => {
+  const hourRef = React.useRef<string>(reminderSelectedHour);
+  const minuteRef = React.useRef<string>(reminderSelectedMinute);
+
+  const handleScrollReminder = (
+    event: any,
+    data: string[],
+    setRef: (val: string) => void
+  ) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / REMINDER_ITEM_HEIGHT);
+    if (data[index]) {
+      setRef(data[index]);
+    }
+  };
+
+  const renderItem = (item: string, isSelected: boolean) => (
+    <View style={[styles.reminderPickerItem, isSelected && styles.reminderPickerItemSelected]}>
+      <Text style={[styles.reminderPickerText, isSelected && styles.reminderPickerTextSelected]}>
+        {item}
+      </Text>
+    </View>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType='slide'
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.reminderPickerContainer}>
+          <View style={styles.reminderModalHeader}>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={styles.reminderCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onConfirm(hourRef.current, minuteRef.current)}
+            >
+              <Text style={styles.reminderConfirmText}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.reminderPickerWrapper}>
+            <View style={styles.reminderSelectionHighlight} />
+            <View style={styles.reminderScrollable}>
+              <FlatList
+                data={REMINDER_HOURS}
+                keyExtractor={(item) => `h-${item}`}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={REMINDER_ITEM_HEIGHT}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingVertical: REMINDER_ITEM_HEIGHT }}
+                initialScrollIndex={REMINDER_HOURS.indexOf(reminderSelectedHour) !== -1 ? REMINDER_HOURS.indexOf(reminderSelectedHour) : 0}
+                getItemLayout={(_, index) => ({
+                  length: REMINDER_ITEM_HEIGHT,
+                  offset: REMINDER_ITEM_HEIGHT * index,
+                  index,
+                })}
+                onMomentumScrollEnd={(e) =>
+                  handleScrollReminder(e, REMINDER_HOURS, (val) => (hourRef.current = val))
+                }
+                renderItem={({ item }) =>
+                  renderItem(item, item === hourRef.current)
+                }
+              />
+            </View>
+            <Text style={styles.reminderTimeSeparator}>:</Text>
+            <View style={styles.reminderScrollable}>
+              <FlatList
+                data={REMINDER_MINUTES}
+                keyExtractor={(item) => `m-${item}`}
+                showsVerticalScrollIndicator={false}
+                snapToInterval={REMINDER_ITEM_HEIGHT}
+                decelerationRate="fast"
+                contentContainerStyle={{ paddingVertical: REMINDER_ITEM_HEIGHT }}
+                initialScrollIndex={REMINDER_MINUTES.indexOf(reminderSelectedMinute) !== -1 ? REMINDER_MINUTES.indexOf(reminderSelectedMinute) : 0}
+                getItemLayout={(_, index) => ({
+                  length: REMINDER_ITEM_HEIGHT,
+                  offset: REMINDER_ITEM_HEIGHT * index,
+                  index,
+                })}
+                onMomentumScrollEnd={(e) =>
+                  handleScrollReminder(e, REMINDER_MINUTES, (val) => (minuteRef.current = val))
+                }
+                renderItem={({ item }) =>
+                  renderItem(item, item === minuteRef.current)
+                }
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 export default function App() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
@@ -102,13 +219,16 @@ export default function App() {
   const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
+  const [reminderSelectedHour, setRemiderSelectedHour] = useState('08');
+  const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
   const [reminderTime, setReminderTime] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(false);
+  const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+
 
   const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([]);
 
@@ -292,9 +412,15 @@ export default function App() {
     setIsReminderEnabled((previousState) => !previousState);
   };
 
+  const handleReminderSaveTime = (hour: string, minute: string) => {
+    setRemiderSelectedHour(hour);
+    setReminderSelectedMinute(minute);
+    setIsReminderPickerVisible(false);
+  };
+
   const handleTimeChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
-      setShowPicker(false);
+      setIsReminderPickerVisible(false);
     }
     if (selectedDate) {
       setReminderTime(selectedDate);
@@ -831,37 +957,26 @@ export default function App() {
                 </View>
 
                 {isReminderEnabled && (
-                  <Animated.View style={styles.reminderExpandedContent}>
+                  <Animated.View
+                    entering={FadeInUp.duration(200)}
+                    exiting={FadeOutUp.duration(150)}
+                    style={styles.reminderExpandedContent}>
                     <View style={styles.reminderDivider} />
-                    {Platform.OS === 'ios' ? (
-                      <DateTimePicker
-                        value={reminderTime}
-                        mode="time"
-                        display="spinner"
-                        onChange={handleTimeChange}
-                        style={styles.reminderTimePickerIOS}
-                      />
-                    ) : (
-                      <>
-                        <TouchableOpacity
-                          style={styles.reminderTimeButton}
-                          onPress={() => setShowPicker(true)}
-                        >
-                          <Text style={styles.reminderTimeButtonText}>{formatTime(reminderTime)}</Text>
-                        </TouchableOpacity>
-
-                        {showPicker && (
-                          <DateTimePicker
-                            value={reminderTime}
-                            mode='time'
-                            display='default'
-                            onValueChange={handleTimeChange}
-                          />
-                        )}
-                      </>
-                    )}
+                    <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
+                      <Text style={styles.reminderTimeButtonText}>
+                        {`${reminderSelectedHour}:${reminderSelectedMinute}`}
+                      </Text>
+                    </TouchableOpacity>
                   </Animated.View>
                 )}
+
+                <CustomTimePickerModal
+                  visible={isReminderPickerVisible}
+                  reminderSelectedHour={reminderSelectedHour}
+                  reminderSelectedMinute={reminderSelectedMinute}
+                  onConfirm={handleReminderSaveTime}
+                  onClose={() => setIsReminderPickerVisible(false)}
+                />
               </Animated.View>
             </View>
           </ScrollView>
@@ -1738,15 +1853,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  reminderTextContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  reminderTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   reminderDivider: {
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -1767,10 +1873,86 @@ const styles = StyleSheet.create({
   reminderTimeButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#1F2937',
   },
-  reminderTimePickerIOS: {
-    height: 120,
-    marginTop: -10,
+  backdrop: {
+    flex: 1,
+  },
+  reminderPickerContainer: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+    width: SCREEN_WIDTH,
+
+  },
+  reminderModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1.3,
+    borderBottomColor: '#E5E7EB',
+  },
+  reminderCancelText: {
+    color: '#9CA3AF',
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  reminderConfirmText: {
+    color: '#00B763',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  reminderPickerWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: REMINDER_ITEM_HEIGHT * 3,
+    marginVertical: 10,
+  },
+  reminderSelectionHighlight: {
+    position: 'absolute',
+    height: REMINDER_ITEM_HEIGHT,
+    width: '100%',
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    opacity: 0.5,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  reminderScrollable: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  reminderPickerItem: {
+    height: REMINDER_ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+  },
+  reminderPickerItemSelected: {
+    backgroundColor: 'transparent',
+  },
+  reminderPickerText: {
+    color: '#1F2937'+'10',
+    fontSize: 23,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  reminderPickerTextSelected: {
+    color: '#1F2937',
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  reminderTimeSeparator: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginHorizontal: 10,
   },
 });
