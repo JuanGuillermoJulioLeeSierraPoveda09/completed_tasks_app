@@ -243,8 +243,8 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
           <View style={styles.reminderPickerWrapper}>
             <FlatList
               ref={hourFlatListRef}
+              style={{ height: CONTAINER_HEIGHT, width: 60 }}
               data={PADDED_HOURS}
-              style={{ height: CONTAINER_HEIGHT }}
               keyExtractor={(_, index) => `h-${index}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
@@ -269,14 +269,14 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               renderItem={({ item }) => renderPickerItem(item, hour)}
             />
 
-            <View style={{ height: CONTAINER_HEIGHT, justifyContent: 'center' }}>
+            <View style={{ height: CONTAINER_HEIGHT, width: 24, justifyContent: 'center', alignItems:'center' }}>
               <Text style={styles.reminderTimeSeparator}>:</Text>
             </View>
 
             <FlatList
               ref={minuteFlatListRef}
+              style={{ height: CONTAINER_HEIGHT, width: 60 }}
               data={PADDED_MINUTES}
-              style={{ height: CONTAINER_HEIGHT }}
               keyExtractor={(_, index) => `m-${index}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
@@ -300,11 +300,11 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               }}
               renderItem={({ item }) => renderPickerItem(item, minute)}
             />
-
+            <View style={{ width: 16 }}/>
             <FlatList
               ref={periodFlatListRef}
               data={PADDED_PERIODS}
-              style={{ height: CONTAINER_HEIGHT }}
+              style={{ height: CONTAINER_HEIGHT, width: 60 }}
               keyExtractor={(item, index) => `p-${index}-${item}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
@@ -1018,7 +1018,6 @@ export default function App() {
           )}
           <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
             <Ionicons name="add" size={22} color="#FFFFFF" />
-            {/*<Text style={styles.createHabitText}>Create a new habit</Text>*/}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1051,33 +1050,7 @@ export default function App() {
             </TouchableOpacity>
 
             <View style={styles.dropdownWrapper}>
-              <TouchableOpacity style={styles.dropdownSelector} onPress={() => setIsDropdownOpen(!isDropdownOpen)}>
-                <Text style={styles.dropdownTitle}>{habitType}</Text>
-                <Ionicons
-                  name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                  size={16}
-                  color="#1F2937"
-                />
-              </TouchableOpacity>
-
-              {isDropdownOpen && (
-                <View style={styles.dropdownMenu}>
-                  {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={styles.dropdownOption}
-                      onPress={() => {
-                        setHabitType(type);
-                        setIsDropdownOpen(false);
-                      }}
-                    >
-                      <Text style={[styles.dropdownOptionText, habitType === type && styles.dropdownOptionSelected]}>
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+              <Text style={styles.dropdownTitle}>{habitType}</Text>          
             </View>
 
             <View style={{ width: 26 }} />
@@ -1093,6 +1066,28 @@ export default function App() {
                   <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            <View style={styles.typeSelectorContainer}>
+              {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
+                const isSelected = habitType === type;
+                const displayLabel = type === 'Build a habit' ? 'Build' : type === 'Quit a habit' ? 'Quit' : 'Task';
+
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.typeSelectorButton,
+                      isSelected && styles.typeSelectorButtonSelected
+                    ]}
+                    onPress={() => setHabitType(type)}
+                  >
+                    <Text style={[styles.typeSelectorText, isSelected && { color: selectedColor }]}>
+                      {displayLabel}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <View style={styles.formGroup}>
@@ -1718,13 +1713,7 @@ const styles = StyleSheet.create({
   dropdownWrapper: {
     position: 'relative',
     alignItems: 'center',
-  },
-  dropdownSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    justifyContent: 'center'
   },
   dropdownTitle: {
     fontSize: 17,
@@ -1782,6 +1771,33 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  typeSelectorContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    padding: 4,
+    marginBottom: 24,
+  },
+  typeSelectorButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  typeSelectorButtonSelected: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeSelectorText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280'
   },
   formGroup: {
     marginBottom: 24,
@@ -2092,14 +2108,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 20,
-  alignItems: 'center',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   reminderCardHeader: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
     marginBottom: 10,
   },
   reminderCardTitle: {
@@ -2118,7 +2134,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: CONTAINER_HEIGHT,
     width: '100%',
-    marginVertical: 10,
+    marginVertical: 15,
   },
   reminderPickerItem: {
     height: REMINDER_ITEM_HEIGHT,
@@ -2134,7 +2150,7 @@ const styles = StyleSheet.create({
     color: '#D1D5DB',
     fontWeight: '400',
     lineHeight: REMINDER_ITEM_HEIGHT,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   reminderPickerTextSelected: {
     fontSize: 20,
@@ -2148,6 +2164,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     fontSize: 24,
     fontWeight: 'bold',
-    marginHorizontal: 10,
+    lineHeight: REMINDER_ITEM_HEIGHT,
+    textAlign: 'center',
   },
 });
