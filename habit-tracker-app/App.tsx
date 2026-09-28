@@ -45,6 +45,9 @@ interface Habit {
   frequency: string;
   selectedWeekDays?: boolean[];
   selectedMonthDays?: number[];
+  type?: 'Build a habit' | 'Quit a habit' | 'Task';
+  createdAt?: string;
+  quoteOrder?: number[];
 }
 
 interface CustomTimePickerModalProps {
@@ -99,6 +102,15 @@ const ICON_CATEGORIES = {
     'headset-outline', 'tv-outline',
   ],
 };
+
+const QUIT_QUOTES = [
+  "You can do it soldier!",
+  "Stay strong, one day at a time",
+  "Focus on your progress, not on perfection",
+  "Every second is a victory",
+  "You are stronger than your urges",
+  "Keep going, you're doing great"
+];
 
 const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
@@ -269,7 +281,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               renderItem={({ item }) => renderPickerItem(item, hour)}
             />
 
-            <View style={{ height: CONTAINER_HEIGHT, width: 24, justifyContent: 'center', alignItems:'center' }}>
+            <View style={{ height: CONTAINER_HEIGHT, width: 24, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={styles.reminderTimeSeparator}>:</Text>
             </View>
 
@@ -300,7 +312,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               }}
               renderItem={({ item }) => renderPickerItem(item, minute)}
             />
-            <View style={{ width: 16 }}/>
+            <View style={{ width: 16 }} />
             <FlatList
               ref={periodFlatListRef}
               data={PADDED_PERIODS}
@@ -570,21 +582,41 @@ export default function App() {
       };
     });
   };
+  const QuitSettings = () => {
+    setFrequencyDisplay('Everyday');
+    setSelectedWeekDays([true, true, true, true, true, true, true]);
+    setFrequencyType('days_of_week');
+  }
 
   const handleCreateHabit = async () => {
     if (!newTitle.trim()) return;
     const newId = Date.now().toString();
+    const isQuit = habitType === 'Quit a habit';
+    const randomizedOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
     const newHabit: Habit = {
-      id: Date.now().toString(),
+      id: newId,
       title: newTitle,
-      description: newDescription,
+      description: isQuit ? '' : newDescription,
       icon: selectedIcon,
       color: selectedColor,
-      frequency: frequencyDisplay,
-      selectedWeekDays: frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
-      selectedMonthDays: frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
+      frequency: isQuit ? frequencyDisplay : frequencyDisplay,
+      selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
+      selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
+      type: habitType,
+      createdAt: activeDateKey,
+      quoteOrder: isQuit ? randomizedOrder : undefined,
     };
-  {/*
+
+    if (isQuit) {
+      setHabitLogs((prevLogs) => {
+        const currentCompleted = prevLogs[activeDateKey] || [];
+        return {
+          ...prevLogs,
+          [activeDateKey]: [...currentCompleted, newId],
+        };
+      });
+    }
+    {/*
     if (isReminderEnabled) {
       await scheduleHabitReminders(
         newId,
@@ -988,6 +1020,17 @@ export default function App() {
           ) : (
             visibleHabits.map((habit) => {
               const isCompleted = (habitLogs[activeDateKey] || []).includes(habit.id);
+              let displayDescription = habit.description;
+              if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
+                const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
+                const startDate = new Date(startYear, startMonth - 1, startDay);
+                const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
+                const currentDate = new Date(currYear, currMonth - 1, currDay);
+                let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays < 0) diffDays = 0;
+                const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
+                displayDescription = QUIT_QUOTES[currentQuoteIndex];
+              }
               return (
                 <TouchableOpacity
                   key={habit.id}
@@ -1006,7 +1049,7 @@ export default function App() {
                     <Text style={[styles.habitTitle, isCompleted && styles.habitTitleCompleted]}>
                       {habit.title}
                     </Text>
-                    <Text style={styles.habitDescription}>{habit.description}</Text>
+                    <Text style={styles.habitDescription}>{displayDescription}</Text>
                   </View>
 
                   <TouchableOpacity style={styles.optionsButton}>
@@ -1050,7 +1093,7 @@ export default function App() {
             </TouchableOpacity>
 
             <View style={styles.dropdownWrapper}>
-              <Text style={styles.dropdownTitle}>{habitType}</Text>          
+              <Text style={styles.dropdownTitle}>{habitType}</Text>
             </View>
 
             <View style={{ width: 26 }} />
@@ -1099,14 +1142,16 @@ export default function App() {
               />
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>Description</Text>
-              <TextInput
-                style={styles.formInput}
-                value={newDescription}
-                onChangeText={setNewDescription}
-              />
-            </View>
+            {habitType !== 'Quit a habit' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Description</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newDescription}
+                  onChangeText={setNewDescription}
+                />
+              </View>
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>Color</Text>
@@ -1128,15 +1173,22 @@ export default function App() {
 
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>Frequency</Text>
-              <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
-                <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
+              {habitType === 'Quit a habit' ? (
+                <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
+                  <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
+                  <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>Reminder</Text>
-              <Animated.View layout={LinearTransition.duration(250)} style={styles.reminderCardContainer}>
+              <View style={styles.reminderCardContainer}>
                 <View style={styles.reminderHeaderRow}>
                   <Text style={styles.frequencyValueText}>Reminder</Text>
                   <Switch
@@ -1151,7 +1203,6 @@ export default function App() {
                 {isReminderEnabled && (
                   <Animated.View
                     entering={FadeInUp.duration(200)}
-                    exiting={FadeOutUp.duration(150)}
                     style={styles.reminderExpandedContent}>
                     <View style={styles.reminderDivider} />
                     <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
@@ -1161,7 +1212,6 @@ export default function App() {
                     </TouchableOpacity>
                   </Animated.View>
                 )}
-
                 <CustomTimePickerModal
                   visible={isReminderPickerVisible}
                   reminderSelectedHour={reminderSelectedHour}
@@ -1170,7 +1220,7 @@ export default function App() {
                   onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
                   onClose={() => setIsReminderPickerVisible(false)}
                 />
-              </Animated.View>
+              </View>
             </View>
           </ScrollView>
 
@@ -1789,7 +1839,7 @@ const styles = StyleSheet.create({
   typeSelectorButtonSelected: {
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
