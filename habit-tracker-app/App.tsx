@@ -48,6 +48,7 @@ interface Habit {
   type?: 'Build a habit' | 'Quit a habit' | 'Task';
   createdAt?: string;
   quoteOrder?: number[];
+  targetDate?: string;
 }
 
 interface CustomTimePickerModalProps {
@@ -417,6 +418,8 @@ export default function App() {
   const [reminderPeriod, setReminderPeriod] = useState<'AM' | 'PM'>('AM');
   const [reminderTime, setReminderTime] = useState(new Date());
   const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
+  const [taskDate, setTaskDate] = useState(new Date());
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
@@ -588,10 +591,16 @@ export default function App() {
     setFrequencyType('days_of_week');
   }
 
+  const handleTaskDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setIsDatePickerVisible(false);
+    if (selectedDate) setTaskDate(selectedDate);
+  }
+
   const handleCreateHabit = async () => {
     if (!newTitle.trim()) return;
     const newId = Date.now().toString();
     const isQuit = habitType === 'Quit a habit';
+    const isTask = habitType === 'Task';
     const randomizedOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
     const newHabit: Habit = {
       id: newId,
@@ -605,6 +614,7 @@ export default function App() {
       type: habitType,
       createdAt: activeDateKey,
       quoteOrder: isQuit ? randomizedOrder : undefined,
+      targetDate: isTask ? formatDateKey(taskDate) : undefined,
     };
 
     if (isQuit) {
@@ -671,6 +681,18 @@ export default function App() {
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
     setFrequencyDisplay('Everyday');
+    setTaskDate(new Date());
+  };
+
+  const resetFormWhenSetHabitType = () => {
+    setNewTitle('');
+    setNewDescription('');
+    setIsDropdownOpen(false);
+    setSelectedWeekDays([true, true, true, true, true, true, true]);
+    setSelectedMonthDays([]);
+    setFrequencyType('days_of_week');
+    setFrequencyDisplay('Everyday');
+    setTaskDate(new Date());
   };
 
   const toggleWeekDaySelection = (index: number) => {
@@ -694,7 +716,11 @@ export default function App() {
   const visibleHabits = useMemo(() => {
     const currentDayOfWeek = activeDate.getDay();
     const currentDayOfMonth = activeDate.getDate();
+
     return habits.filter((habit) => {
+      if (habit.type === 'Task') {
+        return habit.targetDate === activeDateKey;
+      }
       if (habit.selectedWeekDays) {
         return habit.selectedWeekDays[currentDayOfWeek];
       }
@@ -703,7 +729,7 @@ export default function App() {
       }
       return true;
     });
-  }, [habits, activeDate]);
+  }, [habits, activeDate, activeDateKey]);
 
   const flatListRef = React.useRef<FlatList>(null);
   const calendarFlatListRef = React.useRef<FlatList>(null);
@@ -735,9 +761,13 @@ export default function App() {
   };
 
   const getHabitsForDate = (date: Date) => {
+    const dateKey = formatDateKey(date);
     const dayOfWeek = date.getDay();
     const dayOfMonth = date.getDate();
     return habits.filter((habit) => {
+      if (habit.type === 'Task') {
+        return habit.targetDate === dateKey;
+      }
       if (habit.selectedWeekDays) {
         return habit.selectedWeekDays[dayOfWeek];
       }
@@ -1123,7 +1153,7 @@ export default function App() {
                       styles.typeSelectorButton,
                       isSelected && styles.typeSelectorButtonSelected
                     ]}
-                    onPress={() => setHabitType(type)}
+                    onPress={() => [setHabitType(type), resetFormWhenSetHabitType()]}
                   >
                     <Text style={[styles.typeSelectorText, isSelected && { color: selectedColor }]}>
                       {displayLabel}
@@ -1134,7 +1164,9 @@ export default function App() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>New habit</Text>
+              <Text style={styles.fieldLabel}>
+                {habitType === 'Task' ? 'Task name' : 'New habit'}
+              </Text>
               <TextInput
                 style={styles.formInput}
                 value={newTitle}
@@ -1149,6 +1181,7 @@ export default function App() {
                   style={styles.formInput}
                   value={newDescription}
                   onChangeText={setNewDescription}
+                  multiline={true}
                 />
               </View>
             )}
@@ -1171,20 +1204,54 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>Frequency</Text>
-              {habitType === 'Quit a habit' ? (
-                <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
-                  <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+            {habitType !== 'Task' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>Frequency</Text>
+                {habitType === 'Quit a habit' ? (
+                  <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
+                    <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
+                    <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {habitType === 'Task' && (
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>When</Text>
+                <TouchableOpacity
+                  style={styles.frequencyInputSelector}
+                  onPress={() => setIsDatePickerVisible(true)}
+                >
+                  <Text style={styles.frequencyValueText}>
+                    Do it on: {taskDate.toLocaleDateString('en-US', { weekday:'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
                 </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
-                  <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
+
+                {isDatePickerVisible && (
+                  <DateTimePicker
+                    value={taskDate}
+                    mode="date"
+                    display="default"
+                    onValueChange={handleTaskDateChange}
+                  />
+                )}
+                {Platform.OS === 'ios' && isDatePickerVisible && (
+                  <TouchableOpacity
+                    style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
+                    onPress={() => setIsDatePickerVisible(false)}
+                  >
+                    <Text style={{ color: selectedColor, fontWeight: '600' }}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>Reminder</Text>
@@ -2152,7 +2219,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   reminderWindowCardContainer: {
-    width: '100%',
+    width: '80%',
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
     paddingHorizontal: 24,
