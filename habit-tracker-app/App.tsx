@@ -68,7 +68,6 @@ const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
 const REMINDER_ITEM_HEIGHT = 45;
 const VISIBLE_ITEMS = 3;
 const CONTAINER_HEIGHT = REMINDER_ITEM_HEIGHT * VISIBLE_ITEMS;
-const VERTICAL_PADDING = (CONTAINER_HEIGHT - REMINDER_ITEM_HEIGHT) / 2;
 const REMINDER_PERIODS = ["AM", "PM"] as const;
 const LOOP_FACTOR = 100;
 const INFINITE_HOURS = Array.from({ length: 12 * LOOP_FACTOR }, (_, i) => String((i % 12) + 1));
@@ -156,6 +155,26 @@ useEffect(() => {
   registerForPushNotificationsAsync();
 }, []);
  */}
+
+ const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
+  if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }}/>;
+  return (
+    <View style={{ height: REMINDER_ITEM_HEIGHT, width: '100%', justifyContent: 'center', alignItems: 'center'}}>
+      <Text
+        style={[
+          styles.reminderPickerText,
+          isSelected && styles.reminderPickerTextSelected,
+          { textAlign: 'center', width: '100%' }
+        ]}
+      >
+        {item}
+      </Text>
+    </View>
+  );
+ },
+ (prevProps, nextProps) => prevProps.isSelected === nextProps.isSelected
+);
+
 export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   visible,
   reminderSelectedHour,
@@ -265,6 +284,9 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               decelerationRate="normal"
               disableIntervalMomentum={false}
               bounces={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
               getItemLayout={(_, index) => ({
                 length: REMINDER_ITEM_HEIGHT,
                 offset: REMINDER_ITEM_HEIGHT * index,
@@ -279,7 +301,8 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
                 const safeIndex = Math.min(Math.max(0, index), INFINITE_HOURS.length - 1);
                 setHour(INFINITE_HOURS[safeIndex]);
               }}
-              renderItem={({ item }) => renderPickerItem(item, hour)}
+              extraData={hour}
+              renderItem={({ item }) => <MemorizedPickerItem item={item} isSelected={item === hour} />}
             />
 
             <View style={{ height: CONTAINER_HEIGHT, width: 24, justifyContent: 'center', alignItems: 'center' }}>
@@ -297,6 +320,9 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               decelerationRate="normal"
               disableIntervalMomentum={false}
               bounces={false}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={5}
               getItemLayout={(_, index) => ({
                 length: REMINDER_ITEM_HEIGHT,
                 offset: REMINDER_ITEM_HEIGHT * index,
@@ -311,19 +337,21 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
                 const safeIndex = Math.min(Math.max(0, index), INFINITE_MINUTES.length - 1);
                 setMinute(INFINITE_MINUTES[safeIndex]);
               }}
-              renderItem={({ item }) => renderPickerItem(item, minute)}
+              extraData={minute}
+              renderItem={({ item }) => <MemorizedPickerItem item={item} isSelected={item === minute} />}
             />
             <View style={{ width: 16 }} />
             <FlatList
               ref={periodFlatListRef}
               data={PADDED_PERIODS}
               style={{ height: CONTAINER_HEIGHT, width: 60 }}
+              contentContainerStyle={{ paddingBottom: REMINDER_ITEM_HEIGHT * 1.1 }}
               keyExtractor={(item, index) => `p-${index}-${item}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
               snapToAlignment="start"
-              decelerationRate="fast"
-              disableIntervalMomentum={true}
+              decelerationRate="normal"
+              disableIntervalMomentum={false}
               bounces={false}
               getItemLayout={(_, index) => ({
                 length: REMINDER_ITEM_HEIGHT,
@@ -339,7 +367,8 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
                 const safeIndex = Math.min(Math.max(0, index), REMINDER_PERIODS.length - 1);
                 setPeriod(REMINDER_PERIODS[safeIndex]);
               }}
-              renderItem={({ item }) => renderPickerItem(item, period)}
+              extraData={period}
+              renderItem={({ item }) => <MemorizedPickerItem item={item} isSelected={item === period} />}
             />
           </View>
 
@@ -585,16 +614,21 @@ export default function App() {
       };
     });
   };
+
   const QuitSettings = () => {
     setFrequencyDisplay('Everyday');
     setSelectedWeekDays([true, true, true, true, true, true, true]);
     setFrequencyType('days_of_week');
-  }
+  };
 
   const handleTaskDateChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') setIsDatePickerVisible(false);
     if (selectedDate) setTaskDate(selectedDate);
-  }
+  };
+
+  const handleTaskDateDismiss = () => {
+    setIsDatePickerVisible(false);
+  };
 
   const handleCreateHabit = async () => {
     if (!newTitle.trim()) return;
@@ -657,19 +691,6 @@ export default function App() {
     setIsReminderPickerVisible(false);
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setIsReminderPickerVisible(false);
-    }
-    if (selectedDate) {
-      setReminderTime(selectedDate);
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleDateString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   const resetForm = () => {
     setNewTitle('');
     setNewDescription('');
@@ -682,6 +703,10 @@ export default function App() {
     setFrequencyType('days_of_week');
     setFrequencyDisplay('Everyday');
     setTaskDate(new Date());
+    setRemiderSelectedHour('05');
+    setReminderSelectedMinute('00');
+    setReminderPeriod('AM');
+    setIsReminderEnabled(false);
   };
 
   const resetFormWhenSetHabitType = () => {
@@ -693,6 +718,10 @@ export default function App() {
     setFrequencyType('days_of_week');
     setFrequencyDisplay('Everyday');
     setTaskDate(new Date());
+    setRemiderSelectedHour('05');
+    setReminderSelectedMinute('00');
+    setReminderPeriod('AM');
+    setIsReminderEnabled(false);
   };
 
   const toggleWeekDaySelection = (index: number) => {
@@ -938,9 +967,11 @@ export default function App() {
         <View style={styles.rightActions}>
           <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
             {(() => {
-              const todayStr = formatDateKey(new Date());
+              const today = new Date();
+              const todayStr = formatDateKey(today);
               const todayLogs = habitLogs[todayStr] || [];
-              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habits.length;
+              const habitsForToday = getHabitsForDate(today);
+              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length;
               const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
               return (
@@ -1089,7 +1120,7 @@ export default function App() {
               );
             })
           )}
-          <TouchableOpacity style={styles.createHabitButton} onPress={() => setIsModalVisible(true)}>
+          <TouchableOpacity style={styles.createHabitButton} onPress={() => [setIsModalVisible(true), resetForm()]}>
             <Ionicons name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -1240,6 +1271,7 @@ export default function App() {
                     mode="date"
                     display="default"
                     onValueChange={handleTaskDateChange}
+                    onDismiss={handleTaskDateDismiss}
                   />
                 )}
                 {Platform.OS === 'ios' && isDatePickerVisible && (
