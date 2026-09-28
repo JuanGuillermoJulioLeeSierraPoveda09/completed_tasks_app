@@ -156,10 +156,10 @@ useEffect(() => {
 }, []);
  */}
 
- const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
-  if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }}/>;
+const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
+  if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }} />;
   return (
-    <View style={{ height: REMINDER_ITEM_HEIGHT, width: '100%', justifyContent: 'center', alignItems: 'center'}}>
+    <View style={{ height: REMINDER_ITEM_HEIGHT, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
       <Text
         style={[
           styles.reminderPickerText,
@@ -171,8 +171,8 @@ useEffect(() => {
       </Text>
     </View>
   );
- },
- (prevProps, nextProps) => prevProps.isSelected === nextProps.isSelected
+},
+  (prevProps, nextProps) => prevProps.isSelected === nextProps.isSelected
 );
 
 export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
@@ -262,6 +262,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       transparent={true}
       animationType='fade'
       onRequestClose={onClose}
+      statusBarTranslucent={true}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.reminderWindowCardContainer}>
@@ -602,6 +603,8 @@ export default function App() {
   }, [activeDate]);
 
   const toggleHabitCompletion = (habitId: string) => {
+    const todayStr = formatDateKey(new Date());
+    if (activeDateKey > todayStr) return;
     setHabitLogs((prevLogs) => {
       const currentCompleted = prevLogs[activeDateKey] || [];
       const exists = currentCompleted.includes(habitId);
@@ -971,7 +974,7 @@ export default function App() {
               const todayStr = formatDateKey(today);
               const todayLogs = habitLogs[todayStr] || [];
               const habitsForToday = getHabitsForDate(today);
-              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length;
+              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
               const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
               return (
@@ -1081,6 +1084,8 @@ export default function App() {
           ) : (
             visibleHabits.map((habit) => {
               const isCompleted = (habitLogs[activeDateKey] || []).includes(habit.id);
+              const todayStr = formatDateKey(new Date());
+              const isFutureDate = activeDateKey > todayStr;
               let displayDescription = habit.description;
               if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
                 const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
@@ -1095,8 +1100,14 @@ export default function App() {
               return (
                 <TouchableOpacity
                   key={habit.id}
-                  style={[styles.habitCard, isCompleted && styles.habitCardCompleted]}
-                  onPress={() => toggleHabitCompletion(habit.id)}
+                  style={[
+                    styles.habitCard, 
+                    isCompleted && styles.habitCardCompleted,
+                    isFutureDate && { opacity: 0.5 }
+                  ]}
+                  onPress={() => {
+                    if (!isFutureDate) toggleHabitCompletion(habit.id);
+                  }}
                 >
                   <View style={[styles.iconContainer, { backgroundColor: habit.color + '20' }]}>
                     <Ionicons
@@ -1131,7 +1142,7 @@ export default function App() {
           <Ionicons name="grid-outline" size={22} color="#00B763" />
           <Text style={[styles.bottomTabText, { color: '#00B763' }]}>Menú</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomTab} onPress={() => setIsModalVisible(true)}>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => [setIsModalVisible(true), resetForm()]}>
           <Ionicons name="add-circle" size={22} color="#6B7280" />
           <Text style={styles.bottomTabText}>New Habit</Text>
         </TouchableOpacity>
@@ -1145,7 +1156,7 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      <Modal visible={isModalVisible} animationType="slide" transparent={false}>
+      <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
         <SafeAreaView style={styles.createHabitModalContainer}>
           <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
           <View style={styles.createHabitHeader}>
@@ -1260,7 +1271,7 @@ export default function App() {
                   onPress={() => setIsDatePickerVisible(true)}
                 >
                   <Text style={styles.frequencyValueText}>
-                    Do it on: {taskDate.toLocaleDateString('en-US', { weekday:'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                    Do it on: {taskDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
                   </Text>
                   <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
                 </TouchableOpacity>
@@ -1385,7 +1396,7 @@ export default function App() {
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false}>
+      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity
