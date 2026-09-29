@@ -5,8 +5,6 @@
     "everySecondIsAVictory": "Every second is a victory",
     "youAreStrongerThanYourUrges": "You are stronger than your urges",
     "keepGoingYoureDoingGreat": "Keep going, you're doing great",
-    "time": "Time",
-    "save": "Save",
     "yourHabits": "Your Habits",
     "youDontHaveAnyHabitsYet": "You don't have any habits yet",
     "createOneToStartTracking": "Create one to start tracking",
@@ -53,5 +51,17 @@
     "color": "Color",
     "frequency": "Frequency",
     "when": "When",
-    "doItOn": "Do it on"
+    "doItOn": "Do it on",
+    "done": "Done",
+    "reminder": "Reminder",
+    "saveHabit": "Save Habit",
+    "time": "Time",
+    "save": "Save",
+    "specificDaysOfTheWeek": "Specific days of the week",
+    "specificDaysOfTheMonth": "Specific days of the month",
+    "myStreaks": "My Streaks",
+    "loggedDays": "Logged Days",
+    "currentStreak": "current streak",
+    "best": "Best",
+    "perfectDays": "Perfect Days"
 }

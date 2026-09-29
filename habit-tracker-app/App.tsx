@@ -1302,17 +1302,17 @@ export default function App() {
                     style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
                     onPress={() => setIsDatePickerVisible(false)}
                   >
-                    <Text style={{ color: selectedColor, fontWeight: '600' }}>Done</Text>
+                    <Text style={{ color: selectedColor, fontWeight: '600' }}>{t('done')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             )}
 
             <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>Reminder</Text>
+              <Text style={styles.fieldLabel}>{t('reminder')}</Text>
               <View style={styles.reminderCardContainer}>
                 <View style={styles.reminderHeaderRow}>
-                  <Text style={styles.frequencyValueText}>Reminder</Text>
+                  <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
                   <Switch
                     trackColor={{ false: '#767577', true: selectedColor + '10' }}
                     thumbColor={isReminderEnabled ? selectedColor : '#F4F3F4'}
@@ -1348,13 +1348,13 @@ export default function App() {
 
           <View style={styles.createHabitFooter}>
             <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: selectedColor }]} onPress={handleCreateHabit}>
-              <Text style={styles.saveButtonText}>Save Habit</Text>
+              <Text style={styles.saveButtonText}>{t('saveHabit')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide">
+      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
@@ -1362,7 +1362,7 @@ export default function App() {
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-              <Text style={styles.headerDoneText}>Done</Text>
+              <Text style={styles.headerDoneText}>{t('done')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1416,11 +1416,11 @@ export default function App() {
             >
               <Ionicons name="close" size={26} color="#1F2937" />
             </TouchableOpacity>
-            <Text style={styles.fullscreenModalTitle}>Frequency</Text>
+            <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
             <TouchableOpacity
               onPress={handleCloseFrequencyModal}
             >
-              <Text style={styles.headerDoneText}>Done</Text>
+              <Text style={styles.headerDoneText}>{t('done')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -1438,7 +1438,7 @@ export default function App() {
                   size={20}
                   color={frequencyType === 'days_of_week' ? selectedColor : '#9CA3AF'}
                 />
-                <Text style={styles.frequencyOptionTitle}>Specific days of the week</Text>
+                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
               </View>
 
               {frequencyType === 'days_of_week' && (
@@ -1477,7 +1477,7 @@ export default function App() {
                   size={20}
                   color={frequencyType === 'days_of_month' ? selectedColor : '#9CA3AF'}
                 />
-                <Text style={styles.frequencyOptionTitle}>Specific days of the month</Text>
+                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
               </View>
 
               {frequencyType === 'days_of_month' && (
@@ -1553,37 +1553,37 @@ export default function App() {
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false}>
+      <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false} statusBarTranslucent={true}>
         <SafeAreaView style={styles.streaksContainer}>
-          <StatusBar barStyle="light-content" backgroundColor="#121212" />
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
           <View style={styles.streaksHeader}>
             <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
               <Ionicons name="close" size={28} color="#1F2937" />
             </TouchableOpacity>
-            <Text style={styles.streaksTitle}>My Streaks</Text>
+            <Text style={styles.streaksTitle}>{t('myStreaks')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
           <View style={styles.streaksTopBox}>
             <View style={styles.streakCard}>
               <Ionicons name="flame" size={56} color="#F59E0B" />
-              <Text style={styles.streakLabel}>Logged Days</Text>
+              <Text style={styles.streakLabel}>{t('loggedDays')}</Text>
               <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
-              <Text style={styles.streakSubtext}>current streak</Text>
+              <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
               <View style={styles.bestBadge}>
                 <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
-                <Text style={styles.bestText}>Best: {streakStats.loggedBest}</Text>
+                <Text style={styles.bestText}>{t('best')}: {streakStats.loggedBest}</Text>
               </View>
             </View>
             <View style={styles.streakDivider} />
             <View style={styles.streakCard}>
               <Ionicons name="flame" size={56} color="#10B981" />
-              <Text style={styles.streakLabel}>Perfect Days</Text>
+              <Text style={styles.streakLabel}>{t('perfectDays')}</Text>
               <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
-              <Text style={styles.streakSubtext}>current streak</Text>
+              <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
               <View style={styles.bestBadge}>
                 <Ionicons name="trophy-outline" size={16} color="#10B981" />
-                <Text style={styles.bestText}>Best: {streakStats.perfectBest}</Text>
+                <Text style={styles.bestText}>{t('best')}: {streakStats.perfectBest}</Text>
               </View>
             </View>
           </View>
@@ -1595,7 +1595,7 @@ export default function App() {
               </TouchableOpacity>
               <TouchableOpacity>
                 <Text style={styles.calendarMonthText} onPress={handleMonthCurrent}>
-                  {currentCalendarDate.toLocaleDateString('en-US', {
+                  {currentCalendarDate.toLocaleDateString(currentLocale, {
                     month: 'long',
                     year: 'numeric',
                   })}
@@ -2147,7 +2147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderWidth: 1.3,
+    borderBottomWidth: 1.3,
     borderColor: '#F3F4F6'
   },
   streaksTitle: { fontSize: 20, fontWeight: '700', color: '#1F2937' },
