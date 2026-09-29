@@ -25,7 +25,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-{/*
+import { useTranslation } from 'react-i18next';
+import './i18n';
+/*
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -35,7 +37,7 @@ Notifications.setNotificationHandler({
     shouldShowList: false
   }),
 });
- */}
+*/
 interface Habit {
   id: string;
   title: string;
@@ -62,7 +64,6 @@ interface CustomTimePickerModalProps {
 
 type HabitLogs = Record<string, string[]>;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
 const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
 const REMINDER_ITEM_HEIGHT = 45;
@@ -103,15 +104,6 @@ const ICON_CATEGORIES = {
   ],
 };
 
-const QUIT_QUOTES = [
-  "You can do it soldier!",
-  "Stay strong, one day at a time",
-  "Focus on your progress, not on perfection",
-  "Every second is a victory",
-  "You are stronger than your urges",
-  "Keep going, you're doing great"
-];
-
 const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
 };
@@ -126,7 +118,7 @@ const formatDateKey = (date: Date) => {
 const PADDED_HOURS = ['', ...INFINITE_HOURS, ''];
 const PADDED_MINUTES = ['', ...INFINITE_MINUTES, ''];
 const PADDED_PERIODS = ['', ...REMINDER_PERIODS, ''];
-{/*
+/*
 async function registerForPushNotificationsAsync() {
   let token;
   if (Platform.OS === 'android') {
@@ -154,7 +146,7 @@ async function registerForPushNotificationsAsync() {
 useEffect(() => {
   registerForPushNotificationsAsync();
 }, []);
- */}
+*/
 
 const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
   if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }} />;
@@ -183,6 +175,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   onConfirm,
   onClose,
 }) => {
+  const { t, i18n } = useTranslation();
   const [hour, setHour] = useState(reminderSelectedHour);
   const [minute, setMinute] = useState(reminderSelectedMinute);
   const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
@@ -267,7 +260,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       <View style={styles.modalOverlay}>
         <View style={styles.reminderWindowCardContainer}>
           <View style={styles.reminderCardHeader}>
-            <Text style={styles.reminderCardTitle}>Time</Text>
+            <Text style={styles.reminderCardTitle}>{t('time')}</Text>
             <TouchableOpacity onPress={onClose} style={styles.reminderCloseButton}>
               <Ionicons name="close" size={24} color="#6B7280" />
             </TouchableOpacity>
@@ -377,14 +370,14 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
             style={styles.reminderSaveButton}
             onPress={() => onConfirm(hour, minute, period)}
           >
-            <Text style={styles.reminderSaveButtonText}>Save</Text>
+            <Text style={styles.reminderSaveButtonText}>{t('save')}</Text>
           </TouchableOpacity>
         </View>
       </View>
     </Modal>
   );
 };
-{/*
+/*
 export async function scheduleHabitReminders(
   habitID: string,
   habitTitle: string,
@@ -421,8 +414,19 @@ export async function scheduleHabitReminders(
     }
   }
 }
-*/}
+*/
 export default function App() {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
+  const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
+  const QUIT_QUOTES_KEYS = useMemo (() => [
+  t('youCanDoItSoldier'),
+  t('stayStrongOneDayAtATime'),
+  t('focusOnYourProgressNotOnPerfection'),
+  t('everySecondIsAVictory'),
+  t('youAreStrongerThanYourUrges'),
+  t('keepGoingYoureDoingGreat')
+], [t]);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -452,7 +456,7 @@ export default function App() {
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
-  const [frequencyDisplay, setFrequencyDisplay] = useState('Everyday');
+  const [frequencyDisplay, setFrequencyDisplay] = useState( t('everyday'));
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -462,22 +466,22 @@ export default function App() {
   const updateFrequencyDisplay = (daysArr: boolean[]) => {
     const [sun, mon, tue, wed, thu, fri, sat] = daysArr;
     const count = daysArr.filter(Boolean).length;
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayNames = [t('Sunday'), t('Monday'), t('Tuesday'), t('Wednesday'), t('Thursday'), t('Friday'), t('Saturday')];
     if (count === 7) {
-      setFrequencyDisplay('Everyday');
+      setFrequencyDisplay(t('everyday'));
       return;
     } else if (count === 6) {
       const missingIndex = daysArr.findIndex((val) => !val);
-      setFrequencyDisplay(`Everyday but ${dayNames[missingIndex]}`);
+      setFrequencyDisplay(`${t('everydayBut')} ${dayNames[missingIndex]}`);
       return;
     } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat) {
-      setFrequencyDisplay('Weekdays');
+      setFrequencyDisplay(t('weekdays'));
       return;
     } else if (count === 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
-      setFrequencyDisplay('Midweek');
+      setFrequencyDisplay(t('midweek'));
       return;
     } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri) {
-      setFrequencyDisplay('Weekend');
+      setFrequencyDisplay(t('weekend'));
       return;
     } else if (count === 4 || count === 5) {
       const extendedDays = [...daysArr, ...daysArr];
@@ -498,11 +502,11 @@ export default function App() {
 
       if (startIdx !== -1) {
         const endIdx = (startIdx + count - 1) % 7;
-        setFrequencyDisplay(`From ${dayNames[startIdx]} to ${dayNames[endIdx]}`);
+        setFrequencyDisplay(`${t('from')}${dayNames[startIdx]} ${t('to')} ${dayNames[endIdx]}`);
         return;
       }
     } else if (count === 0) {
-      setFrequencyDisplay('Select at least 1 day');
+      setFrequencyDisplay(t('selectAtLeast1Day'));
       return;
     }
     const selectedNames = daysArr
@@ -515,15 +519,15 @@ export default function App() {
   const getOrdinalSuffix = (day: number) => {
     if (day > 3 && day < 21) return `${day}th`;
     switch (day % 10) {
-      case 1: return `${day}st`;
-      case 2: return `${day}nd`;
-      case 3: return `${day}rd`;
-      default: return `${day}th`;
+      case 1: return `${day}${t('first')}`;
+      case 2: return `${day}${t('second')}`;
+      case 3: return `${day}${t('third')}`;
+      default: return `${day}${t('th')}`;
     }
   };
 
   const formatMonthDaysDisplay = (days: number[]): string => {
-    if (days.length === 0) return 'Select at least 1 day';
+    if (days.length === 0) return t('selectAtLeast1Day');
 
     const sorted = [...days].sort((a, b) => a - b);
     const ranges: string[] = [];
@@ -544,7 +548,7 @@ export default function App() {
       }
       prevDay = currentDay;
     }
-    return `${ranges.join(', ')} of each month`;
+    return `${ranges.join(', ')} ${t('ofEachMonth')}`;
   };
 
   const handleCloseFrequencyModal = () => {
@@ -594,13 +598,12 @@ export default function App() {
     const todayStr = formatDateKey(new Date());
     const activeStr = formatDateKey(activeDate);
     const isToday = todayStr === activeStr;
-
-    const dayName = activeDate.toLocaleDateString('en-US', { weekday: 'short' });
-    const monthName = activeDate.toLocaleDateString('en-US', { month: 'short' });
+    const dayName = activeDate.toLocaleDateString(currentLocale, { weekday: 'short' });
+    const monthName = activeDate.toLocaleDateString(currentLocale, { month: 'short' });
     const dayNum = activeDate.getDate();
 
-    setHeaderDateText(`${isToday ? 'Today, ' : ''}${dayName} ${monthName} ${dayNum}`);
-  }, [activeDate]);
+    setHeaderDateText(`${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${dayNum}`);
+  }, [activeDate, i18n.language, t]);
 
   const toggleHabitCompletion = (habitId: string) => {
     const todayStr = formatDateKey(new Date());
@@ -619,7 +622,7 @@ export default function App() {
   };
 
   const QuitSettings = () => {
-    setFrequencyDisplay('Everyday');
+    setFrequencyDisplay(t('everyday'));
     setSelectedWeekDays([true, true, true, true, true, true, true]);
     setFrequencyType('days_of_week');
   };
@@ -663,7 +666,7 @@ export default function App() {
         };
       });
     }
-    {/*
+    /*
     if (isReminderEnabled) {
       await scheduleHabitReminders(
         newId,
@@ -676,7 +679,7 @@ export default function App() {
         selectedMonthDays
       );
     }
-  */}
+  */
     setHabits([...habits, newHabit]);
     resetForm();
     setIsModalVisible(false);
@@ -704,11 +707,11 @@ export default function App() {
     setSelectedWeekDays([true, true, true, true, true, true, true]);
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
-    setFrequencyDisplay('Everyday');
+    setFrequencyDisplay(t('everyday'));
     setTaskDate(new Date());
     setRemiderSelectedHour('05');
     setReminderSelectedMinute('00');
-    setReminderPeriod('AM');
+    setReminderPeriod(('AM'));
     setIsReminderEnabled(false);
   };
 
@@ -719,7 +722,7 @@ export default function App() {
     setSelectedWeekDays([true, true, true, true, true, true, true]);
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
-    setFrequencyDisplay('Everyday');
+    setFrequencyDisplay(t('everyday'));
     setTaskDate(new Date());
     setRemiderSelectedHour('05');
     setReminderSelectedMinute('00');
@@ -957,6 +960,15 @@ export default function App() {
     setIsStreaksModalVisible(false);
   };
 
+  const getLocale = (languageCode: string) => {
+  switch (languageCode) {
+    case 'es': return 'es-ES';
+    case 'jp': return 'ja-JP';
+    case 'en': 
+    default: return 'en-US';
+  }
+};
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
@@ -1075,11 +1087,11 @@ export default function App() {
         </View>
 
         <View style={styles.habitsSection}>
-          <Text style={styles.sectionTitle}>Your Habits</Text>
+          <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
           {visibleHabits.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>You don't have any habits yet</Text>
-              <Text style={styles.emptySubtext}>Create one to start tracking</Text>
+              <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
+              <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
             </View>
           ) : (
             visibleHabits.map((habit) => {
@@ -1095,7 +1107,7 @@ export default function App() {
                 let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
                 if (diffDays < 0) diffDays = 0;
                 const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
-                displayDescription = QUIT_QUOTES[currentQuoteIndex];
+                displayDescription = t(QUIT_QUOTES_KEYS[currentQuoteIndex]);
               }
               return (
                 <TouchableOpacity
@@ -1131,7 +1143,7 @@ export default function App() {
               );
             })
           )}
-          <TouchableOpacity style={styles.createHabitButton} onPress={() => [setIsModalVisible(true), resetForm()]}>
+          <TouchableOpacity style={styles.createHabitButton} onPress={() => {setIsModalVisible(true); resetForm(); }}>
             <Ionicons name="add" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
@@ -1140,19 +1152,19 @@ export default function App() {
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="grid-outline" size={22} color="#00B763" />
-          <Text style={[styles.bottomTabText, { color: '#00B763' }]}>Menú</Text>
+          <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomTab} onPress={() => [setIsModalVisible(true), resetForm()]}>
+        <TouchableOpacity style={styles.bottomTab} onPress={() => {setIsModalVisible(true), resetForm()}}>
           <Ionicons name="add-circle" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>New Habit</Text>
+          <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>Analytics</Text>
+          <Text style={styles.bottomTabText}>{t('analytics')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bottomTab}>
           <Ionicons name="person-outline" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>Me</Text>
+          <Text style={styles.bottomTabText}>{t('me')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1165,7 +1177,7 @@ export default function App() {
             </TouchableOpacity>
 
             <View style={styles.dropdownWrapper}>
-              <Text style={styles.dropdownTitle}>{habitType}</Text>
+              <Text style={styles.dropdownTitle}>{t(habitType)}</Text>
             </View>
 
             <View style={{ width: 26 }} />
@@ -1186,7 +1198,7 @@ export default function App() {
             <View style={styles.typeSelectorContainer}>
               {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
                 const isSelected = habitType === type;
-                const displayLabel = type === 'Build a habit' ? 'Build' : type === 'Quit a habit' ? 'Quit' : 'Task';
+                const displayLabel = type === 'Build a habit' ? t('build') : type === 'Quit a habit' ? t('quit') : t('task');
 
                 return (
                   <TouchableOpacity
@@ -1207,7 +1219,7 @@ export default function App() {
 
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>
-                {habitType === 'Task' ? 'Task name' : 'New habit'}
+                {habitType === 'Task' ? t('taskName') : t('newHabit')}
               </Text>
               <TextInput
                 style={styles.formInput}
@@ -1218,7 +1230,7 @@ export default function App() {
 
             {habitType !== 'Quit a habit' && (
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>Description</Text>
+                <Text style={styles.fieldLabel}>{t('description')}</Text>
                 <TextInput
                   style={styles.formInput}
                   value={newDescription}
@@ -1229,7 +1241,7 @@ export default function App() {
             )}
 
             <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>Color</Text>
+              <Text style={styles.fieldLabel}>{t('color')}</Text>
               <View style={styles.colorGrid}>
                 {AVAILABLE_COLORS.map((color) => {
                   const isSelected = selectedColor === color;
@@ -1248,7 +1260,7 @@ export default function App() {
 
             {habitType !== 'Task' && (
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>Frequency</Text>
+                <Text style={styles.fieldLabel}>{t('frequency')}</Text>
                 {habitType === 'Quit a habit' ? (
                   <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
                     <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
@@ -1265,13 +1277,13 @@ export default function App() {
 
             {habitType === 'Task' && (
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>When</Text>
+                <Text style={styles.fieldLabel}>{t('when')}</Text>
                 <TouchableOpacity
                   style={styles.frequencyInputSelector}
                   onPress={() => setIsDatePickerVisible(true)}
                 >
                   <Text style={styles.frequencyValueText}>
-                    Do it on: {taskDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                    {t('doItOn')}: {taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
                   </Text>
                   <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
                 </TouchableOpacity>
