@@ -13,17 +13,26 @@ import {
   Switch,
   Platform,
   LayoutAnimation,
+  Alert,
   NativeScrollEvent,
   NativeSyntheticEvent
 } from 'react-native';
 import Animated, {
   FadeInUp,
   FadeOutUp,
-  LinearTransition
+  LinearTransition,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+  Layout,
+  FadeIn,
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import './i18n';
@@ -415,23 +424,121 @@ export async function scheduleHabitReminders(
   }
 }
 */
+interface SwipeableHabitCardProps {
+  habit: Habit;
+  isCompleted: boolean;
+  isFailed: boolean
+  onToggle: (habitId: string) => void;
+  onRelapse?: (habitId: string) => void;
+  displayDescription?: string;
+}
+
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
+const RELAPSE_THRESHOLD = SCREEN_WIDTH * 0.4;
+const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
+  habit,
+  isCompleted,
+  onToggle,
+  onRelapse,
+  displayDescription
+}) => {
+  const translateX = useSharedValue(0);
+  const isQuitHabit = habit.type === 'Quit a habit';
+  const panGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .onUpdate((event) => {
+      if (!isCompleted) {
+        if (event.translationX > 0) {
+          translateX.value = event.translationX;
+        } else {
+          translateX.value = event.translationX;
+        }
+      }
+    })
+    .onEnd((event) => {
+      if (!isCompleted) {
+        if (event.translationX > SWIPE_THRESHOLD) {
+          translateX.value = withTiming(SCREEN_WIDTH, {}, () => {
+            runOnJS(onToggle)(habit.id);
+            translateX.value = 0;
+          });
+        }
+        else if (isQuitHabit && event.translationX < -RELAPSE_THRESHOLD) {
+          translateX.value = withSpring(0);
+          if (onRelapse) {
+            runOnJS(onRelapse)(habit.id);
+          }
+        }
+        else {
+          translateX.value = withSpring(0);
+        }
+      }
+    });
+  const rStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }]
+  }));
+  const rBackgroundRightStyle = useAnimatedStyle(() => ({
+    opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
+    zIndex: translateX.value > 0 ? 1 : -1,
+  }));
+  const rBackgroundLeftStyle = useAnimatedStyle(() => ({
+    opacity: translateX.value < 0 ? Math.min(Math.abs(translateX.value) / RELAPSE_THRESHOLD, 1) : 0,
+    zIndex: translateX.value < 0 ? 1 : -1,
+  }));
+  return (
+    <Animated.View layout={Layout.springify()} entering={FadeIn} style={styles.swipeableContainer}>
+      {!isCompleted && (
+        <>
+          <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
+            <Ionicons name={isQuitHabit ? "shield-checkmark" : "checkmark-circle-outline"} size={32} color="#FFFFFF" />
+          </Animated.View>
+          {isQuitHabit && (
+            <Animated.View style={[styles.swipeBackgroundLeft, rBackgroundLeftStyle]}>
+              <Ionicons name="refresh-circle" size={34} color="#FFFFFF" />
+            </Animated.View>
+          )}
+        </>
+      )}
+
+      <GestureDetector gesture={panGesture}>
+        <Animated.View style={[styles.habitCardGestural, rStyle, isCompleted && styles.habitCardCompletedGestural]}>
+          <View style={[styles.iconContainerGesture, { backgroundColor: isCompleted ? '#F3F4F6' : habit.color + '15' }]}>
+            <Ionicons
+              name={isCompleted ? 'checkmark-circle' : (habit.icon as any)}
+              size={24}
+              color={isCompleted ? '#9CA3AF' : habit.color}
+            />
+          </View>
+          <View style={styles.habitInfo}>
+            <Text style={[styles.habitTitleGestural, isCompleted && styles.habitTitleCompleted]}>
+              {habit.title}
+            </Text>
+            {displayDescription ? <Text style={styles.habitDescription}>{displayDescription}</Text> : null}
+          </View>
+        </Animated.View>
+      </GestureDetector>
+    </Animated.View>
+  )
+}
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
-  const QUIT_QUOTES_KEYS = useMemo (() => [
-  t('youCanDoItSoldier'),
-  t('stayStrongOneDayAtATime'),
-  t('focusOnYourProgressNotOnPerfection'),
-  t('everySecondIsAVictory'),
-  t('youAreStrongerThanYourUrges'),
-  t('keepGoingYoureDoingGreat')
-], [t]);
+  const QUIT_QUOTES_KEYS = useMemo(() => [
+    t('youCanDoItSoldier'),
+    t('stayStrongOneDayAtATime'),
+    t('focusOnYourProgressNotOnPerfection'),
+    t('everySecondIsAVictory'),
+    t('youAreStrongerThanYourUrges'),
+    t('keepGoingYoureDoingGreat')
+  ], [t]);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
+  const [relapseLogs, setRelapseLogs] = useState<Record<string, string[]>>({});
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
 
@@ -456,7 +563,7 @@ export default function App() {
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
-  const [frequencyDisplay, setFrequencyDisplay] = useState( t('everyday'));
+  const [frequencyDisplay, setFrequencyDisplay] = useState(t('everyday'));
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -620,6 +727,46 @@ export default function App() {
       };
     });
   };
+
+  const handleRelapse = (habitId: string) => {
+    Alert.alert(
+      t('relapseWarningTitle') || "Registro de recaída",
+      t('relapseWarningBody') || "¿Estás seguro de que cediste al hábito? Esto romperá tu racha actual.",
+      [
+        { text: t('cancel') || "Cancelar", style: "cancel" },
+        {
+          text: t('confirmRelapse') || "Sí, recaí",
+          style: "destructive",
+          onPress: () => {
+            setRelapseLogs((prevLogs) => {
+            const currentRelapsed = prevLogs[activeDateKey] || [];
+            if (!currentRelapsed.includes(habitId)) {
+              return { ...prevLogs, [activeDateKey]: [...currentRelapsed, habitId] };
+            }
+            return prevLogs;
+          });
+          }
+        }
+      ]
+    );
+  };
+
+  const getDisplayDescription = (habit: Habit) => {
+  let displayDescription = habit.description;
+  
+  if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
+    const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
+    const startDate = new Date(startYear, startMonth - 1, startDay);
+    const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
+    const currentDate = new Date(currYear, currMonth - 1, currDay);
+    let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) diffDays = 0;
+    const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
+    displayDescription = QUIT_QUOTES_KEYS[currentQuoteIndex]; 
+  }
+  
+  return displayDescription;
+};
 
   const QuitSettings = () => {
     setFrequencyDisplay(t('everyday'));
@@ -961,554 +1108,567 @@ export default function App() {
   };
 
   const getLocale = (languageCode: string) => {
-  switch (languageCode) {
-    case 'es': return 'es-ES';
-    case 'jp': return 'ja-JP';
-    case 'en': 
-    default: return 'en-US';
-  }
-};
+    switch (languageCode) {
+      case 'es': return 'es-ES';
+      case 'jp': return 'ja-JP';
+      case 'en':
+      default: return 'en-US';
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
+    <GestureHandlerRootView>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
 
-      <View style={styles.navbar}>
-        <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
-          <Text style={styles.dateText}>{headerDateText}</Text>
-          <Ionicons name="chevron-down" size={18} color="#1F2937" />
-        </TouchableOpacity>
-
-        <View style={styles.rightActions}>
-          <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
-            {(() => {
-              const today = new Date();
-              const todayStr = formatDateKey(today);
-              const todayLogs = habitLogs[todayStr] || [];
-              const habitsForToday = getHabitsForDate(today);
-              const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
-              const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
-
-              return (
-                <>
-                  <Ionicons name="flame" size={22} color={flameColor} />
-                  <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
-                </>
-              );
-            })()}
+        <View style={styles.navbar}>
+          <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
+            <Text style={styles.dateText}>{headerDateText}</Text>
+            <Ionicons name="chevron-down" size={18} color="#1F2937" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={22} color="#1F2937" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.calendarShadowBox}>
-          <View style={styles.calendarContainer}>
-            <View style={styles.fixedHeaderRow}>
-              {WEEK_DAYS.map((day, idx) => {
-                const isSelected = idx === selectedDayIndex;
-                return (
-                  <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
-                    <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
-                      <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
-                        {day}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <FlatList
-              ref={flatListRef}
-              data={[-1, 0, 1]}
-              horizontal
-              pagingEnabled={false}
-              snapToInterval={SCREEN_WIDTH - 32}
-              snapToAlignment="center"
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              initialScrollIndex={1}
-              getItemLayout={(_, index) => ({
-                length: SCREEN_WIDTH - 32,
-                offset: (SCREEN_WIDTH - 32) * index,
-                index,
-              })}
-              onMomentumScrollEnd={handleScrollEnd}
-              keyExtractor={(item) => item.toString()}
-              renderItem={({ item }) => {
-                const targetOffset = weekOffset + item;
+          <View style={styles.rightActions}>
+            <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
+              {(() => {
                 const today = new Date();
                 const todayStr = formatDateKey(today);
-                const currentDayOfWeek = today.getDay();
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
-
-                const days = Array.from({ length: 7 }).map((_, i) => {
-                  const d = new Date(startOfWeek);
-                  d.setDate(startOfWeek.getDate() + i);
-                  return { date: d.getDate(), fullDate: d };
-                });
+                const todayLogs = habitLogs[todayStr] || [];
+                const habitsForToday = getHabitsForDate(today);
+                const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
+                const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
                 return (
-                  <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
-                    {days.map((dayItem, index) => {
-                      const dateKey = formatDateKey(dayItem.fullDate);
-                      const isToday = dateKey === todayStr;
-                      const completedList = habitLogs[dateKey] || [];
-                      const count = completedList.length;
-                      let dotColor = '#D1D5DB';
-                      const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
-
-                      if (count > 0) {
-                        dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
-                      }
-                      return (
-                        <TouchableOpacity
-                          key={index}
-                          style={styles.dayCard}
-                          onPress={() => setSelectedDayIndex(index)}
-                        >
-                          <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
-                            {dayItem.date}
-                          </Text>
-                          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                  <>
+                    <Ionicons name="flame" size={22} color={flameColor} />
+                    <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
+                  </>
                 );
-              }}
-            />
-          </View>
-        </View>
-
-        <View style={styles.habitsSection}>
-          <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
-          {visibleHabits.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
-              <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
-            </View>
-          ) : (
-            visibleHabits.map((habit) => {
-              const isCompleted = (habitLogs[activeDateKey] || []).includes(habit.id);
-              const todayStr = formatDateKey(new Date());
-              const isFutureDate = activeDateKey > todayStr;
-              let displayDescription = habit.description;
-              if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
-                const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
-                const startDate = new Date(startYear, startMonth - 1, startDay);
-                const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
-                const currentDate = new Date(currYear, currMonth - 1, currDay);
-                let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                if (diffDays < 0) diffDays = 0;
-                const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
-                displayDescription = t(QUIT_QUOTES_KEYS[currentQuoteIndex]);
-              }
-              return (
-                <TouchableOpacity
-                  key={habit.id}
-                  style={[
-                    styles.habitCard, 
-                    isCompleted && styles.habitCardCompleted,
-                    isFutureDate && { opacity: 0.5 }
-                  ]}
-                  onPress={() => {
-                    if (!isFutureDate) toggleHabitCompletion(habit.id);
-                  }}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: habit.color + '20' }]}>
-                    <Ionicons
-                      name={isCompleted ? 'checkmark-circle' : (habit.icon as any)}
-                      size={24}
-                      color={isCompleted ? '#10B981' : habit.color}
-                    />
-                  </View>
-
-                  <View style={styles.habitInfo}>
-                    <Text style={[styles.habitTitle, isCompleted && styles.habitTitleCompleted]}>
-                      {habit.title}
-                    </Text>
-                    <Text style={styles.habitDescription}>{displayDescription}</Text>
-                  </View>
-
-                  <TouchableOpacity style={styles.optionsButton}>
-                    <Feather name="more-vertical" size={20} color="#9CA3AF" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              );
-            })
-          )}
-          <TouchableOpacity style={styles.createHabitButton} onPress={() => {setIsModalVisible(true); resetForm(); }}>
-            <Ionicons name="add" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.bottomTab}>
-          <Ionicons name="grid-outline" size={22} color="#00B763" />
-          <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomTab} onPress={() => {setIsModalVisible(true), resetForm()}}>
-          <Ionicons name="add-circle" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomTab}>
-          <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>{t('analytics')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.bottomTab}>
-          <Ionicons name="person-outline" size={22} color="#6B7280" />
-          <Text style={styles.bottomTabText}>{t('me')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
-        <SafeAreaView style={styles.createHabitModalContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-          <View style={styles.createHabitHeader}>
-            <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={26} color="#1F2937" />
+              })()}
             </TouchableOpacity>
 
-            <View style={styles.dropdownWrapper}>
-              <Text style={styles.dropdownTitle}>{t(habitType)}</Text>
-            </View>
-
-            <View style={{ width: 26 }} />
+            <TouchableOpacity style={styles.settingsButton}>
+              <Ionicons name="settings-outline" size={22} color="#1F2937" />
+            </TouchableOpacity>
           </View>
+        </View>
 
-          <ScrollView style={styles.createHabitBody} showsVerticalScrollIndicator={false}>
-            <View style={styles.iconSelectionSection}>
-              <View style={[styles.iconBoxBackground, { backgroundColor: selectedColor + '15' }]}>
-                <TouchableOpacity
-                  style={[styles.iconCircleButton, { backgroundColor: selectedColor }]}
-                  onPress={() => setIsIconPickerOpen(true)}
-                >
-                  <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.typeSelectorContainer}>
-              {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
-                const isSelected = habitType === type;
-                const displayLabel = type === 'Build a habit' ? t('build') : type === 'Quit a habit' ? t('quit') : t('task');
-
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.typeSelectorButton,
-                      isSelected && styles.typeSelectorButtonSelected
-                    ]}
-                    onPress={() => [setHabitType(type), resetFormWhenSetHabitType()]}
-                  >
-                    <Text style={[styles.typeSelectorText, isSelected && { color: selectedColor }]}>
-                      {displayLabel}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>
-                {habitType === 'Task' ? t('taskName') : t('newHabit')}
-              </Text>
-              <TextInput
-                style={styles.formInput}
-                value={newTitle}
-                onChangeText={setNewTitle}
-              />
-            </View>
-
-            {habitType !== 'Quit a habit' && (
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>{t('description')}</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={newDescription}
-                  onChangeText={setNewDescription}
-                  multiline={true}
-                />
-              </View>
-            )}
-
-            <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>{t('color')}</Text>
-              <View style={styles.colorGrid}>
-                {AVAILABLE_COLORS.map((color) => {
-                  const isSelected = selectedColor === color;
+        <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.calendarShadowBox}>
+            <View style={styles.calendarContainer}>
+              <View style={styles.fixedHeaderRow}>
+                {WEEK_DAYS.map((day, idx) => {
+                  const isSelected = idx === selectedDayIndex;
                   return (
-                    <TouchableOpacity
-                      key={color}
-                      style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
-                      onPress={() => setSelectedColor(color)}
-                    >
-                      {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                    <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
+                      <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
+                        <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
+                          {day}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
               </View>
+
+              <FlatList
+                ref={flatListRef}
+                data={[-1, 0, 1]}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={SCREEN_WIDTH - 32}
+                snapToAlignment="center"
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                initialScrollIndex={1}
+                getItemLayout={(_, index) => ({
+                  length: SCREEN_WIDTH - 32,
+                  offset: (SCREEN_WIDTH - 32) * index,
+                  index,
+                })}
+                onMomentumScrollEnd={handleScrollEnd}
+                keyExtractor={(item) => item.toString()}
+                renderItem={({ item }) => {
+                  const targetOffset = weekOffset + item;
+                  const today = new Date();
+                  const todayStr = formatDateKey(today);
+                  const currentDayOfWeek = today.getDay();
+                  const startOfWeek = new Date(today);
+                  startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
+
+                  const days = Array.from({ length: 7 }).map((_, i) => {
+                    const d = new Date(startOfWeek);
+                    d.setDate(startOfWeek.getDate() + i);
+                    return { date: d.getDate(), fullDate: d };
+                  });
+
+                  return (
+                    <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
+                      {days.map((dayItem, index) => {
+                        const dateKey = formatDateKey(dayItem.fullDate);
+                        const isToday = dateKey === todayStr;
+                        const completedList = habitLogs[dateKey] || [];
+                        const count = completedList.length;
+                        let dotColor = '#D1D5DB';
+                        const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
+
+                        if (count > 0) {
+                          dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
+                        }
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.dayCard}
+                            onPress={() => setSelectedDayIndex(index)}
+                          >
+                            <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
+                              {dayItem.date}
+                            </Text>
+                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                }}
+              />
+            </View>
+          </View>
+
+          <View style={styles.habitsSection}>
+            <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
+            {visibleHabits.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
+                <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
+              </View>
+            ) : (
+              (() => {
+                const completedIds = habitLogs[activeDateKey] || [];
+                const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id));
+                const completedHabits = visibleHabits.filter(h => completedIds.includes(h.id));
+                return (
+                  <View>
+                    {pendingHabits.map((pendingHabit) => (
+                      <SwipeableHabitCard
+                        key={`pending-${pendingHabit.id}`}
+                        habit={pendingHabit}
+                        isCompleted={false}
+                        onToggle={toggleHabitCompletion}
+                        onRelapse={handleRelapse}
+                        displayDescription={getDisplayDescription(pendingHabit)}
+                      />
+                    ))}
+                    {completedHabits.length > 0 && (
+                      <Animated.View layout={Layout.springify()}>
+                        <Text style={[styles.sectionTitle, { marginTop: 24, color: '#9CA3AF' }]}>
+                          {t('habitsCompleted')}
+                        </Text>
+                        {completedHabits.map((completedHabit) => (
+                          <TouchableOpacity
+                            key={`completed-${completedHabit.id}`}
+                            onPress={() => toggleHabitCompletion(completedHabit.id)}
+                            activeOpacity={0.8}
+                          >
+                            <SwipeableHabitCard
+                              habit={completedHabit}
+                              isCompleted={true}
+                              onToggle={toggleHabitCompletion}
+                              displayDescription={getDisplayDescription(completedHabit)}
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </Animated.View>
+                    )}
+                  </View>
+                );
+              })()
+            )}
+            <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); }}>
+              <Ionicons name="add" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.bottomTab}>
+            <Ionicons name="grid-outline" size={22} color="#00B763" />
+            <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm() }}>
+            <Ionicons name="add-circle" size={22} color="#6B7280" />
+            <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bottomTab}>
+            <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
+            <Text style={styles.bottomTabText}>{t('analytics')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.bottomTab}>
+            <Ionicons name="person-outline" size={22} color="#6B7280" />
+            <Text style={styles.bottomTabText}>{t('me')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
+          <SafeAreaView style={styles.createHabitModalContainer}>
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+            <View style={styles.createHabitHeader}>
+              <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={26} color="#1F2937" />
+              </TouchableOpacity>
+
+              <View style={styles.dropdownWrapper}>
+                <Text style={styles.dropdownTitle}>{t(habitType)}</Text>
+              </View>
+
+              <View style={{ width: 26 }} />
             </View>
 
-            {habitType !== 'Task' && (
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>{t('frequency')}</Text>
-                {habitType === 'Quit a habit' ? (
-                  <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
-                    <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
-                    <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {habitType === 'Task' && (
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>{t('when')}</Text>
-                <TouchableOpacity
-                  style={styles.frequencyInputSelector}
-                  onPress={() => setIsDatePickerVisible(true)}
-                >
-                  <Text style={styles.frequencyValueText}>
-                    {t('doItOn')}: {taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
-                </TouchableOpacity>
-
-                {isDatePickerVisible && (
-                  <DateTimePicker
-                    value={taskDate}
-                    mode="date"
-                    display="default"
-                    onValueChange={handleTaskDateChange}
-                    onDismiss={handleTaskDateDismiss}
-                  />
-                )}
-                {Platform.OS === 'ios' && isDatePickerVisible && (
+            <ScrollView style={styles.createHabitBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.iconSelectionSection}>
+                <View style={[styles.iconBoxBackground, { backgroundColor: selectedColor + '15' }]}>
                   <TouchableOpacity
-                    style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
-                    onPress={() => setIsDatePickerVisible(false)}
+                    style={[styles.iconCircleButton, { backgroundColor: selectedColor }]}
+                    onPress={() => setIsIconPickerOpen(true)}
                   >
-                    <Text style={{ color: selectedColor, fontWeight: '600' }}>{t('done')}</Text>
+                    <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF" />
                   </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            <View style={styles.formGroup}>
-              <Text style={styles.fieldLabel}>{t('reminder')}</Text>
-              <View style={styles.reminderCardContainer}>
-                <View style={styles.reminderHeaderRow}>
-                  <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
-                  <Switch
-                    trackColor={{ false: '#767577', true: selectedColor + '10' }}
-                    thumbColor={isReminderEnabled ? selectedColor : '#F4F3F4'}
-                    ios_backgroundColor="#3E3E3E"
-                    onValueChange={toggleSwitch}
-                    value={isReminderEnabled}
-                  />
                 </View>
+              </View>
 
-                {isReminderEnabled && (
-                  <Animated.View
-                    entering={FadeInUp.duration(200)}
-                    style={styles.reminderExpandedContent}>
-                    <View style={styles.reminderDivider} />
-                    <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
-                      <Text style={styles.reminderTimeButtonText}>
-                        {`${reminderSelectedHour}:${reminderSelectedMinute} ${reminderPeriod}`}
+              <View style={styles.typeSelectorContainer}>
+                {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
+                  const isSelected = habitType === type;
+                  const displayLabel = type === 'Build a habit' ? t('build') : type === 'Quit a habit' ? t('quit') : t('task');
+
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.typeSelectorButton,
+                        isSelected && styles.typeSelectorButtonSelected
+                      ]}
+                      onPress={() => [setHabitType(type), resetFormWhenSetHabitType()]}
+                    >
+                      <Text style={[styles.typeSelectorText, isSelected && { color: selectedColor }]}>
+                        {displayLabel}
                       </Text>
                     </TouchableOpacity>
-                  </Animated.View>
-                )}
-                <CustomTimePickerModal
-                  visible={isReminderPickerVisible}
-                  reminderSelectedHour={reminderSelectedHour}
-                  reminderSelectedMinute={reminderSelectedMinute}
-                  reminderSelectedPeriod={reminderPeriod}
-                  onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
-                  onClose={() => setIsReminderPickerVisible(false)}
-                />
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={styles.createHabitFooter}>
-            <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: selectedColor }]} onPress={handleCreateHabit}>
-              <Text style={styles.saveButtonText}>{t('saveHabit')}</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
-        <SafeAreaView style={styles.fullscreenModalContainer}>
-          <View style={styles.fullscreenModalHeader}>
-            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-              <Ionicons name="close" size={26} color="#1F2937" />
-            </TouchableOpacity>
-            <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
-            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-              <Text style={styles.headerDoneText}>{t('done')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.categoryNavbar}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
-              {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) => {
-                const isActive = activeIconCategory === cat;
-                return (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[styles.categoryTab, isActive && styles.categoryTabActive]}
-                    onPress={() => setActiveIconCategory(cat)}
-                  >
-                    <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
-            <View style={styles.iconCategoryGrid}>
-              {ICON_CATEGORIES[activeIconCategory].map((iconName) => {
-                const isSelected = selectedIcon === iconName;
-                return (
-                  <TouchableOpacity
-                    key={iconName}
-                    style={[
-                      styles.iconTile,
-                      isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '15' }]}
-                    onPress={() => {
-                      setSelectedIcon(iconName)
-                    }}
-                  >
-                    <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor : '#374151'} />
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
-        <SafeAreaView style={styles.fullscreenModalContainer}>
-          <View style={styles.fullscreenModalHeader}>
-            <TouchableOpacity
-              onPress={handleCloseFrequencyModal}
-            >
-              <Ionicons name="close" size={26} color="#1F2937" />
-            </TouchableOpacity>
-            <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
-            <TouchableOpacity
-              onPress={handleCloseFrequencyModal}
-            >
-              <Text style={styles.headerDoneText}>{t('done')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity
-              style={styles.frequencyOptionCard}
-              onPress={() => {
-                setFrequencyType('days_of_week');
-                updateFrequencyDisplay(selectedWeekDays);
-              }}
-            >
-              <View style={styles.frequencyOptionHeader}>
-                <Ionicons
-                  name={frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
-                  size={20}
-                  color={frequencyType === 'days_of_week' ? selectedColor : '#9CA3AF'}
-                />
-                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
+                  );
+                })}
               </View>
 
-              {frequencyType === 'days_of_week' && (
-                <View style={styles.weekDaysPickerRow} >
-                  {WEEK_DAYS.map((day, idx) => {
-                    const isSelected = selectedWeekDays[idx];
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>
+                  {habitType === 'Task' ? t('taskName') : t('newHabit')}
+                </Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newTitle}
+                  onChangeText={setNewTitle}
+                />
+              </View>
+
+              {habitType !== 'Quit a habit' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.fieldLabel}>{t('description')}</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDescription}
+                    onChangeText={setNewDescription}
+                    multiline={true}
+                  />
+                </View>
+              )}
+
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>{t('color')}</Text>
+                <View style={styles.colorGrid}>
+                  {AVAILABLE_COLORS.map((color) => {
+                    const isSelected = selectedColor === color;
                     return (
                       <TouchableOpacity
-                        key={idx}
-                        style={[
-                          styles.weekDayCircle,
-                          isSelected && { backgroundColor: selectedColor }
-                        ]}
-                        onPress={() => toggleWeekDaySelection(idx)}
+                        key={color}
+                        style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
+                        onPress={() => setSelectedColor(color)}
                       >
-                        <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
-                          {day}
-                        </Text>
+                        {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.frequencyOptionCard}
-              onPress={() => {
-                setFrequencyType('days_of_month');
-                setFrequencyDisplay(formatMonthDaysDisplay(selectedMonthDays));
-              }}
-            >
-              <View style={styles.frequencyOptionHeader}>
-                <Ionicons
-                  name={frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
-                  size={20}
-                  color={frequencyType === 'days_of_month' ? selectedColor : '#9CA3AF'}
-                />
-                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
               </View>
 
-              {frequencyType === 'days_of_month' && (
-                <View style={styles.monthDaysGridContainer}>
-                  <View style={[styles.monthDaysRow, styles.monthDaysRowFirst]}>
-                    {[1, 2, 3, 4, 5].map((day) => {
-                      const isSelected = selectedMonthDays.includes(day);
+              {habitType !== 'Task' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.fieldLabel}>{t('frequency')}</Text>
+                  {habitType === 'Quit a habit' ? (
+                    <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
+                      <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
+                      <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {habitType === 'Task' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.fieldLabel}>{t('when')}</Text>
+                  <TouchableOpacity
+                    style={styles.frequencyInputSelector}
+                    onPress={() => setIsDatePickerVisible(true)}
+                  >
+                    <Text style={styles.frequencyValueText}>
+                      {t('doItOn')}: {taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+                  </TouchableOpacity>
+
+                  {isDatePickerVisible && (
+                    <DateTimePicker
+                      value={taskDate}
+                      mode="date"
+                      display="default"
+                      onValueChange={handleTaskDateChange}
+                      onDismiss={handleTaskDateDismiss}
+                    />
+                  )}
+                  {Platform.OS === 'ios' && isDatePickerVisible && (
+                    <TouchableOpacity
+                      style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
+                      onPress={() => setIsDatePickerVisible(false)}
+                    >
+                      <Text style={{ color: selectedColor, fontWeight: '600' }}>{t('done')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              <View style={styles.formGroup}>
+                <Text style={styles.fieldLabel}>{t('reminder')}</Text>
+                <View style={styles.reminderCardContainer}>
+                  <View style={styles.reminderHeaderRow}>
+                    <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
+                    <Switch
+                      trackColor={{ false: '#767577', true: selectedColor + '10' }}
+                      thumbColor={isReminderEnabled ? selectedColor : '#F4F3F4'}
+                      ios_backgroundColor="#3E3E3E"
+                      onValueChange={toggleSwitch}
+                      value={isReminderEnabled}
+                    />
+                  </View>
+
+                  {isReminderEnabled && (
+                    <Animated.View
+                      entering={FadeInUp.duration(200)}
+                      style={styles.reminderExpandedContent}>
+                      <View style={styles.reminderDivider} />
+                      <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
+                        <Text style={styles.reminderTimeButtonText}>
+                          {`${reminderSelectedHour}:${reminderSelectedMinute} ${reminderPeriod}`}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  )}
+                  <CustomTimePickerModal
+                    visible={isReminderPickerVisible}
+                    reminderSelectedHour={reminderSelectedHour}
+                    reminderSelectedMinute={reminderSelectedMinute}
+                    reminderSelectedPeriod={reminderPeriod}
+                    onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
+                    onClose={() => setIsReminderPickerVisible(false)}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.createHabitFooter}>
+              <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: selectedColor }]} onPress={handleCreateHabit}>
+                <Text style={styles.saveButtonText}>{t('saveHabit')}</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </Modal>
+
+        <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
+          <SafeAreaView style={styles.fullscreenModalContainer}>
+            <View style={styles.fullscreenModalHeader}>
+              <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
+                <Ionicons name="close" size={26} color="#1F2937" />
+              </TouchableOpacity>
+              <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
+              <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
+                <Text style={styles.headerDoneText}>{t('done')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.categoryNavbar}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
+                {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) => {
+                  const isActive = activeIconCategory === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.categoryTab, isActive && styles.categoryTabActive]}
+                      onPress={() => setActiveIconCategory(cat)}
+                    >
+                      <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
+              <View style={styles.iconCategoryGrid}>
+                {ICON_CATEGORIES[activeIconCategory].map((iconName) => {
+                  const isSelected = selectedIcon === iconName;
+                  return (
+                    <TouchableOpacity
+                      key={iconName}
+                      style={[
+                        styles.iconTile,
+                        isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '15' }]}
+                      onPress={() => {
+                        setSelectedIcon(iconName)
+                      }}
+                    >
+                      <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor : '#374151'} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
+          <SafeAreaView style={styles.fullscreenModalContainer}>
+            <View style={styles.fullscreenModalHeader}>
+              <TouchableOpacity
+                onPress={handleCloseFrequencyModal}
+              >
+                <Ionicons name="close" size={26} color="#1F2937" />
+              </TouchableOpacity>
+              <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
+              <TouchableOpacity
+                onPress={handleCloseFrequencyModal}
+              >
+                <Text style={styles.headerDoneText}>{t('done')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.frequencyOptionCard}
+                onPress={() => {
+                  setFrequencyType('days_of_week');
+                  updateFrequencyDisplay(selectedWeekDays);
+                }}
+              >
+                <View style={styles.frequencyOptionHeader}>
+                  <Ionicons
+                    name={frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={frequencyType === 'days_of_week' ? selectedColor : '#9CA3AF'}
+                  />
+                  <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
+                </View>
+
+                {frequencyType === 'days_of_week' && (
+                  <View style={styles.weekDaysPickerRow} >
+                    {WEEK_DAYS.map((day, idx) => {
+                      const isSelected = selectedWeekDays[idx];
                       return (
                         <TouchableOpacity
-                          key={day}
+                          key={idx}
                           style={[
-                            styles.monthDayCircle,
+                            styles.weekDayCircle,
                             isSelected && { backgroundColor: selectedColor }
                           ]}
-                          onPress={() => toggleMonthDaySelection(day)}
+                          onPress={() => toggleWeekDaySelection(idx)}
                         >
-                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                          <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
                             {day}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
+                )}
+              </TouchableOpacity>
 
-                  {[
-                    [6, 7, 8, 9, 10, 11, 12],
-                    [13, 14, 15, 16, 17, 18, 19],
-                    [20, 21, 22, 23, 24, 25, 26],
-                  ].map((rowDays, rowIndex) => (
-                    <View key={rowIndex} style={styles.monthDaysRow}>
-                      {rowDays.map((day) => {
+              <TouchableOpacity
+                style={styles.frequencyOptionCard}
+                onPress={() => {
+                  setFrequencyType('days_of_month');
+                  setFrequencyDisplay(formatMonthDaysDisplay(selectedMonthDays));
+                }}
+              >
+                <View style={styles.frequencyOptionHeader}>
+                  <Ionicons
+                    name={frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={frequencyType === 'days_of_month' ? selectedColor : '#9CA3AF'}
+                  />
+                  <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
+                </View>
+
+                {frequencyType === 'days_of_month' && (
+                  <View style={styles.monthDaysGridContainer}>
+                    <View style={[styles.monthDaysRow, styles.monthDaysRowFirst]}>
+                      {[1, 2, 3, 4, 5].map((day) => {
+                        const isSelected = selectedMonthDays.includes(day);
+                        return (
+                          <TouchableOpacity
+                            key={day}
+                            style={[
+                              styles.monthDayCircle,
+                              isSelected && { backgroundColor: selectedColor }
+                            ]}
+                            onPress={() => toggleMonthDaySelection(day)}
+                          >
+                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                              {day}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {[
+                      [6, 7, 8, 9, 10, 11, 12],
+                      [13, 14, 15, 16, 17, 18, 19],
+                      [20, 21, 22, 23, 24, 25, 26],
+                    ].map((rowDays, rowIndex) => (
+                      <View key={rowIndex} style={styles.monthDaysRow}>
+                        {rowDays.map((day) => {
+                          const isSelected = selectedMonthDays.includes(day);
+                          return (
+                            <TouchableOpacity
+                              key={day}
+                              style={[
+                                styles.monthDayCircle,
+                                isSelected && { backgroundColor: selectedColor },
+                              ]}
+                              onPress={() => toggleMonthDaySelection(day)}
+                            >
+                              <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                                {day}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ))}
+                    <View style={[styles.monthDaysRow, styles.monthDaysRowEnd]}>
+                      {[27, 28, 29, 30, 31].map((day) => {
                         const isSelected = selectedMonthDays.includes(day);
                         return (
                           <TouchableOpacity
@@ -1526,150 +1686,131 @@ export default function App() {
                         );
                       })}
                     </View>
-                  ))}
-                  <View style={[styles.monthDaysRow, styles.monthDaysRowEnd]}>
-                    {[27, 28, 29, 30, 31].map((day) => {
-                      const isSelected = selectedMonthDays.includes(day);
-                      return (
-                        <TouchableOpacity
-                          key={day}
-                          style={[
-                            styles.monthDayCircle,
-                            isSelected && { backgroundColor: selectedColor },
-                          ]}
-                          onPress={() => toggleMonthDaySelection(day)}
-                        >
-                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
-                            {day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
                   </View>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false} statusBarTranslucent={true}>
+          <SafeAreaView style={styles.streaksContainer}>
+            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+            <View style={styles.streaksHeader}>
+              <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#1F2937" />
+              </TouchableOpacity>
+              <Text style={styles.streaksTitle}>{t('myStreaks')}</Text>
+              <View style={{ width: 28 }} />
+            </View>
+
+            <View style={styles.streaksTopBox}>
+              <View style={styles.streakCard}>
+                <Ionicons name="flame" size={56} color="#F59E0B" />
+                <Text style={styles.streakLabel}>{t('loggedDays')}</Text>
+                <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
+                <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
+                <View style={styles.bestBadge}>
+                  <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
+                  <Text style={styles.bestText}>{t('best')}: {streakStats.loggedBest}</Text>
                 </View>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false} statusBarTranslucent={true}>
-        <SafeAreaView style={styles.streaksContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-          <View style={styles.streaksHeader}>
-            <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
-              <Ionicons name="close" size={28} color="#1F2937" />
-            </TouchableOpacity>
-            <Text style={styles.streaksTitle}>{t('myStreaks')}</Text>
-            <View style={{ width: 28 }} />
-          </View>
-
-          <View style={styles.streaksTopBox}>
-            <View style={styles.streakCard}>
-              <Ionicons name="flame" size={56} color="#F59E0B" />
-              <Text style={styles.streakLabel}>{t('loggedDays')}</Text>
-              <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
-              <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
-              <View style={styles.bestBadge}>
-                <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
-                <Text style={styles.bestText}>{t('best')}: {streakStats.loggedBest}</Text>
+              </View>
+              <View style={styles.streakDivider} />
+              <View style={styles.streakCard}>
+                <Ionicons name="flame" size={56} color="#10B981" />
+                <Text style={styles.streakLabel}>{t('perfectDays')}</Text>
+                <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
+                <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
+                <View style={styles.bestBadge}>
+                  <Ionicons name="trophy-outline" size={16} color="#10B981" />
+                  <Text style={styles.bestText}>{t('best')}: {streakStats.perfectBest}</Text>
+                </View>
               </View>
             </View>
-            <View style={styles.streakDivider} />
-            <View style={styles.streakCard}>
-              <Ionicons name="flame" size={56} color="#10B981" />
-              <Text style={styles.streakLabel}>{t('perfectDays')}</Text>
-              <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
-              <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
-              <View style={styles.bestBadge}>
-                <Ionicons name="trophy-outline" size={16} color="#10B981" />
-                <Text style={styles.bestText}>{t('best')}: {streakStats.perfectBest}</Text>
-              </View>
-            </View>
-          </View>
 
-          <View style={styles.calendarSectionBox}>
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('prev')} style={styles.monthNavButton}>
-                <Ionicons name="chevron-back" size={22} color="#1F2937" />
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Text style={styles.calendarMonthText} onPress={handleMonthCurrent}>
-                  {currentCalendarDate.toLocaleDateString(currentLocale, {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('next')} style={styles.monthNavButton}>
-                <Ionicons name="chevron-forward" size={22} color="#1F2937" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.weekDaysHeader}>
-              {WEEK_DAYS.map((day, idx) => (
-                <View key={idx} style={styles.weekDayCell}>
-                  <Text style={styles.weekDayText}>
-                    {day}
+            <View style={styles.calendarSectionBox}>
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('prev')} style={styles.monthNavButton}>
+                  <Ionicons name="chevron-back" size={22} color="#1F2937" />
+                </TouchableOpacity>
+                <TouchableOpacity>
+                  <Text style={styles.calendarMonthText} onPress={handleMonthCurrent}>
+                    {currentCalendarDate.toLocaleDateString(currentLocale, {
+                      month: 'long',
+                      year: 'numeric',
+                    })}
                   </Text>
-                </View>
-              ))}
-            </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('next')} style={styles.monthNavButton}>
+                  <Ionicons name="chevron-forward" size={22} color="#1F2937" />
+                </TouchableOpacity>
+              </View>
 
-            <FlatList
-              ref={calendarFlatListRef}
-              data={[-1, 0, 1]}
-              horizontal
-              pagingEnabled={false}
-              snapToInterval={SCREEN_WIDTH - 32}
-              snapToAlignment="center"
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              initialScrollIndex={1}
-              getItemLayout={(_, index) => ({
-                length: SCREEN_WIDTH - 32,
-                offset: (SCREEN_WIDTH - 32) * index,
-                index,
-              })}
-              onMomentumScrollEnd={handleCalendarScrollEnd}
-              keyExtractor={(item) => item.toString()}
-              renderItem={({ item }) => {
-                const days = getCalendarDaysForMonth(currentCalendarDate, item);
-                return (
-                  <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32 }]}  >
-                    {days.map((dayItem, index) => {
-                      const dateKey = formatDateKey(dayItem.date);
-                      const todayStr = formatDateKey(new Date());
-                      const isToday = dateKey === todayStr;
-                      const completedList = habitLogs[dateKey] || [];
-                      const count = completedList.length;
-                      const habitsForCell = getHabitsForDate(dayItem.date);
-                      let dotColor = '#CBD5E1';
-                      if (count > 0) {
-                        dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
-                      }
-                      return (
-                        <TouchableOpacity
-                          key={index}
-                          style={styles.calendarCell}
-                          onPress={() => handleSelectedCalendarDay(dayItem.date)}
-                        >
-                          <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
-                            {dayItem.date.getDate()}
-                          </Text>
-                          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                        </TouchableOpacity>
-                      );
-                    })}
+              <View style={styles.weekDaysHeader}>
+                {WEEK_DAYS.map((day, idx) => (
+                  <View key={idx} style={styles.weekDayCell}>
+                    <Text style={styles.weekDayText}>
+                      {day}
+                    </Text>
                   </View>
-                );
-              }}
-            >
-            </FlatList>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+                ))}
+              </View>
+
+              <FlatList
+                ref={calendarFlatListRef}
+                data={[-1, 0, 1]}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={SCREEN_WIDTH - 32}
+                snapToAlignment="center"
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                initialScrollIndex={1}
+                getItemLayout={(_, index) => ({
+                  length: SCREEN_WIDTH - 32,
+                  offset: (SCREEN_WIDTH - 32) * index,
+                  index,
+                })}
+                onMomentumScrollEnd={handleCalendarScrollEnd}
+                keyExtractor={(item) => item.toString()}
+                renderItem={({ item }) => {
+                  const days = getCalendarDaysForMonth(currentCalendarDate, item);
+                  return (
+                    <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32 }]}  >
+                      {days.map((dayItem, index) => {
+                        const dateKey = formatDateKey(dayItem.date);
+                        const todayStr = formatDateKey(new Date());
+                        const isToday = dateKey === todayStr;
+                        const completedList = habitLogs[dateKey] || [];
+                        const count = completedList.length;
+                        const habitsForCell = getHabitsForDate(dayItem.date);
+                        let dotColor = '#CBD5E1';
+                        if (count > 0) {
+                          dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
+                        }
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.calendarCell}
+                            onPress={() => handleSelectedCalendarDay(dayItem.date)}
+                          >
+                            <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
+                              {dayItem.date.getDate()}
+                            </Text>
+                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                }}
+              >
+              </FlatList>
+            </View>
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -2338,5 +2479,58 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: REMINDER_ITEM_HEIGHT,
     textAlign: 'center',
+  },
+  swipeableContainer: {
+    marginBottom: 10,
+    borderRadius: 16,
+    justifyContent: 'center',
+  },
+  swipeBackground: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 20,
+  },
+  swipeBackgroundLeft: {
+  ...StyleSheet.absoluteFill,
+  borderRadius: 16,
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  paddingRight: 20,
+  backgroundColor: '#DC2626',
+},
+  habitCardGestural: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  habitCardCompletedGestural: {
+    backgroundColor: '#F9FAFB',
+    borderColor: '#F3F4F6',
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  iconContainerGesture: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  habitTitleGestural: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937'
   },
 });
