@@ -551,6 +551,8 @@ export default function App() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
   const [relapseLogs, setRelapseLogs] = useState<Record<string, string[]>>({});
+  const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
+  const [relapsingHabitId, setRelapsingHabitId] =useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
 
@@ -741,26 +743,22 @@ export default function App() {
   };
 
   const handleRelapse = (habitId: string) => {
-    Alert.alert(
-      t('relapseWarningTitle') || "Registro de recaída",
-      t('relapseWarningBody') || "¿Estás seguro de que cediste al hábito? Esto romperá tu racha actual.",
-      [
-        { text: t('cancel') || "Cancelar", style: "cancel" },
-        {
-          text: t('confirmRelapse') || "Sí, recaí",
-          style: "destructive",
-          onPress: () => {
-            setRelapseLogs((prevLogs) => {
-              const currentRelapsed = prevLogs[activeDateKey] || [];
-              if (!currentRelapsed.includes(habitId)) {
-                return { ...prevLogs, [activeDateKey]: [...currentRelapsed, habitId] };
-              }
-              return prevLogs;
-            });
-          }
+    setRelapsingHabitId(habitId);
+    setIsRelapseModalVisible(true);
+  };
+
+  const confirmRelapse = () => {
+    if (relapsingHabitId) {
+      setRelapseLogs((prevLogs) => {
+        const currentRelapsed = prevLogs[activeDateKey] || [];
+        if (!currentRelapsed.includes(relapsingHabitId)) {
+          return {...prevLogs, [activeDateKey]: [...currentRelapsed, relapsingHabitId]};
         }
-      ]
-    );
+        return prevLogs;
+      });
+    }
+    setIsRelapseModalVisible(false);
+    setRelapsingHabitId(null);
   };
 
   const getDisplayDescription = (habit: Habit) => {
@@ -1258,7 +1256,7 @@ export default function App() {
               (() => {
                 const completedIds = habitLogs[activeDateKey] || [];
                 const relapsedIds = relapseLogs[activeDateKey] || [];
-                const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id));
+                const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id) && !relapsedIds.includes(h.id));
                 const completedHabits = visibleHabits.filter(h => completedIds.includes(h.id));
                 const relapsedHabits = visibleHabits.filter(h => relapsedIds.includes(h.id));
                 return (
@@ -1835,6 +1833,44 @@ export default function App() {
               </FlatList>
             </View>
           </SafeAreaView>
+        </Modal>
+
+        <Modal
+          visible={isRelapseModalVisible}
+          transparent={true}
+          animationType='fade'
+          statusBarTranslucent={true}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View entering={FadeInUp.duration(300)} style={styles.relapseModalCard}>
+              <View style={styles.relapseIconWrapper}>
+                <Ionicons name="warning" size={36} color="#DC2626"/>
+              </View>
+              <Text style={styles.relapseModalTitle}>
+                {t('relapseWarningTitle')}
+              </Text>
+              <Text style={styles.relapseModalText}>
+                {t('relapseWarningBody')}
+              </Text>
+              <View style={styles.relapseModalButtons}>
+                <TouchableOpacity
+                  style={[styles.relapseButton, styles.relapseButtonCancel]}
+                  onPress={() => {
+                    setIsRelapseModalVisible(false);
+                    setRelapsingHabitId(null);
+                  }}
+                >
+                  <Text style={styles.relapseButtonCancelText}>{t('cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.relapseButton, styles.relapseButtonConfirm]}
+                  onPress={confirmRelapse}
+                >
+                  <Text style={styles.relapseButtonConfirmText}>{t('confirmRelapse')}</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
         </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -2569,5 +2605,68 @@ const styles = StyleSheet.create({
   habitTitleFailed: {
     color: '#9CA3AF',
     textDecorationLine: 'line-through'
+  },
+  relapseModalCard: {
+    width: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  relapseIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16
+  },
+  relapseModalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1F2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  relapseModalText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  relapseModalButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap:12
+  },
+  relapseButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  relapseButtonCancel: {
+    backgroundColor: '#F3F4F6',
+  },
+  relapseButtonCancelText: {
+    color: '#4B5563',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  relapseButtonConfirm: {
+    backgroundColor: '#DC2626'
+  },
+  relapseButtonConfirmText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700'
   }
 });

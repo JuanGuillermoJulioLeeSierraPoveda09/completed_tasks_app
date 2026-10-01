@@ -64,5 +64,9 @@
     "currentStreak": "current streak",
     "best": "Best",
     "perfectDays": "Perfect Days",
-    "habitsCompleted": "Habits Completed"
+    "habitsCompleted": "Habits Completed",
+    "relapseWarningTitle": "Did you give in to the habit?",
+    "relapseWarningBody": "This action will break your current streak and will mark the habit as failed for today. Are you sure?",
+    "confirmRelapse": "Yes, I did",
+    "cancel": "Cancel"
 }
