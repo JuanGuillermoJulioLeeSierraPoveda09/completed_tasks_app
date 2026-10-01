@@ -60,6 +60,7 @@ interface Habit {
   createdAt?: string;
   quoteOrder?: number[];
   targetDate?: string;
+  timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
 }
 
 interface CustomTimePickerModalProps {
@@ -503,13 +504,13 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[
-          styles.habitCardGestural, 
-          rStyle, 
+          styles.habitCardGestural,
+          rStyle,
           isCompleted && styles.habitCardCompletedGestural,
           isFailed && styles.habitCardFailedGestural
         ]}>
           <View style={[
-            styles.iconContainerGesture, 
+            styles.iconContainerGesture,
             { backgroundColor: isCompleted ? '#F3F4F6' : (isFailed ? '#FEE2E2' : habit.color + '15') }]}>
             <Ionicons
               name={isCompleted ? 'checkmark-circle' : (habit.icon as any)}
@@ -519,7 +520,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
           </View>
           <View style={styles.habitInfo}>
             <Text style={[
-              styles.habitTitleGestural, 
+              styles.habitTitleGestural,
               isCompleted && styles.habitTitleCompleted,
               isFailed && styles.habitTitleFailed
             ]}>
@@ -552,7 +553,7 @@ export default function App() {
   const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
   const [relapseLogs, setRelapseLogs] = useState<Record<string, string[]>>({});
   const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
-  const [relapsingHabitId, setRelapsingHabitId] =useState<string | null>(null);
+  const [relapsingHabitId, setRelapsingHabitId] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
 
@@ -567,6 +568,7 @@ export default function App() {
   const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
   const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
+  const [timeOfDay, setTimeOfDay] = useState<'Morning' | 'Afternoon' | 'Evening' | undefined>(undefined);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
   const [reminderSelectedHour, setRemiderSelectedHour] = useState('08');
   const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
@@ -752,7 +754,7 @@ export default function App() {
       setRelapseLogs((prevLogs) => {
         const currentRelapsed = prevLogs[activeDateKey] || [];
         if (!currentRelapsed.includes(relapsingHabitId)) {
-          return {...prevLogs, [activeDateKey]: [...currentRelapsed, relapsingHabitId]};
+          return { ...prevLogs, [activeDateKey]: [...currentRelapsed, relapsingHabitId] };
         }
         return prevLogs;
       });
@@ -812,6 +814,7 @@ export default function App() {
       createdAt: activeDateKey,
       quoteOrder: isQuit ? randomizedOrder : undefined,
       targetDate: isTask ? formatDateKey(taskDate) : undefined,
+      timeOfDay: isQuit ? undefined : timeOfDay,
     };
     /*
     if (isQuit) {
@@ -866,6 +869,7 @@ export default function App() {
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
     setFrequencyDisplay(t('everyday'));
+    setTimeOfDay(undefined);
     setTaskDate(new Date());
     setRemiderSelectedHour('05');
     setReminderSelectedMinute('00');
@@ -881,6 +885,7 @@ export default function App() {
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
     setFrequencyDisplay(t('everyday'));
+    setTimeOfDay(undefined);
     setTaskDate(new Date());
     setRemiderSelectedHour('05');
     setReminderSelectedMinute('00');
@@ -1259,6 +1264,21 @@ export default function App() {
                 const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id) && !relapsedIds.includes(h.id));
                 const completedHabits = visibleHabits.filter(h => completedIds.includes(h.id));
                 const relapsedHabits = visibleHabits.filter(h => relapsedIds.includes(h.id));
+                const noTimeHabits = pendingHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
+                const morningHabits = pendingHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
+                const afternoonHabits = pendingHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
+                const eveningHabits = pendingHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
+                const renderHabitCard = (habit: Habit) => (
+                  <SwipeableHabitCard
+                    key={`pending-${habit.id}`}
+                    habit={habit}
+                    isCompleted={false}
+                    isFailed={false}
+                    onToggle={toggleHabitCompletion}
+                    onRelapse={handleRelapse}
+                    displayDescription={getDisplayDescription(habit)}
+                  />
+                );
                 return (
                   <View>
                     {relapsedHabits.map((relapsedHabit) => (
@@ -1271,17 +1291,25 @@ export default function App() {
                         displayDescription={getDisplayDescription(relapsedHabit)}
                       />
                     ))}
-                    {pendingHabits.map((pendingHabit) => (
-                      <SwipeableHabitCard
-                        key={`pending-${pendingHabit.id}`}
-                        habit={pendingHabit}
-                        isCompleted={false}
-                        isFailed={false}
-                        onToggle={toggleHabitCompletion}
-                        onRelapse={handleRelapse}
-                        displayDescription={getDisplayDescription(pendingHabit)}
-                      />
-                    ))}
+                    {noTimeHabits.map(renderHabitCard)}
+                    {morningHabits.length > 0 && (
+                      <Animated.View layout={Layout.springify()}>
+                        <Text style={styles.timeOfDayHeader}>{t('morning') || 'Mañana'}</Text>
+                        {morningHabits.map(renderHabitCard)}
+                      </Animated.View>
+                    )}
+                    {afternoonHabits.length > 0 && (
+                      <Animated.View layout={Layout.springify()}>
+                        <Text style={styles.timeOfDayHeader}>{t('afternoon') || 'Tarde'}</Text>
+                        {afternoonHabits.map(renderHabitCard)}
+                      </Animated.View>
+                    )}
+                    {eveningHabits.length > 0 && (
+                      <Animated.View layout={Layout.springify()}>
+                        <Text style={styles.timeOfDayHeader}>{t('evening') || 'Noche'}</Text>
+                        {eveningHabits.map(renderHabitCard)}
+                      </Animated.View>
+                    )}
                     {completedHabits.length > 0 && (
                       <Animated.View layout={Layout.springify()}>
                         <Text style={[styles.sectionTitle, { marginTop: 24, color: '#9CA3AF' }]}>
@@ -1437,6 +1465,34 @@ export default function App() {
                       <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                     </TouchableOpacity>
                   )}
+                </View>
+              )}
+
+              {habitType !== 'Quit a habit' && (
+                <View style={styles.formGroup}>
+                  <Text style={styles.fieldLabel}>{t('timeOfDay')}</Text>
+                  <View style={styles.timeOfDayContainer}>
+                    {(['Morning', 'Afternoon', 'Evening'] as const).map((time) => {
+                      const isSelected = timeOfDay === time;
+                      const displayTime = time === 'Morning' ? (t('morning')) :
+                        time === 'Afternoon' ? (t('afternoon')) :
+                          (t('evening'));
+                      return (
+                        <TouchableOpacity
+                          key={time}
+                          style={[
+                            styles.timeOfDayButton,
+                            isSelected && { backgroundColor: selectedColor, borderColor: selectedColor }
+                          ]}
+                          onPress={() => setTimeOfDay(isSelected ? undefined : time)}
+                        >
+                          <Text style={[styles.timeOfDayText, isSelected && { color: '#FFFFFF' }]}>
+                            {displayTime}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
 
@@ -1844,7 +1900,7 @@ export default function App() {
           <View style={styles.modalOverlay}>
             <Animated.View entering={FadeInUp.duration(300)} style={styles.relapseModalCard}>
               <View style={styles.relapseIconWrapper}>
-                <Ionicons name="warning" size={36} color="#DC2626"/>
+                <Ionicons name="warning" size={36} color="#DC2626" />
               </View>
               <Text style={styles.relapseModalTitle}>
                 {t('relapseWarningTitle')}
@@ -2227,6 +2283,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 4,
+  },
+  timeOfDayContainer: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  timeOfDayButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  timeOfDayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280'
+  },
+  timeOfDayHeader: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 12,
+    marginBottom: 10
   },
   createHabitFooter: {
     padding: 20,
@@ -2644,7 +2726,7 @@ const styles = StyleSheet.create({
   relapseModalButtons: {
     flexDirection: 'row',
     width: '100%',
-    gap:12
+    gap: 12
   },
   relapseButton: {
     flex: 1,

@@ -68,5 +68,9 @@
     "relapseWarningTitle": "Did you give in to the habit?",
     "relapseWarningBody": "This action will break your current streak and will mark the habit as failed for today. Are you sure?",
     "confirmRelapse": "Yes, I did",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "timeOfDay": "Time of day",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening"
 }
