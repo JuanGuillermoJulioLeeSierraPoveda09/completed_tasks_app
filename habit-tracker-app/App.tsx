@@ -61,6 +61,7 @@ interface Habit {
   quoteOrder?: number[];
   targetDate?: string;
   timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
+  order?: number;
 }
 
 interface CustomTimePickerModalProps {
@@ -533,7 +534,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
           {isQuitHabit && !isCompleted && !isFailed && streak !== undefined && (
             <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
-              <Ionicons name="flame" size={12} color="#FFFFFF"/>
+              <Ionicons name="flame" size={12} color="#FFFFFF" />
               <Text style={styles.streakBadgeMiniText}>{streak}</Text>
             </View>
           )}
@@ -845,6 +846,7 @@ export default function App() {
       quoteOrder: isQuit ? randomizedOrder : undefined,
       targetDate: isTask ? formatDateKey(taskDate) : undefined,
       timeOfDay: isQuit ? undefined : timeOfDay,
+      order: habits.length,
     };
     /*
     if (isQuit) {
@@ -1291,25 +1293,58 @@ export default function App() {
               (() => {
                 const completedIds = habitLogs[activeDateKey] || [];
                 const relapsedIds = relapseLogs[activeDateKey] || [];
-                const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id) && !relapsedIds.includes(h.id));
-                const completedHabits = visibleHabits.filter(h => completedIds.includes(h.id));
-                const relapsedHabits = visibleHabits.filter(h => relapsedIds.includes(h.id));
-                const noTimeHabits = pendingHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
-                const morningHabits = pendingHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
-                const afternoonHabits = pendingHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
-                const eveningHabits = pendingHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
-                const renderHabitCard = (habit: Habit) => (
-                  <SwipeableHabitCard
-                    key={`pending-${habit.id}`}
-                    habit={habit}
-                    isCompleted={false}
-                    isFailed={false}
-                    onToggle={toggleHabitCompletion}
-                    onRelapse={handleRelapse}
-                    displayDescription={getDisplayDescription(habit)}
-                    streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                  />
-                );
+                const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
+                const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
+                const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
+                const renderGroup = (title: string | null, groupHabits: Habit[]) => {
+                  if (groupHabits.length === 0) return null;
+                  const pending = groupHabits.filter(h => !completedIds.includes(h.id));
+                  const completed = groupHabits.filter(h => completedIds.includes(h.id));
+
+                  return (
+                    <Animated.View layout={Layout.springify()} key={title || 'no-time'}>
+                      {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
+                      {pending.map((habit) => (
+                        <SwipeableHabitCard
+                          key={`pending-${habit.id}`}
+                          habit={habit}
+                          isCompleted={false}
+                          isFailed={false}
+                          onToggle={toggleHabitCompletion}
+                          onRelapse={handleRelapse}
+                          displayDescription={getDisplayDescription(habit)}
+                          streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                        />
+                      ))}
+
+                      {completed.length > 0 && (
+                        <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
+                          {completed.map((habit) => (
+                            <TouchableOpacity
+                              key={`completed-${habitLogs.id}`}
+                              onPress={() => toggleHabitCompletion(habit.id)}
+                              activeOpacity={0.8}
+                            >
+                              <SwipeableHabitCard
+                                habit={habit}
+                                isCompleted={true}
+                                isFailed={false}
+                                onToggle={toggleHabitCompletion}
+                                displayDescription={getDisplayDescription(habit)}
+                              />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
+                    </Animated.View>
+                  );
+                };
+
+                const noTimeHabits = activeHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
+                const morningHabits = activeHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
+                const afternoonHabits = activeHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
+                const eveningHabits = activeHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
+
                 return (
                   <View>
                     {relapsedHabits.map((relapsedHabit) => (
@@ -1322,47 +1357,10 @@ export default function App() {
                         displayDescription={getDisplayDescription(relapsedHabit)}
                       />
                     ))}
-                    {noTimeHabits.map(renderHabitCard)}
-                    {morningHabits.length > 0 && (
-                      <Animated.View layout={Layout.springify()}>
-                        <Text style={styles.timeOfDayHeader}>{t('morning') || 'Mañana'}</Text>
-                        {morningHabits.map(renderHabitCard)}
-                      </Animated.View>
-                    )}
-                    {afternoonHabits.length > 0 && (
-                      <Animated.View layout={Layout.springify()}>
-                        <Text style={styles.timeOfDayHeader}>{t('afternoon') || 'Tarde'}</Text>
-                        {afternoonHabits.map(renderHabitCard)}
-                      </Animated.View>
-                    )}
-                    {eveningHabits.length > 0 && (
-                      <Animated.View layout={Layout.springify()}>
-                        <Text style={styles.timeOfDayHeader}>{t('evening') || 'Noche'}</Text>
-                        {eveningHabits.map(renderHabitCard)}
-                      </Animated.View>
-                    )}
-                    {completedHabits.length > 0 && (
-                      <Animated.View layout={Layout.springify()}>
-                        <Text style={[styles.sectionTitle, { marginTop: 24, color: '#9CA3AF' }]}>
-                          {t('habitsCompleted')}
-                        </Text>
-                        {completedHabits.map((completedHabit) => (
-                          <TouchableOpacity
-                            key={`completed-${completedHabit.id}`}
-                            onPress={() => toggleHabitCompletion(completedHabit.id)}
-                            activeOpacity={0.8}
-                          >
-                            <SwipeableHabitCard
-                              habit={completedHabit}
-                              isCompleted={true}
-                              isFailed={false}
-                              onToggle={toggleHabitCompletion}
-                              displayDescription={getDisplayDescription(completedHabit)}
-                            />
-                          </TouchableOpacity>
-                        ))}
-                      </Animated.View>
-                    )}
+                    {renderGroup(null, noTimeHabits)}
+                    {renderGroup(t('morning') || 'Mañana', morningHabits)}
+                    {renderGroup(t('afternoon') || 'Tarde', afternoonHabits)}
+                    {renderGroup(t('evening') || 'Noche', eveningHabits)}
                   </View>
                 );
               })()
@@ -1960,7 +1958,7 @@ export default function App() {
           </View>
         </Modal>
       </SafeAreaView>
-    </GestureHandlerRootView>
+    </GestureHandlerRootView >
   );
 }
 
@@ -2111,6 +2109,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: '#00B763',
     marginTop: 8,
+    marginBottom: 16,
     gap: 8,
   },
   createHabitText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
@@ -2783,22 +2782,22 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   streakBadgeMini: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingHorizontal: 8,
-  paddingVertical: 4,
-  borderRadius: 12,
-  gap: 4,
-  marginLeft: 8,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 3,
-  elevation: 2,
-},
-streakBadgeMiniText: {
-  color: '#FFFFFF',
-  fontSize: 12,
-  fontWeight: '800',
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+    marginLeft: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  streakBadgeMiniText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
 });
