@@ -432,6 +432,7 @@ interface SwipeableHabitCardProps {
   onToggle: (habitId: string) => void;
   onRelapse?: (habitId: string) => void;
   displayDescription?: string;
+  streak?: number;
 }
 
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -442,7 +443,8 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   isFailed = false,
   onToggle,
   onRelapse,
-  displayDescription
+  displayDescription,
+  streak
 }) => {
   const translateX = useSharedValue(0);
   const isQuitHabit = habit.type === 'Quit a habit';
@@ -492,11 +494,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
-            <Ionicons name={isQuitHabit ? "shield-checkmark" : "checkmark-circle-outline"} size={32} color="#FFFFFF" />
+            <Ionicons name={isQuitHabit ? "trophy-outline" : "checkmark-circle-outline"} size={32} color="#FFFFFF" />
           </Animated.View>
           {isQuitHabit && (
             <Animated.View style={[styles.swipeBackgroundLeft, rBackgroundLeftStyle]}>
-              <Ionicons name="refresh-circle" size={34} color="#FFFFFF" />
+              <Ionicons name="close-circle-outline" size={34} color="#FFFFFF" />
             </Animated.View>
           )}
         </>
@@ -528,6 +530,13 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
             </Text>
             {displayDescription ? <Text style={styles.habitDescription}>{displayDescription}</Text> : null}
           </View>
+
+          {isQuitHabit && !isCompleted && !isFailed && streak !== undefined && (
+            <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
+              <Ionicons name="flame" size={12} color="#FFFFFF"/>
+              <Text style={styles.streakBadgeMiniText}>{streak}</Text>
+            </View>
+          )}
         </Animated.View>
       </GestureDetector>
     </Animated.View>
@@ -761,6 +770,27 @@ export default function App() {
     }
     setIsRelapseModalVisible(false);
     setRelapsingHabitId(null);
+  };
+
+  const getQuitStreak = (habit: Habit) => {
+    if (!habit.createdAt) return 0;
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let checkDate = new Date(today);
+    const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
+    const startDate = new Date(startYear, startMonth - 1, startDay);
+
+    while (checkDate >= startDate) {
+      const key = formatDateKey(checkDate);
+      const relapses = relapseLogs[key] || [];
+      if (relapses.includes(habit.id)) {
+        break;
+      }
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    return streak;
   };
 
   const getDisplayDescription = (habit: Habit) => {
@@ -1277,6 +1307,7 @@ export default function App() {
                     onToggle={toggleHabitCompletion}
                     onRelapse={handleRelapse}
                     displayDescription={getDisplayDescription(habit)}
+                    streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                   />
                 );
                 return (
@@ -2750,5 +2781,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700'
-  }
+  },
+  streakBadgeMini: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 12,
+  gap: 4,
+  marginLeft: 8,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+  elevation: 2,
+},
+streakBadgeMiniText: {
+  color: '#FFFFFF',
+  fontSize: 12,
+  fontWeight: '800',
+},
 });
