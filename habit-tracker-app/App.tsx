@@ -427,7 +427,7 @@ export async function scheduleHabitReminders(
 interface SwipeableHabitCardProps {
   habit: Habit;
   isCompleted: boolean;
-  isFailed: boolean
+  isFailed: boolean;
   onToggle: (habitId: string) => void;
   onRelapse?: (habitId: string) => void;
   displayDescription?: string;
@@ -438,6 +438,7 @@ const RELAPSE_THRESHOLD = SCREEN_WIDTH * 0.4;
 const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   habit,
   isCompleted,
+  isFailed = false,
   onToggle,
   onRelapse,
   displayDescription
@@ -447,16 +448,16 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .onUpdate((event) => {
-      if (!isCompleted) {
+      if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
           translateX.value = event.translationX;
-        } else {
+        } else if (event.translationX < 0 && isQuitHabit) {
           translateX.value = event.translationX;
         }
       }
     })
     .onEnd((event) => {
-      if (!isCompleted) {
+      if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
           translateX.value = withTiming(SCREEN_WIDTH, {}, () => {
             runOnJS(onToggle)(habit.id);
@@ -501,16 +502,27 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       )}
 
       <GestureDetector gesture={panGesture}>
-        <Animated.View style={[styles.habitCardGestural, rStyle, isCompleted && styles.habitCardCompletedGestural]}>
-          <View style={[styles.iconContainerGesture, { backgroundColor: isCompleted ? '#F3F4F6' : habit.color + '15' }]}>
+        <Animated.View style={[
+          styles.habitCardGestural, 
+          rStyle, 
+          isCompleted && styles.habitCardCompletedGestural,
+          isFailed && styles.habitCardFailedGestural
+        ]}>
+          <View style={[
+            styles.iconContainerGesture, 
+            { backgroundColor: isCompleted ? '#F3F4F6' : (isFailed ? '#FEE2E2' : habit.color + '15') }]}>
             <Ionicons
               name={isCompleted ? 'checkmark-circle' : (habit.icon as any)}
               size={24}
-              color={isCompleted ? '#9CA3AF' : habit.color}
+              color={isCompleted ? '#9CA3AF' : (isFailed ? '#DC2626' : habit.color)}
             />
           </View>
           <View style={styles.habitInfo}>
-            <Text style={[styles.habitTitleGestural, isCompleted && styles.habitTitleCompleted]}>
+            <Text style={[
+              styles.habitTitleGestural, 
+              isCompleted && styles.habitTitleCompleted,
+              isFailed && styles.habitTitleFailed
+            ]}>
               {habit.title}
             </Text>
             {displayDescription ? <Text style={styles.habitDescription}>{displayDescription}</Text> : null}
@@ -739,12 +751,12 @@ export default function App() {
           style: "destructive",
           onPress: () => {
             setRelapseLogs((prevLogs) => {
-            const currentRelapsed = prevLogs[activeDateKey] || [];
-            if (!currentRelapsed.includes(habitId)) {
-              return { ...prevLogs, [activeDateKey]: [...currentRelapsed, habitId] };
-            }
-            return prevLogs;
-          });
+              const currentRelapsed = prevLogs[activeDateKey] || [];
+              if (!currentRelapsed.includes(habitId)) {
+                return { ...prevLogs, [activeDateKey]: [...currentRelapsed, habitId] };
+              }
+              return prevLogs;
+            });
           }
         }
       ]
@@ -752,21 +764,21 @@ export default function App() {
   };
 
   const getDisplayDescription = (habit: Habit) => {
-  let displayDescription = habit.description;
-  
-  if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
-    const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
-    const startDate = new Date(startYear, startMonth - 1, startDay);
-    const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
-    const currentDate = new Date(currYear, currMonth - 1, currDay);
-    let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) diffDays = 0;
-    const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
-    displayDescription = QUIT_QUOTES_KEYS[currentQuoteIndex]; 
-  }
-  
-  return displayDescription;
-};
+    let displayDescription = habit.description;
+
+    if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
+      const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
+      const currentDate = new Date(currYear, currMonth - 1, currDay);
+      let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) diffDays = 0;
+      const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
+      displayDescription = QUIT_QUOTES_KEYS[currentQuoteIndex];
+    }
+
+    return displayDescription;
+  };
 
   const QuitSettings = () => {
     setFrequencyDisplay(t('everyday'));
@@ -803,7 +815,7 @@ export default function App() {
       quoteOrder: isQuit ? randomizedOrder : undefined,
       targetDate: isTask ? formatDateKey(taskDate) : undefined,
     };
-
+    /*
     if (isQuit) {
       setHabitLogs((prevLogs) => {
         const currentCompleted = prevLogs[activeDateKey] || [];
@@ -813,6 +825,7 @@ export default function App() {
         };
       });
     }
+    */
     /*
     if (isReminderEnabled) {
       await scheduleHabitReminders(
@@ -1244,15 +1257,28 @@ export default function App() {
             ) : (
               (() => {
                 const completedIds = habitLogs[activeDateKey] || [];
+                const relapsedIds = relapseLogs[activeDateKey] || [];
                 const pendingHabits = visibleHabits.filter(h => !completedIds.includes(h.id));
                 const completedHabits = visibleHabits.filter(h => completedIds.includes(h.id));
+                const relapsedHabits = visibleHabits.filter(h => relapsedIds.includes(h.id));
                 return (
                   <View>
+                    {relapsedHabits.map((relapsedHabit) => (
+                      <SwipeableHabitCard
+                        key={`relapsed-${relapsedHabit.id}`}
+                        habit={relapsedHabit}
+                        isCompleted={false}
+                        isFailed={true}
+                        onToggle={toggleHabitCompletion}
+                        displayDescription={getDisplayDescription(relapsedHabit)}
+                      />
+                    ))}
                     {pendingHabits.map((pendingHabit) => (
                       <SwipeableHabitCard
                         key={`pending-${pendingHabit.id}`}
                         habit={pendingHabit}
                         isCompleted={false}
+                        isFailed={false}
                         onToggle={toggleHabitCompletion}
                         onRelapse={handleRelapse}
                         displayDescription={getDisplayDescription(pendingHabit)}
@@ -1272,6 +1298,7 @@ export default function App() {
                             <SwipeableHabitCard
                               habit={completedHabit}
                               isCompleted={true}
+                              isFailed={false}
                               onToggle={toggleHabitCompletion}
                               displayDescription={getDisplayDescription(completedHabit)}
                             />
@@ -2493,14 +2520,14 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
   },
   swipeBackgroundLeft: {
-  ...StyleSheet.absoluteFill,
-  borderRadius: 16,
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'flex-end',
-  paddingRight: 20,
-  backgroundColor: '#DC2626',
-},
+    ...StyleSheet.absoluteFill,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingRight: 20,
+    backgroundColor: '#DC2626',
+  },
   habitCardGestural: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2533,4 +2560,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1F2937'
   },
+  habitCardFailedGestural: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+    elevation: 0,
+    shadowOpacity: 0
+  },
+  habitTitleFailed: {
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through'
+  }
 });
