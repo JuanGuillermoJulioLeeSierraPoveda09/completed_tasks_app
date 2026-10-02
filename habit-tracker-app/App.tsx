@@ -1321,7 +1321,7 @@ export default function App() {
                         <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
                           {completed.map((habit) => (
                             <TouchableOpacity
-                              key={`completed-${habitLogs.id}`}
+                              key={`completed-${habit.id}`}
                               onPress={() => toggleHabitCompletion(habit.id)}
                               activeOpacity={0.8}
                             >
