@@ -491,7 +491,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     zIndex: translateX.value < 0 ? 1 : -1,
   }));
   return (
-    <Animated.View layout={Layout.springify()} entering={FadeIn} style={styles.swipeableContainer}>
+    <Animated.View entering={FadeIn} style={styles.swipeableContainer}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
@@ -778,7 +778,9 @@ export default function App() {
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    let checkDate = new Date(today);
+    const currentActiveDate = new Date(activeDate);
+    currentActiveDate.setHours(0, 0, 0, 0);
+    let checkDate = currentActiveDate > today ? new Date(today) : new Date(currentActiveDate);
     const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
     const startDate = new Date(startYear, startMonth - 1, startDay);
 
@@ -1302,7 +1304,7 @@ export default function App() {
                   const completed = groupHabits.filter(h => completedIds.includes(h.id));
 
                   return (
-                    <Animated.View layout={Layout.springify()} key={title || 'no-time'}>
+                    <Animated.View key={title || 'no-time'}>
                       {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
                       {pending.map((habit) => (
                         <SwipeableHabitCard
