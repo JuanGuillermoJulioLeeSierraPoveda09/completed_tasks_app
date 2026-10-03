@@ -439,6 +439,10 @@ interface SwipeableHabitCardProps {
   onLongPress?: () => void;
   onMoveUp?: (habitId: string) => void;
   onMoveDown?: (habitId: string) => void;
+  isMenuOpen?: boolean;
+  onToggleMenu?: (habitId: string) => void;
+  onEdit?: (habitId: string) => void;
+  onDelete?: (habitId: string) => void;
 }
 
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -454,7 +458,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   isEditMode = false,
   onLongPress,
   onMoveUp,
-  onMoveDown
+  onMoveDown,
+  isMenuOpen,
+  onToggleMenu,
+  onEdit,
+  onDelete
 }) => {
   const translateX = useSharedValue(0);
   const rotation = useSharedValue(0);
@@ -527,7 +535,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     zIndex: translateX.value < 0 ? 1 : -1,
   }));
   return (
-    <Animated.View entering={FadeIn} style={styles.swipeableContainer}>
+    <Animated.View entering={FadeIn} style={[styles.swipeableContainer, isMenuOpen ? { zIndex: isMenuOpen ? 100 : 1 } : { zIndex: 1, elevation: 0 }]}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
@@ -578,12 +586,36 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
               </TouchableOpacity>
             </Animated.View>
           ) : (
-            isQuitHabit && !isFailed && streak !== undefined && (
-              <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
-                <Ionicons name="flame" size={12} color="#FFFFFF" />
-                <Text style={styles.streakBadgeMiniText}>{streak}</Text>
-              </View>
-            )
+            <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
+              {isQuitHabit && !isFailed && streak !== undefined && (
+                <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
+                  <Ionicons name="flame" size={12} color="#FFFFFF" />
+                  <Text style={styles.streakBadgeMiniText}>{streak}</Text>
+                </View>
+              )}
+
+              {!isEditMode && onToggleMenu && (
+                <View style={{ position: 'relative', zIndex: 100 }}>
+                  <TouchableOpacity style={styles.optionsButton} onPress={() => onToggleMenu(habit.id)}>
+                    <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
+                  </TouchableOpacity>
+
+                  {isMenuOpen && (
+                    <Animated.View style={styles.inlineMenuPopup}>
+                      <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onEdit && onEdit(habit.id)}>
+                        <Ionicons name="pencil-outline" size={18} color="#1F2937" />
+                        <Text style={styles.inlinePopupText}>Editar</Text>
+                      </TouchableOpacity>
+                      <View style={styles.inlinePopupDivider} />
+                      <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onDelete && onDelete(habit.id)}>
+                        <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                        <Text style={[styles.inlinePopupText, { color: '#DC2626' }]}>Eliminar</Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  )}
+                </View>
+              )}
+            </View>
           )}
         </Animated.View>
       </GestureDetector>
@@ -635,6 +667,8 @@ export default function App() {
   const [taskDate, setTaskDate] = useState(new Date());
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [activeMenuHabitId, setActiveMenuHabitId] = useState<string | null>(null);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState(t('everyday'));
@@ -890,52 +924,73 @@ export default function App() {
 
   const handleCreateHabit = async () => {
     if (!newTitle.trim()) return;
-    const newId = Date.now().toString();
     const isQuit = habitType === 'Quit a habit';
     const isTask = habitType === 'Task';
-    const randomizedOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
-    const newHabit: Habit = {
-      id: newId,
-      title: newTitle,
-      description: isQuit ? '' : newDescription,
-      icon: selectedIcon,
-      color: selectedColor,
-      frequency: isQuit ? frequencyDisplay : frequencyDisplay,
-      selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
-      selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
-      type: habitType,
-      createdAt: activeDateKey,
-      quoteOrder: isQuit ? randomizedOrder : undefined,
-      targetDate: isTask ? formatDateKey(taskDate) : undefined,
-      timeOfDay: isQuit ? undefined : timeOfDay,
-      order: habits.length,
-    };
-    /*
-    if (isQuit) {
-      setHabitLogs((prevLogs) => {
-        const currentCompleted = prevLogs[activeDateKey] || [];
-        return {
-          ...prevLogs,
-          [activeDateKey]: [...currentCompleted, newId],
-        };
-      });
-    }
+
+    if (editingHabitId) {
+      setHabits((prev) => prev.map((h) => {
+        if (h.id === editingHabitId) {
+          return {
+            ...h,
+            title: newTitle,
+            description: isQuit ? '' : newDescription,
+            icon: selectedIcon,
+            color: selectedColor,
+            type: habitType,
+            frequency: frequencyDisplay,
+            timeOfDay: isQuit ? undefined : timeOfDay,
+            selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
+            selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
+          };
+        }
+        return h;
+      }));
+    } else {
+      const newId = Date.now().toString();
+      const randomizedOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
+      const newHabit: Habit = {
+        id: newId,
+        title: newTitle,
+        description: isQuit ? '' : newDescription,
+        icon: selectedIcon,
+        color: selectedColor,
+        frequency: isQuit ? frequencyDisplay : frequencyDisplay,
+        selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
+        selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
+        type: habitType,
+        createdAt: activeDateKey,
+        quoteOrder: isQuit ? randomizedOrder : undefined,
+        targetDate: isTask ? formatDateKey(taskDate) : undefined,
+        timeOfDay: isQuit ? undefined : timeOfDay,
+        order: habits.length,
+      };
+      /*
+      if (isQuit) {
+        setHabitLogs((prevLogs) => {
+          const currentCompleted = prevLogs[activeDateKey] || [];
+          return {
+            ...prevLogs,
+            [activeDateKey]: [...currentCompleted, newId],
+          };
+        });
+      }
+      */
+      /*
+      if (isReminderEnabled) {
+        await scheduleHabitReminders(
+          newId,
+          newTitle,
+          reminderSelectedHour,
+          reminderSelectedMinute,
+          reminderPeriod,
+          frequencyType,
+          selectedWeekDays,
+          selectedMonthDays
+        );
+      }
     */
-    /*
-    if (isReminderEnabled) {
-      await scheduleHabitReminders(
-        newId,
-        newTitle,
-        reminderSelectedHour,
-        reminderSelectedMinute,
-        reminderPeriod,
-        frequencyType,
-        selectedWeekDays,
-        selectedMonthDays
-      );
+      setHabits([...habits, newHabit]);
     }
-  */
-    setHabits([...habits, newHabit]);
     resetForm();
     setIsModalVisible(false);
   };
@@ -950,6 +1005,40 @@ export default function App() {
     setReminderSelectedMinute(minute);
     setReminderPeriod(period);
     setIsReminderPickerVisible(false);
+  };
+
+  const handleStartEdit = (habitId: string) => {
+    const habitToEdit = habits.find((h) => h.id === habitId);
+    if (habitToEdit) {
+      setEditingHabitId(habitToEdit.id);
+      setNewTitle(habitToEdit.title);
+      setNewDescription(habitToEdit.description || '');
+      setSelectedIcon(habitToEdit.icon);
+      setSelectedColor(habitToEdit.color);
+      setHabitType(habitToEdit.type || 'Build a habit');
+
+      if (habitToEdit.frequency) setFrequencyDisplay(habitToEdit.frequency);
+      if (habitToEdit.timeOfDay) setTimeOfDay(habitToEdit.timeOfDay);
+      if (habitToEdit.selectedWeekDays) {
+        setFrequencyType('days_of_week');
+        setSelectedWeekDays([...habitToEdit.selectedWeekDays]);
+      } else if (habitToEdit.selectedMonthDays) {
+        setFrequencyType('days_of_month');
+        setSelectedMonthDays([...habitToEdit.selectedMonthDays]);
+      } else {
+        setFrequencyType('days_of_week');
+        setSelectedWeekDays([true, true, true, true, true, true, true]);
+      }
+      setIsModalVisible(true);
+    }
+    setActiveMenuHabitId(null);
+  };
+
+  const handleDeleteHabit = () => {
+    if (activeMenuHabitId) {
+      setHabits((prev) => prev.filter((h) => h.id !== activeMenuHabitId));
+    }
+    setActiveMenuHabitId(null);
   };
 
   const resetForm = () => {
@@ -969,6 +1058,7 @@ export default function App() {
     setReminderSelectedMinute('00');
     setReminderPeriod(('AM'));
     setIsReminderEnabled(false);
+    setEditingHabitId(null);
   };
 
   const resetFormWhenSetHabitType = () => {
@@ -1198,7 +1288,7 @@ export default function App() {
     }
     setTimeout(() => {
       changeMonth(movement);
-      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false});
+      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
     }, 300);
   };
 
@@ -1236,7 +1326,7 @@ export default function App() {
       const currentIndex = groupHabits.findIndex(h => h.id === habitId);
       if (direction === 'up' && currentIndex > 0) {
         const neighbor = groupHabits[currentIndex - 1];
-        return prevHabits.map (h => {
+        return prevHabits.map(h => {
           if (h.id === habitId) return { ...h, order: neighbor.order };
           if (h.id === neighbor.id) return { ...h, order: habitToMove.order };
           return h;
@@ -1298,7 +1388,7 @@ export default function App() {
           </View>
         </View>
 
-        <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false} onScrollBeginDrag={() => setActiveMenuHabitId(null)}>
           <View style={styles.calendarShadowBox}>
             <View style={styles.calendarContainer}>
               <View style={styles.fixedHeaderRow}>
@@ -1389,7 +1479,7 @@ export default function App() {
                 </TouchableOpacity>
               )}
             </View>
-    
+
             {visibleHabits.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
@@ -1414,9 +1504,13 @@ export default function App() {
                   if (groupHabits.length === 0) return null;
                   const pending = groupHabits.filter(h => !isHabitCompleted(h));
                   const completed = groupHabits.filter(h => isHabitCompleted(h));
+                  const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
 
                   return (
-                    <Animated.View key={title || 'no-time'}>
+                    <Animated.View
+                      key={title || 'no-time'}
+                      style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 1, elevation: 0 }}
+                    >
                       {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
                       {pending.map((habit) => (
                         <SwipeableHabitCard
@@ -1432,6 +1526,10 @@ export default function App() {
                           onLongPress={() => setIsEditMode(true)}
                           onMoveUp={(id) => moveHabit(id, 'up')}
                           onMoveDown={(id) => moveHabit(id, 'down')}
+                          isMenuOpen={activeMenuHabitId === habit.id}
+                          onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                          onEdit={handleStartEdit}
+                          onDelete={handleDeleteHabit}
                         />
                       ))}
 
@@ -1450,6 +1548,10 @@ export default function App() {
                                 onToggle={toggleHabitCompletion}
                                 displayDescription={getDisplayDescription(habit)}
                                 streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                                isMenuOpen={activeMenuHabitId === habit.id}
+                                onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                                onEdit={handleStartEdit}
+                                onDelete={handleDeleteHabit}
                               />
                             </TouchableOpacity>
                           ))}
@@ -2247,7 +2349,53 @@ const styles = StyleSheet.create({
   habitTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
   habitTitleCompleted: { textDecorationLine: 'line-through', color: '#6B7280' },
   habitDescription: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  optionsButton: { padding: 6 },
+  optionsButton: {
+    padding: 6,
+    marginLeft: 4,
+  },
+  inlineMenuPopup: {
+    position: 'absolute',
+    top: 30,
+    right: -17,
+    width: 160,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  inlinePopupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  inlinePopupText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  inlinePopupDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginHorizontal: 8,
+  },
+  invisibleOverlay: {
+    position: 'absolute',
+    top: -1000,
+    bottom: -1000,
+    left: -1000,
+    right: -1000,
+    zIndex: 90,
+    elevation: 90,
+  },
   createHabitButton: {
     flexDirection: 'row',
     alignItems: 'center',
