@@ -23,16 +23,17 @@ import Animated, {
   LinearTransition,
   useSharedValue,
   useAnimatedStyle,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
   runOnJS,
-  Layout,
   FadeIn,
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { GestureHandlerRootView, GestureDetector, Gesture, Directions } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import './i18n';
@@ -434,6 +435,10 @@ interface SwipeableHabitCardProps {
   onRelapse?: (habitId: string) => void;
   displayDescription?: string;
   streak?: number;
+  isEditMode?: boolean;
+  onLongPress?: () => void;
+  onMoveUp?: (habitId: string) => void;
+  onMoveDown?: (habitId: string) => void;
 }
 
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -445,11 +450,32 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   onToggle,
   onRelapse,
   displayDescription,
-  streak
+  streak,
+  isEditMode = false,
+  onLongPress,
+  onMoveUp,
+  onMoveDown
 }) => {
   const translateX = useSharedValue(0);
+  const rotation = useSharedValue(0);
   const isQuitHabit = habit.type === 'Quit a habit';
+
+  React.useEffect(() => {
+    if (isEditMode && !isCompleted && !isFailed) {
+      rotation.value = withRepeat(
+        withSequence(
+          withTiming(0.5, { duration: 150 }),
+          withTiming(-0.5, { duration: 150 })
+        ),
+        -1, true
+      );
+    } else {
+      rotation.value = withSpring(0);
+    }
+  }, [isEditMode]);
+
   const panGesture = Gesture.Pan()
+    .enabled(!isEditMode)
     .activeOffsetX([-10, 10])
     .onUpdate((event) => {
       if (!isCompleted && !isFailed) {
@@ -479,8 +505,18 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         }
       }
     });
+
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(500)
+    .onStart(() => {
+      if (!isEditMode && onLongPress) {
+        runOnJS(onLongPress)();
+      }
+    });
+
+  const composedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
   const rStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }]
+    transform: [{ translateX: translateX.value }, { rotate: `${rotation.value}deg` }]
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -505,7 +541,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         </>
       )}
 
-      <GestureDetector gesture={panGesture}>
+      <GestureDetector gesture={composedGestures}>
         <Animated.View style={[
           styles.habitCardGestural,
           rStyle,
@@ -532,11 +568,22 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
             {displayDescription ? <Text style={styles.habitDescription}>{displayDescription}</Text> : null}
           </View>
 
-          {isQuitHabit && !isCompleted && !isFailed && streak !== undefined && (
-            <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
-              <Ionicons name="flame" size={12} color="#FFFFFF" />
-              <Text style={styles.streakBadgeMiniText}>{streak}</Text>
-            </View>
+          {isEditMode && !isCompleted && !isFailed ? (
+            <Animated.View entering={FadeIn} style={styles.reorderControls}>
+              <TouchableOpacity onPress={() => onMoveUp && onMoveUp(habit.id)} style={styles.reorderButton}>
+                <Ionicons name="chevron-up" size={24} color="#6B7280" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => onMoveDown && onMoveDown(habit.id)} style={styles.reorderButton}>
+                <Ionicons name="chevron-down" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            isQuitHabit && !isFailed && streak !== undefined && (
+              <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
+                <Ionicons name="flame" size={12} color="#FFFFFF" />
+                <Text style={styles.streakBadgeMiniText}>{streak}</Text>
+              </View>
+            )
           )}
         </Animated.View>
       </GestureDetector>
@@ -587,6 +634,7 @@ export default function App() {
   const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
   const [taskDate, setTaskDate] = useState(new Date());
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [frequencyDisplay, setFrequencyDisplay] = useState(t('everyday'));
@@ -696,8 +744,20 @@ export default function App() {
 
   const handleMonthCurrent = () => {
     const now = new Date();
-    setCalendarMonth(now);
-    setCurrentCalendarDate(now);
+    const isSameMonth =
+      currentCalendarDate.getMonth() === now.getMonth() &&
+      currentCalendarDate.getFullYear() === now.getFullYear();
+    if (isSameMonth) return;
+    const isFuture = now > currentCalendarDate;
+    calendarFlatListRef.current?.scrollToIndex({
+      index: isFuture ? 2 : 0,
+      animated: true
+    });
+    setTimeout(() => {
+      setCalendarMonth(now);
+      setCurrentCalendarDate(now);
+      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
+    }, 300);
   }
 
   const handleHeaderDatePress = () => {
@@ -1136,7 +1196,11 @@ export default function App() {
     } else if (movement == 'next') {
       calendarFlatListRef.current?.scrollToIndex({ index: 2, animated: true });
     }
-  }
+    setTimeout(() => {
+      changeMonth(movement);
+      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false});
+    }, 300);
+  };
 
   const handleSelectedCalendarDay = (targetDate: Date) => {
     const today = new Date();
@@ -1155,6 +1219,38 @@ export default function App() {
     setSelectedDayIndex(target.getDay());
     setWeekOffset(computedWeekOffset);
     setIsStreaksModalVisible(false);
+  };
+
+  const moveHabit = (habitId: string, direction: 'up' | 'down') => {
+    setHabits(prevHabits => {
+      const habitToMove = prevHabits.find(h => h.id === habitId);
+      if (!habitToMove) return prevHabits;
+      const groupHabits = prevHabits.filter(h => {
+        const targetIsNoTime = !habitToMove.timeOfDay || habitToMove.type == 'Quit a habit';
+        if (targetIsNoTime) {
+          return !h.timeOfDay || h.type === 'Quit a habit';
+        }
+        return h.timeOfDay === habitToMove.timeOfDay && h.type !== 'Quit a habit';
+      }).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      const currentIndex = groupHabits.findIndex(h => h.id === habitId);
+      if (direction === 'up' && currentIndex > 0) {
+        const neighbor = groupHabits[currentIndex - 1];
+        return prevHabits.map (h => {
+          if (h.id === habitId) return { ...h, order: neighbor.order };
+          if (h.id === neighbor.id) return { ...h, order: habitToMove.order };
+          return h;
+        });
+      } else if (direction === 'down' && currentIndex < groupHabits.length - 1) {
+        const neighbor = groupHabits[currentIndex + 1];
+        return prevHabits.map(h => {
+          if (h.id === habitId) return { ...h, order: neighbor.order };
+          if (h.id === neighbor.id) return { ...h, order: habitToMove.order };
+          return h;
+        });
+      }
+      return prevHabits;
+    });
   };
 
   const getLocale = (languageCode: string) => {
@@ -1285,7 +1381,15 @@ export default function App() {
           </View>
 
           <View style={styles.habitsSection}>
-            <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
+              {isEditMode && (
+                <TouchableOpacity onPress={() => setIsEditMode(false)} style={styles.doneEditButton}>
+                  <Text style={styles.doneEditText}>{t('done')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+    
             {visibleHabits.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
@@ -1293,6 +1397,14 @@ export default function App() {
               </View>
             ) : (
               (() => {
+                const todayStr = formatDateKey(new Date());
+                const isPastDay = activeDateKey < todayStr;
+                const isHabitCompleted = (h: Habit) => {
+                  if (h.type === 'Quit a habit' && isPastDay && h.createdAt && activeDateKey >= h.createdAt) {
+                    return true;
+                  }
+                  return completedIds.includes(h.id);
+                };
                 const completedIds = habitLogs[activeDateKey] || [];
                 const relapsedIds = relapseLogs[activeDateKey] || [];
                 const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1300,8 +1412,8 @@ export default function App() {
                 const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
                 const renderGroup = (title: string | null, groupHabits: Habit[]) => {
                   if (groupHabits.length === 0) return null;
-                  const pending = groupHabits.filter(h => !completedIds.includes(h.id));
-                  const completed = groupHabits.filter(h => completedIds.includes(h.id));
+                  const pending = groupHabits.filter(h => !isHabitCompleted(h));
+                  const completed = groupHabits.filter(h => isHabitCompleted(h));
 
                   return (
                     <Animated.View key={title || 'no-time'}>
@@ -1316,6 +1428,10 @@ export default function App() {
                           onRelapse={handleRelapse}
                           displayDescription={getDisplayDescription(habit)}
                           streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                          isEditMode={isEditMode}
+                          onLongPress={() => setIsEditMode(true)}
+                          onMoveUp={(id) => moveHabit(id, 'up')}
+                          onMoveDown={(id) => moveHabit(id, 'down')}
                         />
                       ))}
 
@@ -1333,6 +1449,7 @@ export default function App() {
                                 isFailed={false}
                                 onToggle={toggleHabitCompletion}
                                 displayDescription={getDisplayDescription(habit)}
+                                streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                               />
                             </TouchableOpacity>
                           ))}
@@ -1487,7 +1604,7 @@ export default function App() {
                   <Text style={styles.fieldLabel}>{t('frequency')}</Text>
                   {habitType === 'Quit a habit' ? (
                     <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
-                      <Text style={styles.frequencyValueText} onTextLayout={QuitSettings}>{frequencyDisplay}</Text>
+                      <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
                       <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
                     </TouchableOpacity>
                   ) : (
@@ -2069,6 +2186,34 @@ const styles = StyleSheet.create({
   dateNumberSelected: { color: '#FFFFFF' },
   habitsSection: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  doneEditButton: {
+    backgroundColor: '#1F2937',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  doneEditText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  reorderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+  },
+  reorderButton: {
+    padding: 4,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -2333,7 +2478,7 @@ const styles = StyleSheet.create({
   timeOfDayText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280'
+    color: '#1F2937'
   },
   timeOfDayHeader: {
     fontSize: 16,
