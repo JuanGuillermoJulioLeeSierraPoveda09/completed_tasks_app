@@ -464,6 +464,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   onEdit,
   onDelete
 }) => {
+  const { t, i18n } = useTranslation();
   const translateX = useSharedValue(0);
   const rotation = useSharedValue(0);
   const isQuitHabit = habit.type === 'Quit a habit';
@@ -524,7 +525,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
   const composedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
   const rStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { rotate: `${rotation.value}deg` }]
+    transform: [{ translateX: translateX.value }, { rotate: `${rotation.value}deg`}],
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -554,7 +555,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
           styles.habitCardGestural,
           rStyle,
           isCompleted && styles.habitCardCompletedGestural,
-          isFailed && styles.habitCardFailedGestural
+          isFailed && styles.habitCardFailedGestural,
         ]}>
           <View style={[
             styles.iconContainerGesture,
@@ -601,17 +602,19 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
                   </TouchableOpacity>
 
                   {isMenuOpen && (
-                    <Animated.View style={styles.inlineMenuPopup}>
-                      <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onEdit && onEdit(habit.id)}>
-                        <Ionicons name="pencil-outline" size={18} color="#1F2937" />
-                        <Text style={styles.inlinePopupText}>Editar</Text>
-                      </TouchableOpacity>
-                      <View style={styles.inlinePopupDivider} />
-                      <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onDelete && onDelete(habit.id)}>
-                        <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                        <Text style={[styles.inlinePopupText, { color: '#DC2626' }]}>Eliminar</Text>
-                      </TouchableOpacity>
-                    </Animated.View>
+                    <TouchableOpacity activeOpacity={1} style={{ position: 'absolute', right: 0 }}>
+                      <View style={styles.inlineMenuPopup}>
+                        <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onEdit && onEdit(habit.id)}>
+                          <Ionicons name="pencil-outline" size={18} color="#1F2937" />
+                          <Text style={styles.inlinePopupText}>{t('edit')}</Text>
+                        </TouchableOpacity>
+                        <View style={styles.inlinePopupDivider} />
+                        <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onDelete && onDelete(habit.id)}>
+                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                          <Text style={[styles.inlinePopupText, { color: '#DC2626' }]}>{t('delete')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </TouchableOpacity>
                   )}
                 </View>
               )}
@@ -801,6 +804,7 @@ export default function App() {
     const now = new Date();
     setCalendarMonth(now);
     setCurrentCalendarDate(now);
+    setActiveMenuHabitId(null);
     if (activeStr !== todayStr) {
       setWeekOffset(0);
       setSelectedDayIndex(today.getDay());
@@ -1059,6 +1063,7 @@ export default function App() {
     setReminderPeriod(('AM'));
     setIsReminderEnabled(false);
     setEditingHabitId(null);
+    setActiveMenuHabitId(null);
   };
 
   const resetFormWhenSetHabitType = () => {
@@ -1075,6 +1080,7 @@ export default function App() {
     setReminderSelectedMinute('00');
     setReminderPeriod('AM');
     setIsReminderEnabled(false);
+    setActiveMenuHabitId(null)
   };
 
   const toggleWeekDaySelection = (index: number) => {
@@ -1309,6 +1315,7 @@ export default function App() {
     setSelectedDayIndex(target.getDay());
     setWeekOffset(computedWeekOffset);
     setIsStreaksModalVisible(false);
+    setActiveMenuHabitId(null)
   };
 
   const moveHabit = (habitId: string, direction: 'up' | 'down') => {
@@ -1356,261 +1363,268 @@ export default function App() {
     <GestureHandlerRootView>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
-
-        <View style={styles.navbar}>
-          <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
-            <Text style={styles.dateText}>{headerDateText}</Text>
-            <Ionicons name="chevron-down" size={18} color="#1F2937" />
-          </TouchableOpacity>
-
-          <View style={styles.rightActions}>
-            <TouchableOpacity style={styles.streakBadge} onPress={() => setIsStreaksModalVisible(true)}>
-              {(() => {
-                const today = new Date();
-                const todayStr = formatDateKey(today);
-                const todayLogs = habitLogs[todayStr] || [];
-                const habitsForToday = getHabitsForDate(today);
-                const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
-                const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
-
-                return (
-                  <>
-                    <Ionicons name="flame" size={22} color={flameColor} />
-                    <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
-                  </>
-                );
-              })()}
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          activeOpacity={1}
+          onPress={() => activeMenuHabitId && setActiveMenuHabitId(null)}
+        >
+          <View style={styles.navbar}>
+            <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
+              <Text style={styles.dateText}>{headerDateText}</Text>
+              <Ionicons name="chevron-down" size={18} color="#1F2937" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.settingsButton}>
-              <Ionicons name="settings-outline" size={22} color="#1F2937" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <ScrollView style={styles.mainContent} showsVerticalScrollIndicator={false} onScrollBeginDrag={() => setActiveMenuHabitId(null)}>
-          <View style={styles.calendarShadowBox}>
-            <View style={styles.calendarContainer}>
-              <View style={styles.fixedHeaderRow}>
-                {WEEK_DAYS.map((day, idx) => {
-                  const isSelected = idx === selectedDayIndex;
-                  return (
-                    <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
-                      <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
-                        <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
-                          {day}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <FlatList
-                ref={flatListRef}
-                data={[-1, 0, 1]}
-                horizontal
-                pagingEnabled={false}
-                snapToInterval={SCREEN_WIDTH - 32}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                showsHorizontalScrollIndicator={false}
-                initialScrollIndex={1}
-                getItemLayout={(_, index) => ({
-                  length: SCREEN_WIDTH - 32,
-                  offset: (SCREEN_WIDTH - 32) * index,
-                  index,
-                })}
-                onMomentumScrollEnd={handleScrollEnd}
-                keyExtractor={(item) => item.toString()}
-                renderItem={({ item }) => {
-                  const targetOffset = weekOffset + item;
+            <View style={styles.rightActions}>
+              <TouchableOpacity style={styles.streakBadge} onPress={() => [setIsStreaksModalVisible(true), setActiveMenuHabitId(null)]}>
+                {(() => {
                   const today = new Date();
                   const todayStr = formatDateKey(today);
-                  const currentDayOfWeek = today.getDay();
-                  const startOfWeek = new Date(today);
-                  startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
-
-                  const days = Array.from({ length: 7 }).map((_, i) => {
-                    const d = new Date(startOfWeek);
-                    d.setDate(startOfWeek.getDate() + i);
-                    return { date: d.getDate(), fullDate: d };
-                  });
+                  const todayLogs = habitLogs[todayStr] || [];
+                  const habitsForToday = getHabitsForDate(today);
+                  const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
+                  const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
                   return (
-                    <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
-                      {days.map((dayItem, index) => {
-                        const dateKey = formatDateKey(dayItem.fullDate);
-                        const isToday = dateKey === todayStr;
-                        const completedList = habitLogs[dateKey] || [];
-                        const count = completedList.length;
-                        let dotColor = '#D1D5DB';
-                        const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
-
-                        if (count > 0) {
-                          dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
-                        }
-                        return (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.dayCard}
-                            onPress={() => setSelectedDayIndex(index)}
-                          >
-                            <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
-                              {dayItem.date}
-                            </Text>
-                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
+                    <>
+                      <Ionicons name="flame" size={22} color={flameColor} />
+                      <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
+                    </>
                   );
-                }}
-              />
+                })()}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.settingsButton}>
+                <Ionicons name="settings-outline" size={22} color="#1F2937" />
+              </TouchableOpacity>
             </View>
           </View>
+          <ScrollView
+            style={styles.mainContent}
+            showsVerticalScrollIndicator={false}
+            onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
+            <View style={styles.calendarShadowBox}>
+              <View style={styles.calendarContainer}>
+                <View style={styles.fixedHeaderRow}>
+                  {WEEK_DAYS.map((day, idx) => {
+                    const isSelected = idx === selectedDayIndex;
+                    return (
+                      <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
+                        <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
+                          <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
+                            {day}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
-          <View style={styles.habitsSection}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
-              {isEditMode && (
-                <TouchableOpacity onPress={() => setIsEditMode(false)} style={styles.doneEditButton}>
-                  <Text style={styles.doneEditText}>{t('done')}</Text>
-                </TouchableOpacity>
-              )}
+                <FlatList
+                  ref={flatListRef}
+                  data={[-1, 0, 1]}
+                  horizontal
+                  pagingEnabled={false}
+                  snapToInterval={SCREEN_WIDTH - 32}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  showsHorizontalScrollIndicator={false}
+                  initialScrollIndex={1}
+                  getItemLayout={(_, index) => ({
+                    length: SCREEN_WIDTH - 32,
+                    offset: (SCREEN_WIDTH - 32) * index,
+                    index,
+                  })}
+                  onMomentumScrollEnd={handleScrollEnd}
+                  keyExtractor={(item) => item.toString()}
+                  renderItem={({ item }) => {
+                    const targetOffset = weekOffset + item;
+                    const today = new Date();
+                    const todayStr = formatDateKey(today);
+                    const currentDayOfWeek = today.getDay();
+                    const startOfWeek = new Date(today);
+                    startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
+
+                    const days = Array.from({ length: 7 }).map((_, i) => {
+                      const d = new Date(startOfWeek);
+                      d.setDate(startOfWeek.getDate() + i);
+                      return { date: d.getDate(), fullDate: d };
+                    });
+
+                    return (
+                      <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
+                        {days.map((dayItem, index) => {
+                          const dateKey = formatDateKey(dayItem.fullDate);
+                          const isToday = dateKey === todayStr;
+                          const completedList = habitLogs[dateKey] || [];
+                          const count = completedList.length;
+                          let dotColor = '#D1D5DB';
+                          const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
+
+                          if (count > 0) {
+                            dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
+                          }
+                          return (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.dayCard}
+                              onPress={() => [setSelectedDayIndex(index), setActiveMenuHabitId(null)]}
+                            >
+                              <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
+                                {dayItem.date}
+                              </Text>
+                              <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    );
+                  }}
+                />
+              </View>
             </View>
 
-            {visibleHabits.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
-                <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
+            <View style={styles.habitsSection}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
+                {isEditMode && (
+                  <TouchableOpacity onPress={() => [setIsEditMode(false), setActiveMenuHabitId(null)]} style={styles.doneEditButton}>
+                    <Text style={styles.doneEditText}>{t('done')}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            ) : (
-              (() => {
-                const todayStr = formatDateKey(new Date());
-                const isPastDay = activeDateKey < todayStr;
-                const isHabitCompleted = (h: Habit) => {
-                  if (h.type === 'Quit a habit' && isPastDay && h.createdAt && activeDateKey >= h.createdAt) {
-                    return true;
-                  }
-                  return completedIds.includes(h.id);
-                };
-                const completedIds = habitLogs[activeDateKey] || [];
-                const relapsedIds = relapseLogs[activeDateKey] || [];
-                const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
-                const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
-                const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
-                const renderGroup = (title: string | null, groupHabits: Habit[]) => {
-                  if (groupHabits.length === 0) return null;
-                  const pending = groupHabits.filter(h => !isHabitCompleted(h));
-                  const completed = groupHabits.filter(h => isHabitCompleted(h));
-                  const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
+
+              {visibleHabits.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
+                  <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
+                </View>
+              ) : (
+                (() => {
+                  const todayStr = formatDateKey(new Date());
+                  const isPastDay = activeDateKey < todayStr;
+                  const isHabitCompleted = (h: Habit) => {
+                    if (h.type === 'Quit a habit' && isPastDay && h.createdAt && activeDateKey >= h.createdAt) {
+                      return true;
+                    }
+                    return completedIds.includes(h.id);
+                  };
+                  const completedIds = habitLogs[activeDateKey] || [];
+                  const relapsedIds = relapseLogs[activeDateKey] || [];
+                  const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
+                  const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
+                  const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
+                  const renderGroup = (title: string | null, groupHabits: Habit[]) => {
+                    if (groupHabits.length === 0) return null;
+                    const pending = groupHabits.filter(h => !isHabitCompleted(h));
+                    const completed = groupHabits.filter(h => isHabitCompleted(h));
+                    const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
+
+                    return (
+                      <Animated.View
+                        key={title || 'no-time'}
+                        style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 1, elevation: 0 }}
+                      >
+                        {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
+                        {pending.map((habit) => (
+                          <SwipeableHabitCard
+                            key={`pending-${habit.id}`}
+                            habit={habit}
+                            isCompleted={false}
+                            isFailed={false}
+                            onToggle={toggleHabitCompletion}
+                            onRelapse={handleRelapse}
+                            displayDescription={getDisplayDescription(habit)}
+                            streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                            isEditMode={isEditMode}
+                            onLongPress={() => setIsEditMode(true)}
+                            onMoveUp={(id) => moveHabit(id, 'up')}
+                            onMoveDown={(id) => moveHabit(id, 'down')}
+                            isMenuOpen={activeMenuHabitId === habit.id}
+                            onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                            onEdit={handleStartEdit}
+                            onDelete={handleDeleteHabit}
+                          />
+                        ))}
+
+                        {completed.length > 0 && (
+                          <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
+                            {completed.map((habit) => (
+                              <TouchableOpacity
+                                key={`completed-${habit.id}`}
+                                onPress={() => toggleHabitCompletion(habit.id)}
+                                activeOpacity={0.8}
+                              >
+                                <SwipeableHabitCard
+                                  habit={habit}
+                                  isCompleted={true}
+                                  isFailed={false}
+                                  onToggle={toggleHabitCompletion}
+                                  displayDescription={getDisplayDescription(habit)}
+                                  streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                                  isMenuOpen={activeMenuHabitId === habit.id}
+                                  onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                                  onEdit={handleStartEdit}
+                                  onDelete={handleDeleteHabit}
+                                />
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                      </Animated.View>
+                    );
+                  };
+
+                  const noTimeHabits = activeHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
+                  const morningHabits = activeHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
+                  const afternoonHabits = activeHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
+                  const eveningHabits = activeHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
 
                   return (
-                    <Animated.View
-                      key={title || 'no-time'}
-                      style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 1, elevation: 0 }}
-                    >
-                      {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
-                      {pending.map((habit) => (
+                    <View>
+                      {relapsedHabits.map((relapsedHabit) => (
                         <SwipeableHabitCard
-                          key={`pending-${habit.id}`}
-                          habit={habit}
+                          key={`relapsed-${relapsedHabit.id}`}
+                          habit={relapsedHabit}
                           isCompleted={false}
-                          isFailed={false}
+                          isFailed={true}
                           onToggle={toggleHabitCompletion}
-                          onRelapse={handleRelapse}
-                          displayDescription={getDisplayDescription(habit)}
-                          streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                          isEditMode={isEditMode}
-                          onLongPress={() => setIsEditMode(true)}
-                          onMoveUp={(id) => moveHabit(id, 'up')}
-                          onMoveDown={(id) => moveHabit(id, 'down')}
-                          isMenuOpen={activeMenuHabitId === habit.id}
-                          onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
-                          onEdit={handleStartEdit}
-                          onDelete={handleDeleteHabit}
+                          displayDescription={getDisplayDescription(relapsedHabit)}
                         />
                       ))}
-
-                      {completed.length > 0 && (
-                        <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
-                          {completed.map((habit) => (
-                            <TouchableOpacity
-                              key={`completed-${habit.id}`}
-                              onPress={() => toggleHabitCompletion(habit.id)}
-                              activeOpacity={0.8}
-                            >
-                              <SwipeableHabitCard
-                                habit={habit}
-                                isCompleted={true}
-                                isFailed={false}
-                                onToggle={toggleHabitCompletion}
-                                displayDescription={getDisplayDescription(habit)}
-                                streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                                isMenuOpen={activeMenuHabitId === habit.id}
-                                onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
-                                onEdit={handleStartEdit}
-                                onDelete={handleDeleteHabit}
-                              />
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      )}
-                    </Animated.View>
+                      {renderGroup(null, noTimeHabits)}
+                      {renderGroup(t('morning') || 'Mañana', morningHabits)}
+                      {renderGroup(t('afternoon') || 'Tarde', afternoonHabits)}
+                      {renderGroup(t('evening') || 'Noche', eveningHabits)}
+                    </View>
                   );
-                };
+                })()
+              )}
+              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); }}>
+                <Ionicons name="add" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
 
-                const noTimeHabits = activeHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
-                const morningHabits = activeHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
-                const afternoonHabits = activeHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
-                const eveningHabits = activeHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
 
-                return (
-                  <View>
-                    {relapsedHabits.map((relapsedHabit) => (
-                      <SwipeableHabitCard
-                        key={`relapsed-${relapsedHabit.id}`}
-                        habit={relapsedHabit}
-                        isCompleted={false}
-                        isFailed={true}
-                        onToggle={toggleHabitCompletion}
-                        displayDescription={getDisplayDescription(relapsedHabit)}
-                      />
-                    ))}
-                    {renderGroup(null, noTimeHabits)}
-                    {renderGroup(t('morning') || 'Mañana', morningHabits)}
-                    {renderGroup(t('afternoon') || 'Tarde', afternoonHabits)}
-                    {renderGroup(t('evening') || 'Noche', eveningHabits)}
-                  </View>
-                );
-              })()
-            )}
-            <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); }}>
-              <Ionicons name="add" size={22} color="#FFFFFF" />
+          <View style={styles.bottomBar}>
+            <TouchableOpacity style={styles.bottomTab}>
+              <Ionicons name="grid-outline" size={22} color="#00B763" />
+              <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm() }}>
+              <Ionicons name="add-circle" size={22} color="#6B7280" />
+              <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bottomTab}>
+              <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
+              <Text style={styles.bottomTabText}>{t('analytics')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.bottomTab}>
+              <Ionicons name="person-outline" size={22} color="#6B7280" />
+              <Text style={styles.bottomTabText}>{t('me')}</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.bottomTab}>
-            <Ionicons name="grid-outline" size={22} color="#00B763" />
-            <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm() }}>
-            <Ionicons name="add-circle" size={22} color="#6B7280" />
-            <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomTab}>
-            <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
-            <Text style={styles.bottomTabText}>{t('analytics')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.bottomTab}>
-            <Ionicons name="person-outline" size={22} color="#6B7280" />
-            <Text style={styles.bottomTabText}>{t('me')}</Text>
-          </TouchableOpacity>
-        </View>
-
+        </TouchableOpacity>
         <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
           <SafeAreaView style={styles.createHabitModalContainer}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -3084,11 +3098,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 4,
     marginLeft: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
   },
   streakBadgeMiniText: {
     color: '#FFFFFF',
