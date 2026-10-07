@@ -14,6 +14,7 @@ import {
   Platform,
   LayoutAnimation,
   Alert,
+  Vibration,
   NativeScrollEvent,
   NativeSyntheticEvent
 } from 'react-native';
@@ -466,22 +467,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const translateX = useSharedValue(0);
-  const rotation = useSharedValue(0);
   const isQuitHabit = habit.type === 'Quit a habit';
-
-  React.useEffect(() => {
-    if (isEditMode && !isCompleted && !isFailed) {
-      rotation.value = withRepeat(
-        withSequence(
-          withTiming(0.5, { duration: 150 }),
-          withTiming(-0.5, { duration: 150 })
-        ),
-        -1, true
-      );
-    } else {
-      rotation.value = withSpring(0);
-    }
-  }, [isEditMode]);
 
   const panGesture = Gesture.Pan()
     .enabled(!isEditMode)
@@ -525,7 +511,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
   const composedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
   const rStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { rotate: `${rotation.value}deg`}],
+    transform: [{ translateX: translateX.value }]
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -1484,6 +1470,9 @@ export default function App() {
             </View>
 
             <View style={styles.habitsSection}>
+              {isEditMode && (
+                <Animated.View entering={FadeIn.duration(200)} style={styles.editModeOverlay} />
+              )}
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
                 {isEditMode && (
@@ -1522,7 +1511,7 @@ export default function App() {
                     return (
                       <Animated.View
                         key={title || 'no-time'}
-                        style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 1, elevation: 0 }}
+                        style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 10, elevation: 10 }}
                       >
                         {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
                         {pending.map((habit) => (
@@ -1536,7 +1525,10 @@ export default function App() {
                             displayDescription={getDisplayDescription(habit)}
                             streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                             isEditMode={isEditMode}
-                            onLongPress={() => setIsEditMode(true)}
+                            onLongPress={() => {
+                              Vibration.vibrate(50);
+                              setIsEditMode(true);
+                            }}
                             onMoveUp={(id) => moveHabit(id, 'up')}
                             onMoveDown={(id) => moveHabit(id, 'down')}
                             isMenuOpen={activeMenuHabitId === habit.id}
@@ -2307,6 +2299,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  editModeOverlay: {
+    position: 'absolute',
+    top: -2000,
+    bottom: -2000,
+    left: -1000,
+    right: -1000,
+    //backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 0,
+    elevation: 0
   },
   doneEditButton: {
     backgroundColor: '#1F2937',
