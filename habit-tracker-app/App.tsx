@@ -445,6 +445,8 @@ interface SwipeableHabitCardProps {
   onToggleMenu?: (habitId: string) => void;
   onEdit?: (habitId: string) => void;
   onDelete?: (habitId: string) => void;
+  index?: number;
+  totalItems?: number;
 }
 
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -464,31 +466,45 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   isMenuOpen,
   onToggleMenu,
   onEdit,
-  onDelete
+  onDelete,
+  index = 0,
+  totalItems = 1
 }) => {
   const { t, i18n } = useTranslation();
+  const [isDragging, setIsDragging] = useState(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const activeDragY = useSharedValue(0);
-  const CARD_HEIGHT = 85;
+  const maxUp = useSharedValue(0);
+  const maxDown = useSharedValue(0);
+  const CARD_HEIGHT = 93;
+  const SWAP_THRESHOLD = CARD_HEIGHT * 0.65;
   const isQuitHabit = habit.type === 'Quit a habit';
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .activeOffsetY([-10, 10])
     .onStart(() => {
+      runOnJS(setIsDragging)(true);
       activeDragY.value = 0;
+      maxUp.value = -index * CARD_HEIGHT;
+      maxDown.value = (totalItems - 1 - index) * CARD_HEIGHT;
     })
     .onUpdate((event) => {
       if (isEditMode) {
-        const relativeY = event.translationY - activeDragY.value;
-        translateY.value = relativeY;
-        if (relativeY > CARD_HEIGHT && onMoveDown) {
+        const rawY = event.translationY - activeDragY.value;
+        const boundedY = Math.max(maxUp.value, Math.min(rawY, maxDown.value));
+        translateY.value = boundedY;
+        if (boundedY > SWAP_THRESHOLD && onMoveDown) {
           runOnJS(onMoveDown)(habit.id);
           activeDragY.value += CARD_HEIGHT;
-        } else if (relativeY < -CARD_HEIGHT && onMoveUp) {
+          maxUp.value -= CARD_HEIGHT;
+          maxDown.value -= CARD_HEIGHT;
+        } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
           runOnJS(onMoveUp)(habit.id);
           activeDragY.value -= CARD_HEIGHT;
+          maxUp.value += CARD_HEIGHT;
+          maxDown.value += CARD_HEIGHT; 
         }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
@@ -516,6 +532,9 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       } else {
         translateX.value = withSpring(0);
       }
+    })
+    .onFinalize(() => {
+      runOnJS(setIsDragging)(false);
     });
 
   const longPressGesture = Gesture.LongPress()
@@ -544,7 +563,10 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     zIndex: translateX.value < 0 ? 1 : -1,
   }));
   return (
-    <Animated.View entering={FadeIn} style={[styles.swipeableContainer, isMenuOpen ? { zIndex: isMenuOpen ? 100 : 1 } : { zIndex: 1, elevation: 0 }]}>
+    <Animated.View 
+      layout={isDragging ? undefined : LinearTransition.duration(200)} 
+      entering={FadeIn} 
+      style={[styles.swipeableContainer, isMenuOpen ? { zIndex: 10, elevation: 3 } : { zIndex: 1, elevation: 0 }]}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
@@ -1553,7 +1575,7 @@ export default function App() {
                         style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 10, elevation: 10 }}
                       >
                         {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
-                        {pending.map((habit) => (
+                        {pending.map((habit, index) => (
                           <SwipeableHabitCard
                             key={`pending-${habit.id}`}
                             habit={habit}
@@ -1574,6 +1596,8 @@ export default function App() {
                             onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
                             onEdit={handleStartEdit}
                             onDelete={handleDeleteHabit}
+                            index={index}
+                            totalItems={pending.length}
                           />
                         ))}
 
