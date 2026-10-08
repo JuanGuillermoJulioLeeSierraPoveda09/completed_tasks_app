@@ -38,6 +38,7 @@ import { GestureHandlerRootView, GestureDetector, Gesture, Directions } from 're
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import './i18n';
+import * as Haptics from 'expo-haptics';
 /*
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -467,13 +468,29 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const activeDragY = useSharedValue(0);
+  const CARD_HEIGHT = 85;
   const isQuitHabit = habit.type === 'Quit a habit';
 
   const panGesture = Gesture.Pan()
-    .enabled(!isEditMode)
     .activeOffsetX([-10, 10])
+    .activeOffsetY([-10, 10])
+    .onStart(() => {
+      activeDragY.value = 0;
+    })
     .onUpdate((event) => {
-      if (!isCompleted && !isFailed) {
+      if (isEditMode) {
+        const relativeY = event.translationY - activeDragY.value;
+        translateY.value = relativeY;
+        if (relativeY > CARD_HEIGHT && onMoveDown) {
+          runOnJS(onMoveDown)(habit.id);
+          activeDragY.value += CARD_HEIGHT;
+        } else if (relativeY < -CARD_HEIGHT && onMoveUp) {
+          runOnJS(onMoveUp)(habit.id);
+          activeDragY.value -= CARD_HEIGHT;
+        }
+      } else if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
           translateX.value = event.translationX;
         } else if (event.translationX < 0 && isQuitHabit) {
@@ -482,22 +499,22 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       }
     })
     .onEnd((event) => {
-      if (!isCompleted && !isFailed) {
+      if (isEditMode) {
+        translateY.value = withSpring(0);
+      } else if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
-          translateX.value = withTiming(SCREEN_WIDTH, {}, () => {
+          translateX.value = withTiming(SCREEN_WIDTH,{}, () => {
             runOnJS(onToggle)(habit.id);
             translateX.value = 0;
           });
         }
-        else if (isQuitHabit && event.translationX < -RELAPSE_THRESHOLD) {
-          translateX.value = withSpring(0);
-          if (onRelapse) {
-            runOnJS(onRelapse)(habit.id);
-          }
+      } else if (isQuitHabit && event.translationX < -RELAPSE_THRESHOLD) {
+        translateX.value = withSpring(0);
+        if (onRelapse) {
+          runOnJS(onRelapse)(habit.id);
         }
-        else {
-          translateX.value = withSpring(0);
-        }
+      } else {
+        translateX.value = withSpring(0);
       }
     });
 
@@ -511,7 +528,12 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
   const composedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
   const rStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }]
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value }
+    ],
+    zIndex: translateY.value !== 0 ? 3 : 1,
+    elevation: translateY.value !== 0 ? 3 : 1,
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -565,12 +587,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
           {isEditMode && !isCompleted && !isFailed ? (
             <Animated.View entering={FadeIn} style={styles.reorderControls}>
-              <TouchableOpacity onPress={() => onMoveUp && onMoveUp(habit.id)} style={styles.reorderButton}>
-                <Ionicons name="chevron-up" size={24} color="#6B7280" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => onMoveDown && onMoveDown(habit.id)} style={styles.reorderButton}>
-                <Ionicons name="chevron-down" size={24} color="#6B7280" />
-              </TouchableOpacity>
+              <Ionicons name="menu-outline" size={26} color="#9CA3AF" />
             </Animated.View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
@@ -983,6 +1000,11 @@ export default function App() {
     }
     resetForm();
     setIsModalVisible(false);
+    if (Platform.OS === 'android') {
+      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
   };
 
   const toggleSwitch = () => {
@@ -1029,6 +1051,22 @@ export default function App() {
       setHabits((prev) => prev.filter((h) => h.id !== activeMenuHabitId));
     }
     setActiveMenuHabitId(null);
+  };
+
+  const triggerHaptic = () => {
+    if (Platform.OS === 'android') {
+      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  };
+
+  const triggerButtonHaptics = () => {
+    if (Platform.OS === 'android') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const resetForm = () => {
@@ -1387,6 +1425,7 @@ export default function App() {
           <ScrollView
             style={styles.mainContent}
             showsVerticalScrollIndicator={false}
+            scrollEnabled={!isEditMode}
             onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
             <View style={styles.calendarShadowBox}>
               <View style={styles.calendarContainer}>
@@ -1526,8 +1565,8 @@ export default function App() {
                             streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                             isEditMode={isEditMode}
                             onLongPress={() => {
-                              Vibration.vibrate(50);
                               setIsEditMode(true);
+                              triggerHaptic();
                             }}
                             onMoveUp={(id) => moveHabit(id, 'up')}
                             onMoveDown={(id) => moveHabit(id, 'down')}
@@ -1591,7 +1630,7 @@ export default function App() {
                   );
                 })()
               )}
-              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); }}>
+              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); triggerButtonHaptics(); }}>
                 <Ionicons name="add" size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
