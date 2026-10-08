@@ -472,6 +472,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
+  //const isSwapping = useSharedValue(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const activeDragY = useSharedValue(0);
@@ -486,6 +487,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .activeOffsetY([-10, 10])
     .onStart(() => {
       runOnJS(setIsDragging)(true);
+      //isSwapping.value = false;
       activeDragY.value = 0;
       maxUp.value = -index * CARD_HEIGHT;
       maxDown.value = (totalItems - 1 - index) * CARD_HEIGHT;
@@ -496,11 +498,13 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         const boundedY = Math.max(maxUp.value, Math.min(rawY, maxDown.value));
         translateY.value = boundedY;
         if (boundedY > SWAP_THRESHOLD && onMoveDown) {
+          //isSwapping.value = true;
           runOnJS(onMoveDown)(habit.id);
           activeDragY.value += CARD_HEIGHT;
           maxUp.value -= CARD_HEIGHT;
           maxDown.value -= CARD_HEIGHT;
         } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
+          //isSwapping.value = true;
           runOnJS(onMoveUp)(habit.id);
           activeDragY.value -= CARD_HEIGHT;
           maxUp.value += CARD_HEIGHT;
@@ -536,7 +540,20 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .onFinalize(() => {
       runOnJS(setIsDragging)(false);
     });
-
+/*
+  const prevIndex = React.useRef(index);
+  React.useEffect(() => {
+    if (isDragging && prevIndex.current !== index) {
+      const offset = (index - prevIndex.current) * CARD_HEIGHT;
+      activeDragY.value += offset;
+      maxUp.value -= offset;
+      maxDown.value -= offset;
+      translateY.value -= offset;
+      isSwapping.value = false;
+    }
+    prevIndex.current = index;
+  }, [index, isDragging]);
+*/
   const longPressGesture = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
@@ -566,7 +583,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     <Animated.View 
       layout={isDragging ? undefined : LinearTransition.duration(200)} 
       entering={FadeIn} 
-      style={[styles.swipeableContainer, isMenuOpen ? { zIndex: 10, elevation: 3 } : { zIndex: 1, elevation: 0 }]}>
+      style={[styles.swipeableContainer, (isMenuOpen || isDragging) ? { zIndex: 10, elevation: 0 } : { zIndex: 1, elevation: 0}]}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
