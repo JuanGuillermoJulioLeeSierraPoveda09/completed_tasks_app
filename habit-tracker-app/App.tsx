@@ -30,8 +30,10 @@ import Animated, {
   withTiming,
   runOnJS,
   runOnUI,
+  useAnimatedReaction,
   FadeIn,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
@@ -430,6 +432,16 @@ export async function scheduleHabitReminders(
   }
 }
 */
+const CARD_SLOT = 93;
+const CARD_BODY = CARD_SLOT - 10;
+
+interface DragContext {
+  from: SharedValue<number>;
+  to: SharedValue<number>;
+  group: SharedValue<string>;
+  committing: SharedValue<boolean>;
+}
+
 interface SwipeableHabitCardProps {
   habit: Habit;
   isCompleted: boolean;
@@ -440,14 +452,16 @@ interface SwipeableHabitCardProps {
   streak?: number;
   isEditMode?: boolean;
   onLongPress?: () => void;
-  onMoveUp?: (habitId: string) => void;
-  onMoveDown?: (habitId: string) => void;
+  onReorder?: (habitId: string, toIndex: number) => void;
   isMenuOpen?: boolean;
   onToggleMenu?: (habitId: string) => void;
   onEdit?: (habitId: string) => void;
   onDelete?: (habitId: string) => void;
   index?: number;
   totalItems?: number;
+  positioned?: boolean;
+  groupKey?: string;
+  drag: DragContext;
 }
 
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -462,71 +476,104 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   streak,
   isEditMode = false,
   onLongPress,
-  onMoveUp,
-  onMoveDown,
+  onReorder,
   isMenuOpen,
   onToggleMenu,
   onEdit,
   onDelete,
   index = 0,
-  totalItems = 1
+  totalItems = 1,
+  positioned = false,
+  groupKey = '',
+  drag,
 }) => {
-  const { t, i18n } = useTranslation();
-  const [isDragging, setIsDragging] = useState(false);
-  const isSwapping = useSharedValue(false);
+  const { t } = useTranslation();
+  const { from: dragFrom, to: dragTo, group: dragGroup, committing } = drag;
   const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const activeDragY = useSharedValue(0);
-  const maxUp = useSharedValue(0);
-  const maxDown = useSharedValue(0);
-  const CARD_HEIGHT = 93;
-  const SWAP_THRESHOLD = CARD_HEIGHT * 0.65;
+  const slot = useSharedValue(index);
+  const dragY = useSharedValue(0);
+  const shift = useSharedValue(0);
+  const isDragged = useSharedValue(false);
+  const menuOpen = useSharedValue(false);
   const isQuitHabit = habit.type === 'Quit a habit';
-  const prevIndex = useRef(index);
-  const isDraggingSV = useSharedValue(false);
+
+  useEffect(() => {
+    menuOpen.value = !!isMenuOpen;
+  }, [isMenuOpen]);
 
   useLayoutEffect(() => {
-    if (prevIndex.current !== index) {
-      const shift = (index - prevIndex.current) * CARD_HEIGHT;
-      prevIndex.current = index;
-      runOnUI(() => {
-        'worklet';
-        if (isDraggingSV.value) {
-          translateY.value -= shift;
-          activeDragY.value += shift;
-          maxUp.value -= shift;
-          maxDown.value -= shift;
-        }
-        isSwapping.value = false;
-      })();
+    if (!positioned) return;
+    runOnUI(() => {
+      'worklet';
+      const old = slot.value;
+      if (old === index) return;
+      if (isDragged.value) {
+        dragY.value -= (index - old) * CARD_SLOT;
+        slot.value = index;
+        shift.value = 0;
+        isDragged.value = false;
+      } else if (committing.value) {
+        slot.value = index;
+        shift.value = 0;
+      } else {
+        slot.value = withTiming(index, { duration: 200 });
+      }
+    })();
+  }, [index, positioned]);
+
+  useAnimatedReaction(
+    () => {
+      if (!positioned || isDragged.value) return 0;
+      if (dragFrom.value < 0 || dragGroup.value !== groupKey) return 0;
+      const f = dragFrom.value;
+      const to = dragTo.value;
+      const s = Math.round(slot.value);
+      if (f < to && s > f && s <= to) return -CARD_SLOT;
+      if (f > to && s >= to && s < f) return CARD_SLOT;
+      return 0;
+    },
+    (target, previous) => {
+      if (target === previous) return;
+      if (committing.value) {
+        shift.value = 0;
+      } else {
+        shift.value = withTiming(target, { duration: 150 });
+      }
     }
-  }, [index]);
+  );
+
+  const resetDragState = () => {
+    'worklet';
+    isDragged.value = false;
+    dragFrom.value = -1;
+    dragTo.value = -1;
+    dragGroup.value = '';
+    committing.value = false;
+  };
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .activeOffsetY([-10, 10])
     .onStart(() => {
-      isDraggingSV.value = true;
-      runOnJS(setIsDragging)(true);
-      isSwapping.value = false;
-      activeDragY.value = 0;
-      maxUp.value = -index * CARD_HEIGHT;
-      maxDown.value = (totalItems - 1 - index) * CARD_HEIGHT;
+      if (isEditMode && positioned) {
+        const base = Math.round(slot.value);
+        isDragged.value = true;
+        committing.value = false;
+        dragGroup.value = groupKey;
+        dragFrom.value = base;
+        dragTo.value = base;
+      }
     })
     .onUpdate((event) => {
-      if (isEditMode) {
-        const rawY = event.translationY - activeDragY.value;
-        const boundedY = Math.max(maxUp.value, Math.min(rawY, maxDown.value));
-        translateY.value = boundedY;
-        if (!isSwapping.value) {
-          if (boundedY > SWAP_THRESHOLD && onMoveDown) {
-            isSwapping.value = true;
-            runOnJS(onMoveDown)(habit.id);
-          } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
-            isSwapping.value = true;
-            runOnJS(onMoveUp)(habit.id);
-          }
-        }
+      if (isEditMode && positioned) {
+        if (!isDragged.value) return;
+        const base = Math.round(slot.value);
+        const minY = -base * CARD_SLOT;
+        const maxY = (totalItems - 1 - base) * CARD_SLOT;
+        const y = Math.max(minY, Math.min(event.translationY, maxY));
+        dragY.value = y;
+        const target = Math.max(0, Math.min(totalItems - 1, Math.round(base + y / CARD_SLOT)));
+        if (target !== dragTo.value) dragTo.value = target;
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
           translateX.value = event.translationX;
@@ -536,27 +583,44 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       }
     })
     .onEnd((event) => {
-      if (isEditMode) {
-        translateY.value = withSpring(0);
+      if (isEditMode && positioned) {
+        if (!isDragged.value) return;
+        const from = dragFrom.value;
+        const to = dragTo.value;
+        if (to === from) {
+          dragY.value = withSpring(0, {}, (finished) => {
+            if (finished) resetDragState();
+          });
+        } else {
+          dragY.value = withSpring((to - from) * CARD_SLOT, {}, (finished) => {
+            if (finished) {
+              committing.value = true;
+              if (onReorder) runOnJS(onReorder)(habit.id, to);
+            }
+          });
+        }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
           translateX.value = withTiming(SCREEN_WIDTH, {}, () => {
             runOnJS(onToggle)(habit.id);
             translateX.value = 0;
           });
+        } else if (isQuitHabit && event.translationX < -RELAPSE_THRESHOLD) {
+          translateX.value = withSpring(0);
+          if (onRelapse) {
+            runOnJS(onRelapse)(habit.id);
+          }
+        } else {
+          translateX.value = withSpring(0);
         }
-      } else if (isQuitHabit && event.translationX < -RELAPSE_THRESHOLD) {
-        translateX.value = withSpring(0);
-        if (onRelapse) {
-          runOnJS(onRelapse)(habit.id);
-        }
-      } else {
-        translateX.value = withSpring(0);
       }
     })
-    .onFinalize(() => {
-      isDraggingSV.value = false;
-      runOnJS(setIsDragging)(false);
+    .onFinalize((_event, success) => {
+      if (positioned && !success && isDragged.value && !committing.value) {
+        dragY.value = withSpring(0, {}, (finished) => {
+          if (finished) resetDragState();
+        });
+      }
     });
 
   const longPressGesture = Gesture.LongPress()
@@ -569,12 +633,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 
   const composedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
   const rStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value }
-    ],
-    zIndex: translateY.value !== 0 ? 3 : 1,
-    elevation: translateY.value !== 0 ? 3 : 1,
+    transform: [{ translateX: translateX.value }],
+  }));
+  const rContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slot.value * CARD_SLOT + shift.value + dragY.value }],
+    zIndex: isDragged.value ? 30 : menuOpen.value ? 10 : 1,
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -586,8 +649,13 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   }));
   return (
     <Animated.View
-      layout={isDragging ? undefined : LinearTransition.duration(200)}
-      style={[styles.swipeableContainer, (isMenuOpen || isDragging) ? { zIndex: 10, elevation: 0 } : { zIndex: 1, elevation: 0 }]}>
+      layout={positioned ? undefined : LinearTransition.duration(200)}
+      style={[
+        styles.swipeableContainer,
+        positioned
+          ? [styles.positionedContainer, rContainerStyle]
+          : { zIndex: isMenuOpen ? 10 : 1, elevation: 0 },
+      ]}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
@@ -684,6 +752,14 @@ export default function App() {
     t('youAreStrongerThanYourUrges'),
     t('keepGoingYoureDoingGreat')
   ], [t]);
+  const dragFrom = useSharedValue(-1);
+  const dragTo = useSharedValue(-1);
+  const dragGroup = useSharedValue('');
+  const dragCommitting = useSharedValue(false);
+  const dragCtx = useMemo<DragContext>(
+    () => ({ from: dragFrom, to: dragTo, group: dragGroup, committing: dragCommitting }),
+    []
+  );
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -1385,37 +1461,36 @@ export default function App() {
     setActiveMenuHabitId(null)
   };
 
-  const moveHabit = (habitId: string, direction: 'up' | 'down') => {
-    setHabits(prevHabits => {
-      const habitToMove = prevHabits.find(h => h.id === habitId);
-      if (!habitToMove) return prevHabits;
-      const groupHabits = prevHabits.filter(h => {
-        const targetIsNoTime = !habitToMove.timeOfDay || habitToMove.type == 'Quit a habit';
-        if (targetIsNoTime) {
-          return !h.timeOfDay || h.type === 'Quit a habit';
-        }
-        return h.timeOfDay === habitToMove.timeOfDay && h.type !== 'Quit a habit';
-      }).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const reorderHabit = (habitId: string, toIndex: number, orderedIds: string[]) => {
+    setHabits((prev) => {
+      const fromIndex = orderedIds.indexOf(habitId);
+      if (fromIndex === -1) return [...prev];
+      const ids = [...orderedIds];
+      ids.splice(fromIndex, 1);
+      ids.splice(Math.max(0, Math.min(toIndex, ids.length)), 0, habitId);
 
-      const currentIndex = groupHabits.findIndex(h => h.id === habitId);
-      if (direction === 'up' && currentIndex > 0) {
-        const neighbor = groupHabits[currentIndex - 1];
-        return prevHabits.map(h => {
-          if (h.id === habitId) return { ...h, order: neighbor.order };
-          if (h.id === neighbor.id) return { ...h, order: habitToMove.order };
-          return h;
-        });
-      } else if (direction === 'down' && currentIndex < groupHabits.length - 1) {
-        const neighbor = groupHabits[currentIndex + 1];
-        return prevHabits.map(h => {
-          if (h.id === habitId) return { ...h, order: neighbor.order };
-          if (h.id === neighbor.id) return { ...h, order: habitToMove.order };
-          return h;
-        });
-      }
-      return prevHabits;
+      const byId = new Map(prev.map((h) => [h.id, h]));
+      const groupIds = new Set(ids);
+      const sortedAll = [...prev].sort((a, b) => (a.order || 0) - (b.order || 0));
+      let k = 0;
+      return sortedAll.map((h, i) => {
+        const source = groupIds.has(h.id) ? byId.get(ids[k++])! : h;
+        return { ...source, order: i };
+      });
     });
   };
+
+  useLayoutEffect(() => {
+    runOnUI(() => {
+      'worklet';
+      if (dragCommitting.value) {
+        dragCommitting.value = false;
+        dragFrom.value = -1;
+        dragTo.value = -1;
+        dragGroup.value = '';
+      }
+    })();
+  }, [habits]);
 
   const getLocale = (languageCode: string) => {
     switch (languageCode) {
@@ -1596,31 +1671,37 @@ export default function App() {
                         style={hasActiveMenu ? { zIndex: 100, elevation: 3 } : { zIndex: 10, elevation: 1 }}
                       >
                         {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
-                        {pending.map((habit, index) => (
-                          <SwipeableHabitCard
-                            key={`pending-${habit.id}`}
-                            habit={habit}
-                            isCompleted={false}
-                            isFailed={false}
-                            onToggle={toggleHabitCompletion}
-                            onRelapse={handleRelapse}
-                            displayDescription={getDisplayDescription(habit)}
-                            streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                            isEditMode={isEditMode}
-                            onLongPress={() => {
-                              setIsEditMode(true);
-                              triggerHaptic();
-                            }}
-                            onMoveUp={(id) => moveHabit(id, 'up')}
-                            onMoveDown={(id) => moveHabit(id, 'down')}
-                            isMenuOpen={activeMenuHabitId === habit.id}
-                            onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
-                            onEdit={handleStartEdit}
-                            onDelete={handleDeleteHabit}
-                            index={index}
-                            totalItems={pending.length}
-                          />
-                        ))}
+                        {pending.length > 0 && (
+                          <View style={{ height: pending.length * CARD_SLOT, zIndex: hasActiveMenu ? 5 : 1 }}>
+                            {pending.map((habit, index) => (
+                              <SwipeableHabitCard
+                                key={`pending-${habit.id}`}
+                                habit={habit}
+                                isCompleted={false}
+                                isFailed={false}
+                                onToggle={toggleHabitCompletion}
+                                onRelapse={handleRelapse}
+                                displayDescription={getDisplayDescription(habit)}
+                                streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                                isEditMode={isEditMode}
+                                onLongPress={() => {
+                                  setIsEditMode(true);
+                                  triggerHaptic();
+                                }}
+                                onReorder={(id, toIndex) => reorderHabit(id, toIndex, pending.map(h => h.id))}
+                                isMenuOpen={activeMenuHabitId === habit.id}
+                                onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                                onEdit={handleStartEdit}
+                                onDelete={handleDeleteHabit}
+                                index={index}
+                                totalItems={pending.length}
+                                positioned
+                                groupKey={title || 'no-time'}
+                                drag={dragCtx}
+                              />
+                            ))}
+                          </View>
+                        )}
 
                         {completed.length > 0 && (
                           <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
@@ -1641,6 +1722,7 @@ export default function App() {
                                   onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
                                   onEdit={handleStartEdit}
                                   onDelete={handleDeleteHabit}
+                                  drag={dragCtx}
                                 />
                               </TouchableOpacity>
                             ))}
@@ -1665,6 +1747,7 @@ export default function App() {
                           isFailed={true}
                           onToggle={toggleHabitCompletion}
                           displayDescription={getDisplayDescription(relapsedHabit)}
+                          drag={dragCtx}
                         />
                       ))}
                       {renderGroup(null, noTimeHabits)}
@@ -3049,6 +3132,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     lineHeight: REMINDER_ITEM_HEIGHT,
     textAlign: 'center',
+  },
+  positionedContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: CARD_BODY,
+    marginBottom: 0,
   },
   swipeableContainer: {
     marginBottom: 10,
