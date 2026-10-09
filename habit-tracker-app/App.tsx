@@ -29,6 +29,7 @@ import Animated, {
   withSpring,
   withTiming,
   runOnJS,
+  runOnUI,
   FadeIn,
 } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -482,15 +483,22 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   const SWAP_THRESHOLD = CARD_HEIGHT * 0.65;
   const isQuitHabit = habit.type === 'Quit a habit';
   const prevIndex = useRef(index);
+  const isDraggingSV = useSharedValue(false);
 
   useLayoutEffect(() => {
     if (prevIndex.current !== index) {
-      const diff = index - prevIndex.current;
-      activeDragY.value += diff * CARD_HEIGHT;
-      maxUp.value -= diff * CARD_HEIGHT;
-      maxDown.value -= diff * CARD_HEIGHT;
+      const shift = (index - prevIndex.current) * CARD_HEIGHT;
       prevIndex.current = index;
-      isSwapping.value = false;
+      runOnUI(() => {
+        'worklet';
+        if (isDraggingSV.value) {
+          translateY.value -= shift;
+          activeDragY.value += shift;
+          maxUp.value -= shift;
+          maxDown.value -= shift;
+        }
+        isSwapping.value = false;
+      })();
     }
   }, [index]);
 
@@ -498,6 +506,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .activeOffsetX([-10, 10])
     .activeOffsetY([-10, 10])
     .onStart(() => {
+      isDraggingSV.value = true;
       runOnJS(setIsDragging)(true);
       isSwapping.value = false;
       activeDragY.value = 0;
@@ -513,15 +522,9 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
           if (boundedY > SWAP_THRESHOLD && onMoveDown) {
             isSwapping.value = true;
             runOnJS(onMoveDown)(habit.id);
-            //activeDragY.value += CARD_HEIGHT;
-            //maxUp.value -= CARD_HEIGHT;
-            //maxDown.value -= CARD_HEIGHT;
           } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
             isSwapping.value = true;
             runOnJS(onMoveUp)(habit.id);
-            //activeDragY.value -= CARD_HEIGHT;
-            //maxUp.value += CARD_HEIGHT;
-            //maxDown.value += CARD_HEIGHT; 
           }
         }
       } else if (!isCompleted && !isFailed) {
@@ -552,6 +555,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       }
     })
     .onFinalize(() => {
+      isDraggingSV.value = false;
       runOnJS(setIsDragging)(false);
     });
 
