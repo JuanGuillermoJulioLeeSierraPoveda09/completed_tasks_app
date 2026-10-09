@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -193,9 +193,9 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   const [hour, setHour] = useState(reminderSelectedHour);
   const [minute, setMinute] = useState(reminderSelectedMinute);
   const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
-  const hourFlatListRef = React.useRef<FlatList>(null);
-  const minuteFlatListRef = React.useRef<FlatList>(null);
-  const periodFlatListRef = React.useRef<FlatList>(null);
+  const hourFlatListRef = useRef<FlatList>(null);
+  const minuteFlatListRef = useRef<FlatList>(null);
+  const periodFlatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     if (visible) {
@@ -472,7 +472,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
 }) => {
   const { t, i18n } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
-  //const isSwapping = useSharedValue(false);
+  const isSwapping = useSharedValue(false);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const activeDragY = useSharedValue(0);
@@ -481,13 +481,25 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   const CARD_HEIGHT = 93;
   const SWAP_THRESHOLD = CARD_HEIGHT * 0.65;
   const isQuitHabit = habit.type === 'Quit a habit';
+  const prevIndex = useRef(index);
+
+  useLayoutEffect(() => {
+    if (prevIndex.current !== index) {
+      const diff = index - prevIndex.current;
+      activeDragY.value += diff * CARD_HEIGHT;
+      maxUp.value -= diff * CARD_HEIGHT;
+      maxDown.value -= diff * CARD_HEIGHT;
+      prevIndex.current = index;
+      isSwapping.value = false;
+    }
+  }, [index]);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
     .activeOffsetY([-10, 10])
     .onStart(() => {
       runOnJS(setIsDragging)(true);
-      //isSwapping.value = false;
+      isSwapping.value = false;
       activeDragY.value = 0;
       maxUp.value = -index * CARD_HEIGHT;
       maxDown.value = (totalItems - 1 - index) * CARD_HEIGHT;
@@ -497,18 +509,20 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         const rawY = event.translationY - activeDragY.value;
         const boundedY = Math.max(maxUp.value, Math.min(rawY, maxDown.value));
         translateY.value = boundedY;
-        if (boundedY > SWAP_THRESHOLD && onMoveDown) {
-          //isSwapping.value = true;
-          runOnJS(onMoveDown)(habit.id);
-          activeDragY.value += CARD_HEIGHT;
-          maxUp.value -= CARD_HEIGHT;
-          maxDown.value -= CARD_HEIGHT;
-        } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
-          //isSwapping.value = true;
-          runOnJS(onMoveUp)(habit.id);
-          activeDragY.value -= CARD_HEIGHT;
-          maxUp.value += CARD_HEIGHT;
-          maxDown.value += CARD_HEIGHT; 
+        if (!isSwapping.value) {
+          if (boundedY > SWAP_THRESHOLD && onMoveDown) {
+            isSwapping.value = true;
+            runOnJS(onMoveDown)(habit.id);
+            //activeDragY.value += CARD_HEIGHT;
+            //maxUp.value -= CARD_HEIGHT;
+            //maxDown.value -= CARD_HEIGHT;
+          } else if (boundedY < -SWAP_THRESHOLD && onMoveUp) {
+            isSwapping.value = true;
+            runOnJS(onMoveUp)(habit.id);
+            //activeDragY.value -= CARD_HEIGHT;
+            //maxUp.value += CARD_HEIGHT;
+            //maxDown.value += CARD_HEIGHT; 
+          }
         }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
@@ -523,7 +537,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         translateY.value = withSpring(0);
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
-          translateX.value = withTiming(SCREEN_WIDTH,{}, () => {
+          translateX.value = withTiming(SCREEN_WIDTH, {}, () => {
             runOnJS(onToggle)(habit.id);
             translateX.value = 0;
           });
@@ -540,20 +554,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .onFinalize(() => {
       runOnJS(setIsDragging)(false);
     });
-/*
-  const prevIndex = React.useRef(index);
-  React.useEffect(() => {
-    if (isDragging && prevIndex.current !== index) {
-      const offset = (index - prevIndex.current) * CARD_HEIGHT;
-      activeDragY.value += offset;
-      maxUp.value -= offset;
-      maxDown.value -= offset;
-      translateY.value -= offset;
-      isSwapping.value = false;
-    }
-    prevIndex.current = index;
-  }, [index, isDragging]);
-*/
+
   const longPressGesture = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
@@ -580,10 +581,9 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     zIndex: translateX.value < 0 ? 1 : -1,
   }));
   return (
-    <Animated.View 
-      layout={isDragging ? undefined : LinearTransition.duration(200)} 
-      entering={FadeIn} 
-      style={[styles.swipeableContainer, (isMenuOpen || isDragging) ? { zIndex: 10, elevation: 0 } : { zIndex: 1, elevation: 0}]}>
+    <Animated.View
+      layout={isDragging ? undefined : LinearTransition.duration(200)}
+      style={[styles.swipeableContainer, (isMenuOpen || isDragging) ? { zIndex: 10, elevation: 0 } : { zIndex: 1, elevation: 0 }]}>
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
@@ -1182,8 +1182,8 @@ export default function App() {
     });
   }, [habits, activeDate, activeDateKey]);
 
-  const flatListRef = React.useRef<FlatList>(null);
-  const calendarFlatListRef = React.useRef<FlatList>(null);
+  const flatListRef = useRef<FlatList>(null);
+  const calendarFlatListRef = useRef<FlatList>(null);
   const handleScrollEnd = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
     const pageIndex = Math.round(contentOffsetX / (SCREEN_WIDTH - 32));
@@ -1589,7 +1589,7 @@ export default function App() {
                     return (
                       <Animated.View
                         key={title || 'no-time'}
-                        style={hasActiveMenu ? { zIndex: 100, elevation: 100 } : { zIndex: 10, elevation: 10 }}
+                        style={hasActiveMenu ? { zIndex: 100, elevation: 3 } : { zIndex: 10, elevation: 1 }}
                       >
                         {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
                         {pending.map((habit, index) => (
@@ -2490,7 +2490,7 @@ const styles = StyleSheet.create({
     left: -1000,
     right: -1000,
     zIndex: 90,
-    elevation: 90,
+    //elevation: 90,
   },
   createHabitButton: {
     flexDirection: 'row',
