@@ -1548,7 +1548,6 @@ export default function App() {
           <ScrollView
             style={styles.mainContent}
             showsVerticalScrollIndicator={false}
-            scrollEnabled={!isEditMode}
             onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
             <View style={styles.calendarShadowBox}>
               <View style={styles.calendarContainer}>
