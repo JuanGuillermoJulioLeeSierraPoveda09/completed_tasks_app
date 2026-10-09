@@ -32,6 +32,7 @@ import Animated, {
   cancelAnimation,
   useAnimatedReaction,
   FadeIn,
+  FadeOut,
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -509,6 +510,7 @@ interface SwipeableHabitCardProps {
   positioned?: boolean;
   groupKey?: string;
   drag: DragContext;
+  onDragCancel?: () => void;
 }
 
 const NEVER_OFFSET = 100000;
@@ -534,6 +536,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   positioned = false,
   groupKey = '',
   drag,
+  onDragCancel
 }) => {
   const { t } = useTranslation();
   const { from: dragFrom, to: dragTo, group: dragGroup, committing } = drag;
@@ -676,6 +679,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       }
     })
     .onFinalize((_event, success) => {
+      if (onDragCancel) runOnJS(onDragCancel)(); 
       if (positioned && !success && isDragged.value && !committing.value) {
         resetDragState();
         dragY.value = withSpring(0);
@@ -718,7 +722,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
-            <Ionicons name={isQuitHabit ? "trophy-outline" : "checkmark-circle-outline"} size={32} color="#FFFFFF" />
+            <Ionicons name={"trophy-outline"} size={32} color="#FFFFFF" />
           </Animated.View>
           {isQuitHabit && (
             <Animated.View style={[styles.swipeBackgroundLeft, rBackgroundLeftStyle]}>
@@ -769,7 +773,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
               )}
 
               {!isEditMode && onToggleMenu && (
-                <View style={{ position: 'relative', zIndex: 100 }}>
+                <Animated.View entering={FadeIn} style={{ position: 'relative', zIndex: 100 }}>
                   <TouchableOpacity style={styles.optionsButton} onPress={() => onToggleMenu(habit.id)}>
                     <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
                   </TouchableOpacity>
@@ -789,7 +793,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
                       </View>
                     </TouchableOpacity>
                   )}
-                </View>
+                </Animated.View>
               )}
             </View>
           )}
@@ -1696,11 +1700,6 @@ export default function App() {
               )}
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
-                {isEditMode && (
-                  <TouchableOpacity onPress={() => [setIsEditMode(false), setActiveMenuHabitId(null)]} style={styles.doneEditButton}>
-                    <Text style={styles.doneEditText}>{t('done')}</Text>
-                  </TouchableOpacity>
-                )}
               </View>
 
               {visibleHabits.length === 0 ? (
@@ -1752,7 +1751,8 @@ export default function App() {
                                   setIsEditMode(true);
                                   triggerHaptic();
                                 }}
-                                onReorder={(id, toIndex) => reorderHabit(id, toIndex, pending.map(h => h.id))}
+                                onReorder={(id, toIndex) => [setIsEditMode(false), setActiveMenuHabitId(null), reorderHabit(id, toIndex, pending.map(h => h.id))]}
+                                onDragCancel={() => { setIsEditMode(false) }}
                                 isMenuOpen={activeMenuHabitId === habit.id}
                                 onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
                                 onEdit={handleStartEdit}
@@ -2597,7 +2597,7 @@ const styles = StyleSheet.create({
   habitTitleCompleted: { textDecorationLine: 'line-through', color: '#6B7280' },
   habitDescription: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   optionsButton: {
-    padding: 6,
+    paddingLeft: 6,
     marginLeft: 4,
   },
   inlineMenuPopup: {
