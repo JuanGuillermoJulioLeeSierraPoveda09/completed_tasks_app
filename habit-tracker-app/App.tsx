@@ -465,6 +465,7 @@ interface SwipeableHabitCardProps {
   drag: DragContext;
 }
 
+const NEVER_OFFSET = 100000;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 const RELAPSE_THRESHOLD = SCREEN_WIDTH * 0.4;
 const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
@@ -554,9 +555,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     committing.value = false;
   };
 
+  const canReorder = isEditMode && positioned;
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
-    .activeOffsetY([-10, 10])
+    .activeOffsetY(canReorder ? [-10, 10] : [-NEVER_OFFSET, NEVER_OFFSET])
+    .failOffsetY(canReorder ? [-NEVER_OFFSET, NEVER_OFFSET] : [-15, 15])
     .onStart(() => {
       if (isEditMode && positioned) {
         if (committing.value || dragFrom.value >= 0) return;
