@@ -30,6 +30,7 @@ import Animated, {
   withTiming,
   runOnJS,
   runOnUI,
+  cancelAnimation,
   useAnimatedReaction,
   FadeIn,
 } from 'react-native-reanimated';
@@ -492,6 +493,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   const translateX = useSharedValue(0);
   const slot = useSharedValue(index);
   const dragY = useSharedValue(0);
+  const dragStartY = useSharedValue(0);
   const shift = useSharedValue(0);
   const isDragged = useSharedValue(false);
   const menuOpen = useSharedValue(false);
@@ -508,10 +510,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       const old = slot.value;
       if (old === index) return;
       if (isDragged.value) {
-        dragY.value -= (index - old) * CARD_SLOT;
+        dragY.value = dragY.value - (index - old) * CARD_SLOT;
         slot.value = index;
         shift.value = 0;
         isDragged.value = false;
+        dragY.value = withSpring(0);
       } else if (committing.value) {
         slot.value = index;
         shift.value = 0;
@@ -556,9 +559,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .activeOffsetY([-10, 10])
     .onStart(() => {
       if (isEditMode && positioned) {
+        if (committing.value || dragFrom.value >= 0) return;
         const base = Math.round(slot.value);
+        cancelAnimation(dragY);
+        dragStartY.value = dragY.value;
         isDragged.value = true;
-        committing.value = false;
         dragGroup.value = groupKey;
         dragFrom.value = base;
         dragTo.value = base;
@@ -570,7 +575,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         const base = Math.round(slot.value);
         const minY = -base * CARD_SLOT;
         const maxY = (totalItems - 1 - base) * CARD_SLOT;
-        const y = Math.max(minY, Math.min(event.translationY, maxY));
+        const y = Math.max(minY, Math.min(dragStartY.value + event.translationY, maxY));
         dragY.value = y;
         const target = Math.max(0, Math.min(totalItems - 1, Math.round(base + y / CARD_SLOT)));
         if (target !== dragTo.value) dragTo.value = target;
@@ -588,16 +593,11 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         const from = dragFrom.value;
         const to = dragTo.value;
         if (to === from) {
-          dragY.value = withSpring(0, {}, (finished) => {
-            if (finished) resetDragState();
-          });
+          resetDragState();
+          dragY.value = withSpring(0);
         } else {
-          dragY.value = withSpring((to - from) * CARD_SLOT, {}, (finished) => {
-            if (finished) {
-              committing.value = true;
-              if (onReorder) runOnJS(onReorder)(habit.id, to);
-            }
-          });
+          committing.value = true;
+          if (onReorder) runOnJS(onReorder)(habit.id, to);
         }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
@@ -617,9 +617,8 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     })
     .onFinalize((_event, success) => {
       if (positioned && !success && isDragged.value && !committing.value) {
-        dragY.value = withSpring(0, {}, (finished) => {
-          if (finished) resetDragState();
-        });
+        resetDragState();
+        dragY.value = withSpring(0);
       }
     });
 
@@ -637,7 +636,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   }));
   const rContainerStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: slot.value * CARD_SLOT + shift.value + dragY.value }],
-    zIndex: isDragged.value ? 30 : menuOpen.value ? 10 : 1,
+    zIndex: isDragged.value ? 30 : Math.abs(dragY.value) > 0.5 ? 20 : menuOpen.value ? 10 : 1,
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
