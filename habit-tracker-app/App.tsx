@@ -37,10 +37,10 @@ import type { SharedValue } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { 
-  GestureHandlerRootView, 
-  GestureDetector, 
-  Gesture, 
+import {
+  GestureHandlerRootView,
+  GestureDetector,
+  Gesture,
   Directions,
   ScrollView,
 } from 'react-native-gesture-handler';
@@ -105,25 +105,66 @@ const AVAILABLE_COLORS = [
 
 const ICON_CATEGORIES = {
   All: [
-    'fitness-outline', 'book-outline', 'water-outline', 'walk-outline',
-    'barbell-outline', 'code-slash-outline', 'restaurant-outline', 'bed-outline',
-    'leaf-outline', 'heart-outline', 'bicycle-outline', 'musical-notes-outline',
-    'cafe-outline', 'pizza-outline', 'fast-food-outline', 'nutrition-outline',
-    'game-controller-outline', 'camera-outline', 'brush-outline', 'laptop-outline',
+    'fitness-outline', 'book-outline', 'water-outline', 'walk-outline', 'barbell-outline',
+    'code-slash-outline', 'restaurant-outline', 'bed-outline', 'heart-outline',
+    'bicycle-outline', 'musical-notes-outline', 'cafe-outline', 'pizza-outline', 'fast-food-outline',
+    'nutrition-outline', 'game-controller-outline', 'camera-outline', 'brush-outline', 'laptop-outline',
+    'beer-outline', 'wine-outline', 'ice-cream-outline', 'egg-outline',
+    'fish-outline', 'pint-outline', 'basket-outline', 'cart-outline', 'cafe',
+    'medkit-outline', 'sunny-outline', 'alarm-outline', 'airplane-outline',
+    'bag-outline', 'balloon-outline', 'boat-outline', 'body-outline', 'briefcase-outline',
+    'build-outline', 'bulb-outline', 'bus-outline', 'car-outline', 'cash-outline',
+    'hourglass', 'cloud-outline', 'compass-outline', 'earth-outline',
+    'flask-outline', 'glasses-outline', 'globe-outline',
+    'hammer-outline', 'home-outline', 'key-outline', 'library-outline', 'map-outline',
+    'moon-outline', 'partly-sunny-outline', 'paw-outline', 'planet-outline', 'rainy-outline',
+    'rose-outline', 'school-outline', 'shirt-outline', 'stopwatch-outline',
+    'time-outline', 'train-outline', 'trophy-outline',
+    'umbrella-outline', 'wallet-outline', 'watch-outline', 'headset-outline', 'tv-outline',
+    'american-football-outline', 'baseball-outline', 'basketball-outline', 'desktop-outline', 'dice-outline',
+    'easel-outline', 'film-outline', 'golf-outline', 'hardware-chip-outline', 'images-outline',
+    'journal-outline', 'mic-outline', 'color-palette-outline', 'radio-outline', 'reader-outline',
+    'ticket-outline', 'videocam-outline', 'tennisball-outline', 'football-outline', 'chatbubbles-outline',
+    'people-outline', 'person-outline', 'star-outline', 'happy-outline', 'leaf-outline',
+    'flame-outline', 'thermometer-outline', 'timer-outline', 'cut-outline', 'snow-outline',
+    'storefront-outline', 'bag-check-outline', 'beaker-outline', 'color-fill-outline', 'cube-outline',
+    'trash-bin-outline', 'flower-outline', 'receipt-outline', 'bonfire-outline'
   ],
   Food: [
     'restaurant-outline', 'cafe-outline', 'pizza-outline', 'fast-food-outline',
     'nutrition-outline', 'beer-outline', 'wine-outline', 'ice-cream-outline',
+    'egg-outline', 'fish-outline', 'pint-outline',
+    'basket-outline', 'cart-outline', 'water-outline', 'leaf-outline',
+    'flame-outline', 'thermometer-outline', 'timer-outline', 'snow-outline',
+    'storefront-outline', 'bag-check-outline', 'beaker-outline', 'color-fill-outline', 'cube-outline',
+    'trash-bin-outline', 'flower-outline', 'receipt-outline', 'bonfire-outline'
   ],
   Lifestyle: [
-    'fitness-outline', 'water-outline', 'walk-outline', 'barbell-outline',
-    'bed-outline', 'leaf-outline', 'heart-outline', 'bicycle-outline',
-    'medkit-outline', 'sunny-outline',
+    'fitness-outline', 'walk-outline', 'barbell-outline', 'bed-outline',
+    'leaf-outline', 'heart-outline', 'bicycle-outline', 'medkit-outline',
+    'sunny-outline', 'alarm-outline', 'airplane-outline', 'bag-outline',
+    'balloon-outline', 'boat-outline', 'body-outline', 'briefcase-outline',
+    'build-outline', 'bulb-outline', 'bus-outline', 'car-outline',
+    'cash-outline', 'hourglass', 'cloud-outline', 'compass-outline',
+    'cut-outline', 'earth-outline', 'flame-outline', 'flask-outline',
+    'flower-outline', 'glasses-outline', 'globe-outline', 'hammer-outline',
+    'home-outline', 'key-outline', 'library-outline', 'map-outline',
+    'moon-outline', 'partly-sunny-outline', 'paw-outline', 'planet-outline',
+    'rainy-outline', 'rose-outline', 'school-outline', 'shirt-outline',
+    'snow-outline', 'stopwatch-outline', 'thermometer-outline', 'time-outline',
+    'train-outline', 'trophy-outline', 'umbrella-outline',
+    'wallet-outline', 'watch-outline'
   ],
   Hobby: [
     'book-outline', 'code-slash-outline', 'musical-notes-outline',
     'game-controller-outline', 'camera-outline', 'brush-outline', 'laptop-outline',
-    'headset-outline', 'tv-outline',
+    'headset-outline', 'tv-outline', 'american-football-outline', 'baseball-outline',
+    'basketball-outline', 'desktop-outline', 'dice-outline', 'easel-outline',
+    'film-outline', 'golf-outline', 'hardware-chip-outline', 'images-outline',
+    'journal-outline', 'mic-outline', 'color-palette-outline', 'radio-outline',
+    'reader-outline', 'ticket-outline', 'videocam-outline', 'tennisball-outline',
+    'football-outline', 'chatbubbles-outline', 'people-outline', 'person-outline',
+    'star-outline', 'happy-outline'
   ],
 };
 
@@ -560,6 +601,14 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     committing.value = false;
   };
 
+  const triggerSwapHaptics = () => {
+    if (Platform.OS === 'android') {
+      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }
+
   const canReorder = isEditMode && positioned;
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -586,7 +635,10 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
         const y = Math.max(minY, Math.min(dragStartY.value + event.translationY, maxY));
         dragY.value = y;
         const target = Math.max(0, Math.min(totalItems - 1, Math.round(base + y / CARD_SLOT)));
-        if (target !== dragTo.value) dragTo.value = target;
+        if (target !== dragTo.value) {
+          dragTo.value = target;
+          runOnJS(triggerSwapHaptics)();
+        }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > 0) {
           translateX.value = event.translationX;
@@ -1189,11 +1241,19 @@ export default function App() {
 
   const triggerButtonHaptics = () => {
     if (Platform.OS === 'android') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
+
+  const triggerSwapHaptics = () => {
+    if (Platform.OS === 'android') {
+      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }
 
   const resetForm = () => {
     setNewTitle('');
@@ -1762,7 +1822,7 @@ export default function App() {
                   );
                 })()
               )}
-              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true); resetForm(); triggerButtonHaptics(); }}>
+              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true), resetForm(), triggerButtonHaptics() }}>
                 <Ionicons name="add" size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -1774,7 +1834,7 @@ export default function App() {
               <Ionicons name="grid-outline" size={22} color="#00B763" />
               <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm() }}>
+            <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm(), triggerButtonHaptics() }}>
               <Ionicons name="add-circle" size={22} color="#6B7280" />
               <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
             </TouchableOpacity>
@@ -2008,7 +2068,7 @@ export default function App() {
               <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
                 <Ionicons name="close" size={26} color="#1F2937" />
               </TouchableOpacity>
-              <Text style={styles.fullscreenModalTitle}>Select Icon</Text>
+              <Text style={styles.fullscreenModalTitle}>{t('selectIcon')}</Text>
               <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
                 <Text style={styles.headerDoneText}>{t('done')}</Text>
               </TouchableOpacity>
@@ -2867,7 +2927,7 @@ const styles = StyleSheet.create({
   categoryTabText: { fontSize: 13, fontWeight: '600', color: '#4B5563' },
   categoryTabTextActive: { color: '#FFFFFF' },
   iconScrollContainer: { flex: 1, padding: 16 },
-  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 25 },
   iconTile: {
     width: (SCREEN_WIDTH - 64) / 6,
     height: (SCREEN_WIDTH - 64) / 6,
