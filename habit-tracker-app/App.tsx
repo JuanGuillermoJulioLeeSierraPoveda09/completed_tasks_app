@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
   Modal,
@@ -38,7 +37,13 @@ import type { SharedValue } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { GestureHandlerRootView, GestureDetector, Gesture, Directions } from 'react-native-gesture-handler';
+import { 
+  GestureHandlerRootView, 
+  GestureDetector, 
+  Gesture, 
+  Directions,
+  ScrollView,
+} from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import './i18n';
@@ -1507,10 +1512,8 @@ export default function App() {
     <GestureHandlerRootView>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
-        <TouchableOpacity
+        <View
           style={{ flex: 1 }}
-          activeOpacity={1}
-          onPress={() => activeMenuHabitId && setActiveMenuHabitId(null)}
         >
           <View style={styles.navbar}>
             <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
@@ -1785,7 +1788,7 @@ export default function App() {
               <Text style={styles.bottomTabText}>{t('me')}</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
         <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
           <SafeAreaView style={styles.createHabitModalContainer}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
