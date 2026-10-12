@@ -1248,7 +1248,8 @@ export default function App() {
             reminderEnabled: isReminderEnabled,
             reminderHour: reminderSelectedHour,
             reminderMinute: reminderSelectedMinute,
-            reminderPeriod: reminderPeriod
+            reminderPeriod: reminderPeriod,
+            targetDate: isTask ? formatDateKey(taskDate) : undefined,
           };
         }
         return h;
@@ -1333,6 +1334,12 @@ export default function App() {
       setSelectedIcon(habitToEdit.icon);
       setSelectedColor(habitToEdit.color);
       setHabitType(habitToEdit.type || 'Build a habit');
+      if (habitToEdit.type === 'Task' && habitToEdit.targetDate){
+        const [year, month, day] = habitToEdit.targetDate.split('-').map(Number);
+        setTaskDate(new Date(year, month - 1, day));
+      } else {
+        setTaskDate(new Date());
+      }
       if (habitToEdit.reminderEnabled) {
         setIsReminderEnabled(true);
         setReminderSelectedHour(habitToEdit.reminderHour || '5');
@@ -1415,19 +1422,11 @@ export default function App() {
   };
 
   const resetFormWhenSetHabitType = () => {
-    setNewTitle('');
-    setNewDescription('');
     setIsDropdownOpen(false);
     setSelectedWeekDays([true, true, true, true, true, true, true]);
     setSelectedMonthDays([]);
     setFrequencyType('days_of_week');
     setFrequencyDisplay(t('everyday'));
-    setTimeOfDay(undefined);
-    setTaskDate(new Date());
-    setReminderSelectedHour('05');
-    setReminderSelectedMinute('00');
-    setReminderPeriod('AM');
-    setIsReminderEnabled(false);
     setActiveMenuHabitId(null)
   };
 
