@@ -76,6 +76,10 @@ interface Habit {
   targetDate?: string;
   timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
   order?: number;
+  reminderEnabled?: boolean;
+  reminderHour?: string;
+  reminderMinute?: string;
+  reminderPeriod?: 'AM' | 'PM';
 }
 
 interface CustomTimePickerModalProps {
@@ -483,7 +487,6 @@ export async function scheduleHabitReminders(
 */
 const CARD_GAP = 10;
 const CARD_FALLBACK_HEIGHT = 83;
-
 type CardInfo = { g: string; i: number; h: number };
 type InfoMap = Record<string, CardInfo>;
 
@@ -494,7 +497,6 @@ interface DragContext {
   committing: SharedValue<boolean>;
 }
 
-// <drag-math>
 const hOf = (info: InfoMap, k: string): number => {
   'worklet';
   const h = info[k].h;
@@ -540,7 +542,6 @@ const stackHeight = (info: InfoMap, ids: string[]): number => {
   return Math.max(0, y - CARD_GAP);
 };
 
-// Hueco (entre las demás tarjetas) cuyo centro queda más cerca del centro de la tarjeta arrastrada.
 const dropIndex = (info: InfoMap, g: string, id: string, centerY: number): number => {
   'worklet';
   const others = groupIdsSorted(info, g).filter((k) => k !== id);
@@ -558,9 +559,8 @@ const dropIndex = (info: InfoMap, g: string, id: string, centerY: number): numbe
   }
   return best;
 };
-// </drag-math>
 
-const GroupMeasureContext = React.createContext<(id: string, h: number) => void>(() => {});
+const GroupMeasureContext = React.createContext<(id: string, h: number) => void>(() => { });
 
 interface SwipeableHabitCardProps {
   habit: Habit;
@@ -624,8 +624,6 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     menuOpen.value = !!isMenuOpen;
   }, [isMenuOpen]);
 
-  // La Y de cada tarjeta sale de las alturas medidas de las que tiene encima. Arranca en una
-  // posición estimada y se desliza a la real en cuanto se miden las alturas.
   useAnimatedReaction(
     () => {
       if (!positioned) return -1;
@@ -888,8 +886,6 @@ const PendingGroupList: React.FC<{
     setHeights((prev) => (prev[id] === h ? prev : { ...prev, [id]: h }));
   }, []);
 
-  // Publica el orden guardado del grupo y, si React acaba de confirmar un reordenamiento,
-  // limpia el estado de arrastre en el mismo paso.
   useLayoutEffect(() => {
     runOnUI((g: string, list: string[]) => {
       'worklet';
@@ -911,7 +907,6 @@ const PendingGroupList: React.FC<{
       }
     })(groupKey, ids);
   }, [groupKey, idsKey, version]);
-
   const total = ids.reduce((sum, id) => sum + (heights[id] ?? CARD_FALLBACK_HEIGHT) + CARD_GAP, 0);
 
   return (
@@ -965,7 +960,7 @@ export default function App() {
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
   const [timeOfDay, setTimeOfDay] = useState<'Morning' | 'Afternoon' | 'Evening' | undefined>(undefined);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
-  const [reminderSelectedHour, setRemiderSelectedHour] = useState('08');
+  const [reminderSelectedHour, setReminderSelectedHour] = useState('08');
   const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
   const [reminderPeriod, setReminderPeriod] = useState<'AM' | 'PM'>('AM');
   const [reminderTime, setReminderTime] = useState(new Date());
@@ -1248,6 +1243,12 @@ export default function App() {
             timeOfDay: isQuit ? undefined : timeOfDay,
             selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
             selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
+            quoteOrder: isQuit ? (h.quoteOrder || [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5)) : undefined,
+            createdAt: h.createdAt || activeDateKey,
+            reminderEnabled: isReminderEnabled,
+            reminderHour: reminderSelectedHour,
+            reminderMinute: reminderSelectedMinute,
+            reminderPeriod: reminderPeriod
           };
         }
         return h;
@@ -1270,6 +1271,10 @@ export default function App() {
         targetDate: isTask ? formatDateKey(taskDate) : undefined,
         timeOfDay: isQuit ? undefined : timeOfDay,
         order: habits.length,
+        reminderEnabled: isReminderEnabled,
+        reminderHour: reminderSelectedHour,
+        reminderMinute: reminderSelectedMinute,
+        reminderPeriod: reminderPeriod
       };
       /*
       if (isQuit) {
@@ -1313,7 +1318,7 @@ export default function App() {
   };
 
   const handleReminderSaveTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
-    setRemiderSelectedHour(hour);
+    setReminderSelectedHour(hour);
     setReminderSelectedMinute(minute);
     setReminderPeriod(period);
     setIsReminderPickerVisible(false);
@@ -1328,6 +1333,17 @@ export default function App() {
       setSelectedIcon(habitToEdit.icon);
       setSelectedColor(habitToEdit.color);
       setHabitType(habitToEdit.type || 'Build a habit');
+      if (habitToEdit.reminderEnabled) {
+        setIsReminderEnabled(true);
+        setReminderSelectedHour(habitToEdit.reminderHour || '5');
+        setReminderSelectedMinute(habitToEdit.reminderMinute || '00');
+        setReminderPeriod(habitToEdit.reminderPeriod || 'AM');
+      } else {
+        setIsReminderEnabled(false);
+        setReminderSelectedHour('5');
+        setReminderSelectedMinute('00');
+        setReminderPeriod('AM');
+      }
 
       if (habitToEdit.frequency) setFrequencyDisplay(habitToEdit.frequency);
       if (habitToEdit.timeOfDay) setTimeOfDay(habitToEdit.timeOfDay);
@@ -1390,7 +1406,7 @@ export default function App() {
     setFrequencyDisplay(t('everyday'));
     setTimeOfDay(undefined);
     setTaskDate(new Date());
-    setRemiderSelectedHour('05');
+    setReminderSelectedHour('05');
     setReminderSelectedMinute('00');
     setReminderPeriod(('AM'));
     setIsReminderEnabled(false);
@@ -1408,7 +1424,7 @@ export default function App() {
     setFrequencyDisplay(t('everyday'));
     setTimeOfDay(undefined);
     setTaskDate(new Date());
-    setRemiderSelectedHour('05');
+    setReminderSelectedHour('05');
     setReminderSelectedMinute('00');
     setReminderPeriod('AM');
     setIsReminderEnabled(false);
