@@ -15,7 +15,8 @@ import {
   Alert,
   Vibration,
   NativeScrollEvent,
-  NativeSyntheticEvent
+  NativeSyntheticEvent,
+  LayoutChangeEvent
 } from 'react-native';
 import Animated, {
   FadeInUp,
@@ -480,15 +481,86 @@ export async function scheduleHabitReminders(
   }
 }
 */
-const CARD_SLOT = 93;
-const CARD_BODY = CARD_SLOT - 10;
+const CARD_GAP = 10;
+const CARD_FALLBACK_HEIGHT = 83;
+
+type CardInfo = { g: string; i: number; h: number };
+type InfoMap = Record<string, CardInfo>;
 
 interface DragContext {
-  from: SharedValue<number>;
-  to: SharedValue<number>;
-  group: SharedValue<string>;
+  info: SharedValue<InfoMap>;
+  dragId: SharedValue<string>;
+  dragTo: SharedValue<number>;
   committing: SharedValue<boolean>;
 }
+
+// <drag-math>
+const hOf = (info: InfoMap, k: string): number => {
+  'worklet';
+  const h = info[k].h;
+  return h > 0 ? h : CARD_FALLBACK_HEIGHT;
+};
+
+const groupIdsSorted = (info: InfoMap, g: string): string[] => {
+  'worklet';
+  const ids: string[] = [];
+  for (const k in info) {
+    if (info[k].g === g) ids.push(k);
+  }
+  ids.sort((a, b) => info[a].i - info[b].i);
+  return ids;
+};
+
+const virtualOrder = (info: InfoMap, g: string, dragId: string, to: number): string[] => {
+  'worklet';
+  const ids = groupIdsSorted(info, g);
+  const from = dragId ? ids.indexOf(dragId) : -1;
+  if (from === -1) return ids;
+  ids.splice(from, 1);
+  ids.splice(Math.max(0, Math.min(to, ids.length)), 0, dragId);
+  return ids;
+};
+
+const topOf = (info: InfoMap, ids: string[], id: string): number => {
+  'worklet';
+  let y = 0;
+  for (let n = 0; n < ids.length; n++) {
+    if (ids[n] === id) return y;
+    y += hOf(info, ids[n]) + CARD_GAP;
+  }
+  return y;
+};
+
+const stackHeight = (info: InfoMap, ids: string[]): number => {
+  'worklet';
+  let y = 0;
+  for (let n = 0; n < ids.length; n++) {
+    y += hOf(info, ids[n]) + CARD_GAP;
+  }
+  return Math.max(0, y - CARD_GAP);
+};
+
+// Hueco (entre las demás tarjetas) cuyo centro queda más cerca del centro de la tarjeta arrastrada.
+const dropIndex = (info: InfoMap, g: string, id: string, centerY: number): number => {
+  'worklet';
+  const others = groupIdsSorted(info, g).filter((k) => k !== id);
+  const H = hOf(info, id);
+  let best = 0;
+  let bestDist = Infinity;
+  let y = 0;
+  for (let t = 0; t <= others.length; t++) {
+    const d = Math.abs(y + H / 2 - centerY);
+    if (d < bestDist) {
+      bestDist = d;
+      best = t;
+    }
+    if (t < others.length) y += hOf(info, others[t]) + CARD_GAP;
+  }
+  return best;
+};
+// </drag-math>
+
+const GroupMeasureContext = React.createContext<(id: string, h: number) => void>(() => {});
 
 interface SwipeableHabitCardProps {
   habit: Habit;
@@ -506,7 +578,6 @@ interface SwipeableHabitCardProps {
   onEdit?: (habitId: string) => void;
   onDelete?: (habitId: string) => void;
   index?: number;
-  totalItems?: number;
   positioned?: boolean;
   groupKey?: string;
   drag: DragContext;
@@ -532,20 +603,20 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   onEdit,
   onDelete,
   index = 0,
-  totalItems = 1,
   positioned = false,
   groupKey = '',
   drag,
   onDragCancel
 }) => {
   const { t } = useTranslation();
-  const { from: dragFrom, to: dragTo, group: dragGroup, committing } = drag;
+  const { info, dragId, dragTo, committing } = drag;
+  const reportHeight = React.useContext(GroupMeasureContext);
+  const habitId = habit.id;
   const translateX = useSharedValue(0);
-  const slot = useSharedValue(index);
-  const dragY = useSharedValue(0);
-  const dragStartY = useSharedValue(0);
-  const shift = useSharedValue(0);
+  const animTop = useSharedValue(index * (CARD_FALLBACK_HEIGHT + CARD_GAP));
+  const dragStartTop = useSharedValue(0);
   const isDragged = useSharedValue(false);
+  const settling = useSharedValue(false);
   const menuOpen = useSharedValue(false);
   const isQuitHabit = habit.type === 'Quit a habit';
 
@@ -553,56 +624,27 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     menuOpen.value = !!isMenuOpen;
   }, [isMenuOpen]);
 
-  useLayoutEffect(() => {
-    if (!positioned) return;
-    runOnUI(() => {
-      'worklet';
-      const old = slot.value;
-      if (old === index) return;
-      if (isDragged.value) {
-        dragY.value = dragY.value - (index - old) * CARD_SLOT;
-        slot.value = index;
-        shift.value = 0;
-        isDragged.value = false;
-        dragY.value = withSpring(0);
-      } else if (committing.value) {
-        slot.value = index;
-        shift.value = 0;
-      } else {
-        slot.value = withTiming(index, { duration: 200 });
-      }
-    })();
-  }, [index, positioned]);
-
+  // La Y de cada tarjeta sale de las alturas medidas de las que tiene encima. Arranca en una
+  // posición estimada y se desliza a la real en cuanto se miden las alturas.
   useAnimatedReaction(
     () => {
-      if (!positioned || isDragged.value) return 0;
-      if (dragFrom.value < 0 || dragGroup.value !== groupKey) return 0;
-      const f = dragFrom.value;
-      const to = dragTo.value;
-      const s = Math.round(slot.value);
-      if (f < to && s > f && s <= to) return -CARD_SLOT;
-      if (f > to && s >= to && s < f) return CARD_SLOT;
-      return 0;
+      if (!positioned) return -1;
+      const m = info.value;
+      if (!m[habitId]) return -1;
+      return topOf(m, virtualOrder(m, groupKey, dragId.value, dragTo.value), habitId);
     },
     (target, previous) => {
-      if (target === previous) return;
-      if (committing.value) {
-        shift.value = 0;
-      } else {
-        shift.value = withTiming(target, { duration: 150 });
-      }
+      if (target < 0 || target === previous || isDragged.value) return;
+      animTop.value = withTiming(target, { duration: 150 });
     }
   );
 
-  const resetDragState = () => {
-    'worklet';
-    isDragged.value = false;
-    dragFrom.value = -1;
-    dragTo.value = -1;
-    dragGroup.value = '';
-    committing.value = false;
-  };
+  useAnimatedReaction(
+    () => dragId.value === '' && !committing.value,
+    (idle) => {
+      if (idle && isDragged.value) isDragged.value = false;
+    }
+  );
 
   const triggerSwapHaptics = () => {
     if (Platform.OS === 'android') {
@@ -619,25 +661,28 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .failOffsetY(canReorder ? [-NEVER_OFFSET, NEVER_OFFSET] : [-15, 15])
     .onStart(() => {
       if (isEditMode && positioned) {
-        if (committing.value || dragFrom.value >= 0) return;
-        const base = Math.round(slot.value);
-        cancelAnimation(dragY);
-        dragStartY.value = dragY.value;
+        if (committing.value || dragId.value !== '') return;
+        const m = info.value;
+        const from = groupIdsSorted(m, groupKey).indexOf(habitId);
+        if (from === -1) return;
+        cancelAnimation(animTop);
+        settling.value = false;
+        dragStartTop.value = animTop.value;
         isDragged.value = true;
-        dragGroup.value = groupKey;
-        dragFrom.value = base;
-        dragTo.value = base;
+        dragTo.value = from;
+        dragId.value = habitId;
       }
     })
     .onUpdate((event) => {
       if (isEditMode && positioned) {
-        if (!isDragged.value) return;
-        const base = Math.round(slot.value);
-        const minY = -base * CARD_SLOT;
-        const maxY = (totalItems - 1 - base) * CARD_SLOT;
-        const y = Math.max(minY, Math.min(dragStartY.value + event.translationY, maxY));
-        dragY.value = y;
-        const target = Math.max(0, Math.min(totalItems - 1, Math.round(base + y / CARD_SLOT)));
+        if (!isDragged.value || dragId.value !== habitId) return;
+        const m = info.value;
+        const me = m[habitId];
+        if (!me) return;
+        const maxTop = Math.max(0, stackHeight(m, groupIdsSorted(m, groupKey)) - me.h);
+        const top = Math.max(0, Math.min(dragStartTop.value + event.translationY, maxTop));
+        animTop.value = top;
+        const target = dropIndex(m, groupKey, habitId, top + me.h / 2);
         if (target !== dragTo.value) {
           dragTo.value = target;
           runOnJS(triggerSwapHaptics)();
@@ -653,11 +698,19 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     .onEnd((event) => {
       if (isEditMode && positioned) {
         if (!isDragged.value) return;
-        const from = dragFrom.value;
+        const m = info.value;
+        const from = groupIdsSorted(m, groupKey).indexOf(habitId);
         const to = dragTo.value;
+        const finalTop = topOf(m, virtualOrder(m, groupKey, habitId, to), habitId);
+        settling.value = true;
+        animTop.value = withSpring(finalTop, {}, (finished) => {
+          if (finished) settling.value = false;
+        });
         if (to === from) {
-          resetDragState();
-          dragY.value = withSpring(0);
+          isDragged.value = false;
+          dragId.value = '';
+          dragTo.value = -1;
+          committing.value = false;
         } else {
           committing.value = true;
           if (onReorder) runOnJS(onReorder)(habit.id, to);
@@ -679,10 +732,13 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
       }
     })
     .onFinalize((_event, success) => {
-      if (onDragCancel) runOnJS(onDragCancel)(); 
+      if (onDragCancel) runOnJS(onDragCancel)();
       if (positioned && !success && isDragged.value && !committing.value) {
-        resetDragState();
-        dragY.value = withSpring(0);
+        const m = info.value;
+        animTop.value = withSpring(topOf(m, groupIdsSorted(m, groupKey), habitId));
+        isDragged.value = false;
+        dragId.value = '';
+        dragTo.value = -1;
       }
     });
 
@@ -699,8 +755,8 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     transform: [{ translateX: translateX.value }],
   }));
   const rContainerStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: slot.value * CARD_SLOT + shift.value + dragY.value }],
-    zIndex: isDragged.value ? 30 : Math.abs(dragY.value) > 0.5 ? 20 : menuOpen.value ? 10 : 1,
+    transform: [{ translateY: animTop.value }],
+    zIndex: isDragged.value || settling.value ? 30 : menuOpen.value ? 10 : 1,
   }));
   const rBackgroundRightStyle = useAnimatedStyle(() => ({
     opacity: translateX.value > 0 ? Math.min(translateX.value / SWIPE_THRESHOLD, 1) : 0,
@@ -710,9 +766,22 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
     opacity: translateX.value < 0 ? Math.min(Math.abs(translateX.value) / RELAPSE_THRESHOLD, 1) : 0,
     zIndex: translateX.value < 0 ? 1 : -1,
   }));
+
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    reportHeight(habitId, h);
+    runOnUI((id: string, g: string, i: number, height: number) => {
+      'worklet';
+      const m = info.value;
+      const old = m[id];
+      if (old && old.h === height && old.g === g) return;
+      info.value = { ...m, [id]: { g, i: old ? old.i : i, h: height } };
+    })(habitId, groupKey, index, h);
+  };
   return (
     <Animated.View
       layout={positioned ? undefined : LinearTransition.duration(200)}
+      onLayout={groupKey ? handleLayout : undefined}
       style={[
         styles.swipeableContainer,
         positioned
@@ -803,6 +872,55 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   )
 }
 
+const PendingGroupList: React.FC<{
+  groupKey: string;
+  ids: string[];
+  version: unknown;
+  raised: boolean;
+  drag: DragContext;
+  children: React.ReactNode;
+}> = ({ groupKey, ids, version, raised, drag, children }) => {
+  const { info, dragId, dragTo, committing } = drag;
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const idsKey = ids.join('|');
+
+  const reportHeight = React.useCallback((id: string, h: number) => {
+    setHeights((prev) => (prev[id] === h ? prev : { ...prev, [id]: h }));
+  }, []);
+
+  // Publica el orden guardado del grupo y, si React acaba de confirmar un reordenamiento,
+  // limpia el estado de arrastre en el mismo paso.
+  useLayoutEffect(() => {
+    runOnUI((g: string, list: string[]) => {
+      'worklet';
+      const prev = info.value;
+      const next: InfoMap = {};
+      for (const k in prev) {
+        if (prev[k].g !== g) next[k] = prev[k];
+      }
+      for (let n = 0; n < list.length; n++) {
+        const old = prev[list[n]];
+        next[list[n]] = { g, i: n, h: old ? old.h : 0 };
+      }
+      info.value = next;
+      const dId = dragId.value;
+      if (committing.value && dId !== '' && next[dId] && next[dId].g === g) {
+        committing.value = false;
+        dragId.value = '';
+        dragTo.value = -1;
+      }
+    })(groupKey, ids);
+  }, [groupKey, idsKey, version]);
+
+  const total = ids.reduce((sum, id) => sum + (heights[id] ?? CARD_FALLBACK_HEIGHT) + CARD_GAP, 0);
+
+  return (
+    <GroupMeasureContext.Provider value={reportHeight}>
+      <View style={{ height: total, zIndex: raised ? 5 : 1 }}>{children}</View>
+    </GroupMeasureContext.Provider>
+  );
+};
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
@@ -815,12 +933,12 @@ export default function App() {
     t('youAreStrongerThanYourUrges'),
     t('keepGoingYoureDoingGreat')
   ], [t]);
-  const dragFrom = useSharedValue(-1);
+  const dragInfo = useSharedValue<InfoMap>({});
+  const dragId = useSharedValue('');
   const dragTo = useSharedValue(-1);
-  const dragGroup = useSharedValue('');
   const dragCommitting = useSharedValue(false);
   const dragCtx = useMemo<DragContext>(
-    () => ({ from: dragFrom, to: dragTo, group: dragGroup, committing: dragCommitting }),
+    () => ({ info: dragInfo, dragId, dragTo, committing: dragCommitting }),
     []
   );
   const [weekOffset, setWeekOffset] = useState<number>(0);
@@ -1551,18 +1669,6 @@ export default function App() {
     });
   };
 
-  useLayoutEffect(() => {
-    runOnUI(() => {
-      'worklet';
-      if (dragCommitting.value) {
-        dragCommitting.value = false;
-        dragFrom.value = -1;
-        dragTo.value = -1;
-        dragGroup.value = '';
-      }
-    })();
-  }, [habits]);
-
   const getLocale = (languageCode: string) => {
     switch (languageCode) {
       case 'es': return 'es-ES';
@@ -1735,7 +1841,13 @@ export default function App() {
                       >
                         {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
                         {pending.length > 0 && (
-                          <View style={{ height: pending.length * CARD_SLOT, zIndex: hasActiveMenu ? 5 : 1 }}>
+                          <PendingGroupList
+                            groupKey={title || 'no-time'}
+                            ids={pending.map(h => h.id)}
+                            version={habits}
+                            raised={hasActiveMenu}
+                            drag={dragCtx}
+                          >
                             {pending.map((habit, index) => (
                               <SwipeableHabitCard
                                 key={`pending-${habit.id}`}
@@ -1758,13 +1870,12 @@ export default function App() {
                                 onEdit={handleStartEdit}
                                 onDelete={handleDeleteHabit}
                                 index={index}
-                                totalItems={pending.length}
                                 positioned
                                 groupKey={title || 'no-time'}
                                 drag={dragCtx}
                               />
                             ))}
-                          </View>
+                          </PendingGroupList>
                         )}
 
                         {completed.length > 0 && (
@@ -3202,7 +3313,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: CARD_BODY,
     marginBottom: 0,
   },
   swipeableContainer: {
