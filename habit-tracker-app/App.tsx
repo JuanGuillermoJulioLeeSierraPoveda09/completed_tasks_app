@@ -960,7 +960,7 @@ export default function App() {
   const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
   const [timeOfDay, setTimeOfDay] = useState<'Morning' | 'Afternoon' | 'Evening' | undefined>(undefined);
   const [isReminderEnabled, setIsReminderEnabled] = useState(false);
-  const [reminderSelectedHour, setReminderSelectedHour] = useState('08');
+  const [reminderSelectedHour, setReminderSelectedHour] = useState('05');
   const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
   const [reminderPeriod, setReminderPeriod] = useState<'AM' | 'PM'>('AM');
   const [reminderTime, setReminderTime] = useState(new Date());
@@ -2583,6 +2583,8 @@ const styles = StyleSheet.create({
   calendarShadowBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    //borderBottomLeftRadius: 16,
+    //borderBottomRightRadius: 16,
     marginHorizontal: 16,
     marginTop: 6,
     marginBottom: 16,
