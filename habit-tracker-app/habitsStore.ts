@@ -123,7 +123,62 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
 
         if (isPerfect) {
             countPerfect++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+            break;
         }
     }
     
-}
+    let countLogged = 0;
+    checkDate = new Date(today);
+    const isTodayLogged = todayCompletedCount > 0;
+
+    if (isTodayLogged) {
+        countLogged++;
+    }
+    checkDate.setDate(checkDate.getDate() - 1);
+
+    while (true) {
+        const key = formatDateKey(checkDate);
+        const completedCount = (habitLogs[key] || []).length;
+        if (completedCount > 0) {
+            countLogged++;
+            checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+            break;
+        }
+    }
+
+    let loggedBest = 0;
+    let perfectBest = 0;
+    let tempLogged = 0;
+    let tempPerfect = 0;
+    const historicDate = new Date(today);
+
+    for (let i = 0; i < 365; i++) {
+        const key = formatDateKey(historicDate);
+        const completedCount = (habitLogs[key] || []).length;
+        const habitsOnHistoricDate = getHabitsForDate(habits, historicDate);
+        const isPerfectHistoric = habitsOnHistoricDate.length > 0 && completedCount >= habitsOnHistoricDate.length;
+
+        if (completedCount > 0) {
+            tempLogged++;
+            if ( tempLogged > loggedBest) loggedBest = tempLogged;
+        } else {
+            tempLogged= 0;
+        }
+        if (isPerfectHistoric) {
+            tempPerfect++;
+            if (tempPerfect > perfectBest) perfectBest = tempPerfect;
+        } else {
+            tempPerfect = 0;
+        }
+        historicDate.setDate(historicDate.getDate() - 1);
+    }
+    return {
+        loggedCurrent: countLogged,
+        loggedBest,
+        perfectCurrent: countPerfect,
+        perfectBest,
+    };
+};
