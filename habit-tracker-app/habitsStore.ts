@@ -1,6 +1,9 @@
-import {useEffect, useState } from 'react';
+import { reloadAppAsync } from 'expo';
+import { useEffect, useState } from 'react';
+import { date } from 'react-i18next/icu.macro';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 //MMKV
 
 export type HabitType = 'Build a habit' | 'Quit a habit' | 'Task';
@@ -41,7 +44,7 @@ export const formatDateKey = (date: Date) => {
 
 export const parseDateKey = (key: string) => {
     const [y, m, d] = key.split('-').map(Number);
-    return new Date(y, m -1, d);
+    return new Date(y, m - 1, d);
 };
 
 export const QUIT_QUOTE_COUNT = 6;
@@ -110,7 +113,7 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
     let countPerfect = 0;
     let checkDate = new Date(today);
 
-    if (isTodayPerfect){
+    if (isTodayPerfect) {
         countPerfect++;
     }
     checkDate.setDate(checkDate.getDate() - 1);
@@ -128,7 +131,7 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
             break;
         }
     }
-    
+
     let countLogged = 0;
     checkDate = new Date(today);
     const isTodayLogged = todayCompletedCount > 0;
@@ -163,9 +166,9 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
 
         if (completedCount > 0) {
             tempLogged++;
-            if ( tempLogged > loggedBest) loggedBest = tempLogged;
+            if (tempLogged > loggedBest) loggedBest = tempLogged;
         } else {
-            tempLogged= 0;
+            tempLogged = 0;
         }
         if (isPerfectHistoric) {
             tempPerfect++;
@@ -182,3 +185,126 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
         perfectBest,
     };
 };
+
+let hydrationFailed = false;
+const hydrationListeners = new Set<() => void>();
+
+interface HabitsState {
+    habits: Habit[];
+    habitLogs: HabitLogs;
+    relapseLogs: RelapseLogs;
+    toggleCompletion: (habitId: string, dateKey: string) => void;
+    confirmRelapse: (habitId: string, dateKey: string) => void;
+    createHabit: (draft: HabitDraft, dateKey: string) => Habit;
+    updateHabit: (habitId: string, draft: HabitDraft, dateKey: string) => void;
+    deleteHabit: (habitId: string) => void;
+    reorderHabit: (habitId: string, toIndex: number, orderedIds: string[]) => void;
+}
+
+export const useHabitsStore = create<HabitsState>()(
+    persist(
+        (set, get) => ({
+            habits: [],
+            habitLogs: {},
+            relapseLogs: {},
+            toggleCompletion: (habitId, dateKey) => {
+                if (dateKey > formatDateKey(new Date())) return;
+                set((s) => {
+                    const currentCompleted = s.habitLogs[dateKey] || [];
+                    const exists = currentCompleted.includes(habitId);
+                    const updated = exists ? currentCompleted.filter((id) => id !== habitId) : [...currentCompleted, habitId];
+                    return { habitLogs: { ...s.habitLogs, [dateKey]: updated } };
+                });
+            },
+            confirmRelapse: (habitId, dateKey) => {
+                set((s) => {
+                    const currentRelapsed = s.relapseLogs[dateKey] || [];
+                    if (currentRelapsed.includes(habitId)) return s;
+                    return {
+                        relapseLogs: { ...s.relapseLogs, [dateKey]: [...currentRelapsed, habitId] }
+                    };
+                });
+            },
+
+            createHabit: (draft, dateKey) => {
+                const habit: Habit = {
+                    ...draft,
+                    id: makeId(),
+                    createdAt: dateKey,
+                    quoteOrder: draft.type === 'Quit a habit' ? shuffledQuoteOrder() : undefined,
+                    order: get().habits.length,
+                };
+                set((s) => ({ habits: [...s.habits, habit] }));
+                return habit;
+            },
+
+            updateHabit: (habitId, draft, dateKey) => {
+                set((s) => ({
+                    habits: s.habits.map((h) => {
+                        if (h.id !== habitId) return h;
+                        return {
+                            ...h,
+                            ...draft,
+                            createdAt: h.createdAt ?? dateKey,
+                            quoteOrder: draft.type === 'Quit a habit' ? h.quoteOrder ?? shuffledQuoteOrder() : undefined,
+                        };
+                    }),
+                }));
+            },
+
+            deleteHabit: (habitId) => {
+                set((s) => {
+                    const prune = (logs: Record<string, string[]>) => {
+                        const next: Record<string, string[]> = {};
+                        for (const key in logs) {
+                            next[key] = logs[key].filter((id) => id !== habitId);
+                        }
+                        return next;
+                    };
+                    return {
+                        habits: s.habits.filter((h) => h.id !== habitId),
+                        habitLogs: prune(s.habitLogs),
+                        relapseLogs: prune(s.relapseLogs),
+                    };
+                });
+            },
+
+            reorderHabit: (habitId, toIndex, orderedIds) => {
+                set((s) => {
+                    const prev = s.habits;
+                    const fromIndex = orderedIds.indexOf(habitId);
+                    if (fromIndex === -1) return { habits: [...prev] };
+                    const ids = [...orderedIds];
+                    ids.splice(fromIndex, 1);
+                    ids.splice(Math.max(0, Math.min(toIndex, ids.length)), 0, habitId);
+                    const byId = new Map(prev.map((h) => [h.id, h]));
+                    const groupIds = new Set(ids);
+                    const sortedAll = [...prev].sort((a, b) => (a.order || 0) - (b.order || 0));
+                    let k = 0;
+                    return {
+                        habits: sortedAll.map((h, i) => {
+                            const source = groupIds.has(h.id) ? byId.get(ids[k++])! : h;
+                            return { ...source, order: i };
+                        }),
+                    };
+                });
+            },,
+        }),
+        {
+            name: 'habits-store-v1',
+            version: 1,
+            storage: createJSONStorage(() => AsyncStorage),
+            partialize: (s) => ({
+                habits: s.habits,
+                habitLogs: s.habitLogs,
+                relapseLogs: s.relapseLogs,
+            }),
+            onRehydrateStorage: () => (_state, error) => {
+                if (error) {
+                    hydrationFailed = true;
+                    hydrationListeners.forEach((l) => l());
+                }
+            },
+        }
+    )
+)
