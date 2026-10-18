@@ -288,7 +288,7 @@ export const useHabitsStore = create<HabitsState>()(
                         }),
                     };
                 });
-            },,
+            },
         }),
         {
             name: 'habits-store-v1',
@@ -307,4 +307,20 @@ export const useHabitsStore = create<HabitsState>()(
             },
         }
     )
-)
+);
+
+export const useHabitsHydrated = () => {
+    const isReady = () => useHabitsStore.persist.hasHydrated() || hydrationFailed;
+    const [hydrated, setHydrated] = useState(isReady);
+    useEffect(() => {
+        const update = () => setHydrated(isReady());
+        const unsub = useHabitsStore.persist.onFinishHydration(update);
+        hydrationListeners.add(update);
+        update();
+        return () => {
+            unsub();
+            hydrationListeners.delete(update);
+        };
+    }, []);
+    return hydrated;
+};
