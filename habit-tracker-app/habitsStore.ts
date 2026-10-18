@@ -25,7 +25,7 @@ export interface Habit {
     type?: HabitType;
     createdAt?: string;
     quoteOrder?: number[];
-    targetDate: string;
+    targetDate?: string;
     timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
     order?: number;
     reminder?: HabitReminder;

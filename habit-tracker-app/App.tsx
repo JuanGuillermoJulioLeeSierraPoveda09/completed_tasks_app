@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -50,6 +50,17 @@ import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import './i18n';
 import * as Haptics from 'expo-haptics';
+import {
+  useHabitsStore,
+  useHabitsHydrated,
+  formatDateKey,
+  parseDateKey,
+  getHabitsForDate as habitsForDate,
+  getQuitQuoteIndex,
+  getQuitStreak as computeQuitStreak,
+  computeStreakStats,
+} from './habitsStore';
+import type { Habit, HabitDraft, HabitType } from './habitsStore';
 /*
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -61,27 +72,6 @@ Notifications.setNotificationHandler({
   }),
 });
 */
-interface Habit {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-  frequency: string;
-  selectedWeekDays?: boolean[];
-  selectedMonthDays?: number[];
-  type?: 'Build a habit' | 'Quit a habit' | 'Task';
-  createdAt?: string;
-  quoteOrder?: number[];
-  targetDate?: string;
-  timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
-  order?: number;
-  reminderEnabled?: boolean;
-  reminderHour?: string;
-  reminderMinute?: string;
-  reminderPeriod?: 'AM' | 'PM';
-}
-
 interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
@@ -91,7 +81,6 @@ interface CustomTimePickerModalProps {
   onClose: () => void;
 }
 
-type HabitLogs = Record<string, string[]>;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
 const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
@@ -178,11 +167,20 @@ const getRandomItem = <T,>(array: T[]): T => {
   return array[Math.floor(Math.random() * array.length)];
 };
 
-const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const triggerHaptic = () => {
+  if (Platform.OS === 'android') {
+    Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press);
+  } else {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }
+};
+
+const triggerButtonHaptics = () => {
+  if (Platform.OS === 'android') {
+    Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
+  } else {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
 };
 
 const PADDED_HOURS = ['', ...INFINITE_HOURS, ''];
@@ -487,6 +485,7 @@ export async function scheduleHabitReminders(
 */
 const CARD_GAP = 10;
 const CARD_FALLBACK_HEIGHT = 83;
+
 type CardInfo = { g: string; i: number; h: number };
 type InfoMap = Record<string, CardInfo>;
 
@@ -560,7 +559,7 @@ const dropIndex = (info: InfoMap, g: string, id: string, centerY: number): numbe
   return best;
 };
 
-const GroupMeasureContext = React.createContext<(id: string, h: number) => void>(() => { });
+const GroupMeasureContext = React.createContext<(id: string, h: number) => void>(() => {});
 
 interface SwipeableHabitCardProps {
   habit: Habit;
@@ -572,7 +571,7 @@ interface SwipeableHabitCardProps {
   streak?: number;
   isEditMode?: boolean;
   onLongPress?: () => void;
-  onReorder?: (habitId: string, toIndex: number) => void;
+  onReorder?: (habitId: string, toIndex: number, groupKey: string) => void;
   isMenuOpen?: boolean;
   onToggleMenu?: (habitId: string) => void;
   onEdit?: (habitId: string) => void;
@@ -587,7 +586,7 @@ interface SwipeableHabitCardProps {
 const NEVER_OFFSET = 100000;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 const RELAPSE_THRESHOLD = SCREEN_WIDTH * 0.4;
-const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
+const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
   habit,
   isCompleted,
   isFailed = false,
@@ -711,7 +710,7 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
           committing.value = false;
         } else {
           committing.value = true;
-          if (onReorder) runOnJS(onReorder)(habit.id, to);
+          if (onReorder) runOnJS(onReorder)(habit.id, to, groupKey);
         }
       } else if (!isCompleted && !isFailed) {
         if (event.translationX > SWIPE_THRESHOLD) {
@@ -870,23 +869,25 @@ const SwipeableHabitCard: React.FC<SwipeableHabitCardProps> = ({
   )
 }
 
+const SwipeableHabitCard = React.memo(SwipeableHabitCardBase);
 const PendingGroupList: React.FC<{
   groupKey: string;
   ids: string[];
   version: unknown;
   raised: boolean;
   drag: DragContext;
+  onIdsChange?: (groupKey: string, ids: string[]) => void;
   children: React.ReactNode;
-}> = ({ groupKey, ids, version, raised, drag, children }) => {
+}> = ({ groupKey, ids, version, raised, drag, onIdsChange, children }) => {
   const { info, dragId, dragTo, committing } = drag;
   const [heights, setHeights] = useState<Record<string, number>>({});
   const idsKey = ids.join('|');
-
   const reportHeight = React.useCallback((id: string, h: number) => {
     setHeights((prev) => (prev[id] === h ? prev : { ...prev, [id]: h }));
   }, []);
 
   useLayoutEffect(() => {
+    onIdsChange?.(groupKey, ids);
     runOnUI((g: string, list: string[]) => {
       'worklet';
       const prev = info.value;
@@ -907,6 +908,7 @@ const PendingGroupList: React.FC<{
       }
     })(groupKey, ids);
   }, [groupKey, idsKey, version]);
+
   const total = ids.reduce((sum, id) => sum + (heights[id] ?? CARD_FALLBACK_HEIGHT) + CARD_GAP, 0);
 
   return (
@@ -915,6 +917,658 @@ const PendingGroupList: React.FC<{
     </GroupMeasureContext.Provider>
   );
 };
+
+type TFn = (key: string) => string;
+type FrequencyType = 'days_of_week' | 'days_of_month' | 'some_days';
+const everyWeekDay = () => [true, true, true, true, true, true, true];
+
+const getOrdinalSuffix = (day: number, t: TFn) => {
+  if (day > 3 && day < 21) return `${day}th`;
+  switch (day % 10) {
+    case 1: return `${day}${t('first')}`;
+    case 2: return `${day}${t('second')}`;
+    case 3: return `${day}${t('third')}`;
+    default: return `${day}${t('th')}`;
+  }
+};
+
+const formatMonthDaysDisplay = (days: number[], t: TFn): string => {
+  if (days.length === 0) return t('selectAtLeast1Day');
+
+  const sorted = [...days].sort((a, b) => a - b);
+  const ranges: string[] = [];
+  let rangeStart = sorted[0];
+  let prevDay = sorted[0];
+
+  for (let i = 1; i <= sorted.length; i++) {
+    const currentDay = sorted[i];
+    if (currentDay !== prevDay + 1) {
+      if (rangeStart === prevDay) {
+        ranges.push(getOrdinalSuffix(rangeStart, t));
+      } else if (prevDay === rangeStart + 1) {
+        ranges.push(`${getOrdinalSuffix(rangeStart, t)}, ${getOrdinalSuffix(prevDay, t)}`);
+      } else {
+        ranges.push(`${getOrdinalSuffix(rangeStart, t)} - ${getOrdinalSuffix(prevDay, t)}`);
+      }
+      rangeStart = currentDay;
+    }
+    prevDay = currentDay;
+  }
+  return `${ranges.join(', ')} ${t('ofEachMonth')}`;
+};
+
+const describeWeekDays = (daysArr: boolean[], t: TFn): string => {
+  const [sun, mon, tue, wed, thu, fri, sat] = daysArr;
+  const count = daysArr.filter(Boolean).length;
+  const dayNames = [t('Sunday'), t('Monday'), t('Tuesday'), t('Wednesday'), t('Thursday'), t('Friday'), t('Saturday')];
+  if (count === 7) {
+    return t('everyday');
+  } else if (count === 6) {
+    const missingIndex = daysArr.findIndex((val) => !val);
+    return `${t('everydayBut')} ${dayNames[missingIndex]}`;
+  } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat) {
+    return t('weekdays');
+  } else if (count === 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
+    return t('midweek');
+  } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri) {
+    return t('weekend');
+  } else if (count === 4 || count === 5) {
+    const extendedDays = [...daysArr, ...daysArr];
+    let startIdx = -1;
+    for (let i = 0; i < 7; i++) {
+      let isConsecutive = true;
+      for (let j = 0; j < count; j++) {
+        if (!extendedDays[i + j]) {
+          isConsecutive = false;
+          break;
+        }
+      }
+      if (isConsecutive) {
+        startIdx = i;
+        break;
+      }
+    }
+
+    if (startIdx !== -1) {
+      const endIdx = (startIdx + count - 1) % 7;
+      return `${t('from')}${dayNames[startIdx]} ${t('to')} ${dayNames[endIdx]}`;
+    }
+  } else if (count === 0) {
+    return t('selectAtLeast1Day');
+  }
+  return daysArr
+    .map((isSelected, index) => (isSelected ? dayNames[index] : null))
+    .filter(Boolean)
+    .join(', ');
+};
+
+interface HabitFormState {
+  type: HabitType;
+  icon: string;
+  color: string;
+  title: string;
+  description: string;
+  frequencyType: FrequencyType;
+  weekDays: boolean[];
+  monthDays: number[];
+  frequencyDisplay: string;
+  timeOfDay?: 'Morning' | 'Afternoon' | 'Evening';
+  taskDate: Date;
+  reminderEnabled: boolean;
+  reminderHour: string;
+  reminderMinute: string;
+  reminderPeriod: 'AM' | 'PM';
+}
+
+const makeInitialForm = (habit: Habit | undefined, everyday: string): HabitFormState => {
+  if (!habit) {
+    return {
+      type: 'Build a habit',
+      icon: getRandomItem(ICON_CATEGORIES.All),
+      color: getRandomItem(AVAILABLE_COLORS),
+      title: '',
+      description: '',
+      frequencyType: 'days_of_week',
+      weekDays: everyWeekDay(),
+      monthDays: [],
+      frequencyDisplay: everyday,
+      timeOfDay: undefined,
+      taskDate: new Date(),
+      reminderEnabled: false,
+      reminderHour: '08',
+      reminderMinute: '00',
+      reminderPeriod: 'AM',
+    };
+  }
+  return {
+    type: habit.type || 'Build a habit',
+    icon: habit.icon,
+    color: habit.color,
+    title: habit.title,
+    description: habit.description || '',
+    frequencyType: !habit.selectedWeekDays && habit.selectedMonthDays ? 'days_of_month' : 'days_of_week',
+    weekDays: habit.selectedWeekDays ? [...habit.selectedWeekDays] : everyWeekDay(),
+    monthDays: habit.selectedMonthDays ? [...habit.selectedMonthDays] : [],
+    frequencyDisplay: habit.frequency || everyday,
+    timeOfDay: habit.timeOfDay,
+    taskDate: habit.targetDate ? parseDateKey(habit.targetDate) : new Date(),
+    reminderEnabled: !!habit.reminder,
+    reminderHour: habit.reminder ? habit.reminder.hour : '05',
+    reminderMinute: habit.reminder ? habit.reminder.minute : '00',
+    reminderPeriod: habit.reminder ? habit.reminder.period : 'AM',
+  };
+};
+
+const buildDraft = (form: HabitFormState, everyday: string): HabitDraft => {
+  const isQuit = form.type === 'Quit a habit';
+  const isTask = form.type === 'Task';
+  return {
+    title: form.title,
+    description: isQuit ? '' : form.description,
+    icon: form.icon,
+    color: form.color,
+    type: form.type,
+    frequency: isQuit ? everyday : form.frequencyDisplay,
+    selectedWeekDays: isQuit ? everyWeekDay() : form.frequencyType === 'days_of_week' ? [...form.weekDays] : undefined,
+    selectedMonthDays: isQuit ? undefined : form.frequencyType === 'days_of_month' ? [...form.monthDays] : undefined,
+    targetDate: isTask ? formatDateKey(form.taskDate) : undefined,
+    timeOfDay: isQuit ? undefined : form.timeOfDay,
+    reminder: form.reminderEnabled
+      ? { hour: form.reminderHour, minute: form.reminderMinute, period: form.reminderPeriod }
+      : undefined,
+  };
+};
+
+const HabitFormBody: React.FC<{
+  habit?: Habit;
+  onClose: () => void;
+  onSave: (draft: HabitDraft) => void;
+}> = ({ habit, onClose, onSave }) => {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
+  const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
+
+  const [form, setForm] = useState<HabitFormState>(() => makeInitialForm(habit, t('everyday')));
+  const patch = (changes: Partial<HabitFormState>) => setForm((f) => ({ ...f, ...changes }));
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [activeIconCategory, setActiveIconCategory] = useState<keyof typeof ICON_CATEGORIES>('All');
+  const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
+  const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+
+  const toggleSwitch = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setForm((f) => ({ ...f, reminderEnabled: !f.reminderEnabled }));
+  };
+
+  const handleReminderSaveTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
+    patch({ reminderHour: hour, reminderMinute: minute, reminderPeriod: period });
+    setIsReminderPickerVisible(false);
+  };
+
+  const toggleWeekDaySelection = (index: number) => {
+    setForm((f) => {
+      const weekDays = [...f.weekDays];
+      weekDays[index] = !weekDays[index];
+      return { ...f, weekDays, frequencyDisplay: describeWeekDays(weekDays, t) };
+    });
+  };
+
+  const toggleMonthDaySelection = (day: number) => {
+    setForm((f) => {
+      const monthDays = f.monthDays.includes(day) ? f.monthDays.filter((d) => d !== day) : [...f.monthDays, day];
+      return { ...f, monthDays, frequencyDisplay: formatMonthDaysDisplay(monthDays, t) };
+    });
+  };
+
+  const handleCloseFrequencyModal = () => {
+    if (form.frequencyType === 'days_of_week') {
+      if (form.weekDays.filter(Boolean).length === 0) return;
+    } else if (form.frequencyType === 'days_of_month') {
+      if (form.monthDays.length === 0) return;
+    }
+    setIsFrequencyModalOpen(false);
+  };
+
+  const handleTaskDateChange = (_event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setIsDatePickerVisible(false);
+    if (selectedDate) patch({ taskDate: selectedDate });
+  };
+
+  const handleTaskDateDismiss = () => {
+    setIsDatePickerVisible(false);
+  };
+
+  const handleSave = () => {
+    if (!form.title.trim()) return;
+    onSave(buildDraft(form, t('everyday')));
+  };
+
+  return (
+    <>
+      <SafeAreaView style={styles.createHabitModalContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={styles.createHabitHeader}>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={26} color="#1F2937" />
+          </TouchableOpacity>
+
+          <View style={styles.dropdownWrapper}>
+            <Text style={styles.dropdownTitle}>{t(form.type)}</Text>
+          </View>
+
+          <View style={{ width: 26 }} />
+        </View>
+
+        <ScrollView style={styles.createHabitBody} showsVerticalScrollIndicator={false}>
+          <View style={styles.iconSelectionSection}>
+            <View style={[styles.iconBoxBackground, { backgroundColor: form.color + '15' }]}>
+              <TouchableOpacity
+                style={[styles.iconCircleButton, { backgroundColor: form.color }]}
+                onPress={() => setIsIconPickerOpen(true)}
+              >
+                <Ionicons name={form.icon as any} size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.typeSelectorContainer}>
+            {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
+              const isSelected = form.type === type;
+              const displayLabel = type === 'Build a habit' ? t('build') : type === 'Quit a habit' ? t('quit') : t('task');
+
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.typeSelectorButton,
+                    isSelected && styles.typeSelectorButtonSelected
+                  ]}
+                  onPress={() => patch({ type })}
+                >
+                  <Text style={[styles.typeSelectorText, isSelected && { color: form.color }]}>
+                    {displayLabel}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>
+              {form.type === 'Task' ? t('taskName') : t('newHabit')}
+            </Text>
+            <TextInput
+              style={styles.formInput}
+              value={form.title}
+              onChangeText={(v) => patch({ title: v })}
+            />
+          </View>
+
+          {form.type !== 'Quit a habit' && (
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>{t('description')}</Text>
+              <TextInput
+                style={styles.formInput}
+                value={form.description}
+                onChangeText={(v) => patch({ description: v })}
+                multiline={true}
+              />
+            </View>
+          )}
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>{t('color')}</Text>
+            <View style={styles.colorGrid}>
+              {AVAILABLE_COLORS.map((color) => {
+                const isSelected = form.color === color;
+                return (
+                  <TouchableOpacity
+                    key={color}
+                    style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
+                    onPress={() => patch({ color })}
+                  >
+                    {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {form.type !== 'Task' && (
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>{t('frequency')}</Text>
+              {form.type === 'Quit a habit' ? (
+                <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
+                  <Text style={styles.frequencyValueText}>{t('everyday')}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
+                  <Text style={styles.frequencyValueText}>{form.frequencyDisplay}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {form.type !== 'Quit a habit' && (
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>{t('timeOfDay')}</Text>
+              <View style={styles.timeOfDayContainer}>
+                {(['Morning', 'Afternoon', 'Evening'] as const).map((time) => {
+                  const isSelected = form.timeOfDay === time;
+                  const displayTime = time === 'Morning' ? (t('morning')) :
+                    time === 'Afternoon' ? (t('afternoon')) :
+                      (t('evening'));
+                  return (
+                    <TouchableOpacity
+                      key={time}
+                      style={[
+                        styles.timeOfDayButton,
+                        isSelected && { backgroundColor: form.color, borderColor: form.color }
+                      ]}
+                      onPress={() => patch({ timeOfDay: isSelected ? undefined : time })}
+                    >
+                      <Text style={[styles.timeOfDayText, isSelected && { color: '#FFFFFF' }]}>
+                        {displayTime}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {form.type === 'Task' && (
+            <View style={styles.formGroup}>
+              <Text style={styles.fieldLabel}>{t('when')}</Text>
+              <TouchableOpacity
+                style={styles.frequencyInputSelector}
+                onPress={() => setIsDatePickerVisible(true)}
+              >
+                <Text style={styles.frequencyValueText}>
+                  {t('doItOn')}: {form.taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+
+              {isDatePickerVisible && (
+                <DateTimePicker
+                  value={form.taskDate}
+                  mode="date"
+                  display="default"
+                  onValueChange={handleTaskDateChange}
+                  onDismiss={handleTaskDateDismiss}
+                />
+              )}
+              {Platform.OS === 'ios' && isDatePickerVisible && (
+                <TouchableOpacity
+                  style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
+                  onPress={() => setIsDatePickerVisible(false)}
+                >
+                  <Text style={{ color: form.color, fontWeight: '600' }}>{t('done')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          <View style={styles.formGroup}>
+            <Text style={styles.fieldLabel}>{t('reminder')}</Text>
+            <View style={styles.reminderCardContainer}>
+              <View style={styles.reminderHeaderRow}>
+                <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
+                <Switch
+                  trackColor={{ false: '#767577', true: form.color + '10' }}
+                  thumbColor={form.reminderEnabled ? form.color : '#F4F3F4'}
+                  ios_backgroundColor="#3E3E3E"
+                  onValueChange={toggleSwitch}
+                  value={form.reminderEnabled}
+                />
+              </View>
+
+              {form.reminderEnabled && (
+                <Animated.View
+                  entering={FadeInUp.duration(200)}
+                  style={styles.reminderExpandedContent}>
+                  <View style={styles.reminderDivider} />
+                  <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
+                    <Text style={styles.reminderTimeButtonText}>
+                      {`${form.reminderHour}:${form.reminderMinute} ${form.reminderPeriod}`}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+              <CustomTimePickerModal
+                visible={isReminderPickerVisible}
+                reminderSelectedHour={form.reminderHour}
+                reminderSelectedMinute={form.reminderMinute}
+                reminderSelectedPeriod={form.reminderPeriod}
+                onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
+                onClose={() => setIsReminderPickerVisible(false)}
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        <View style={styles.createHabitFooter}>
+          <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: form.color }]} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>{t('saveHabit')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
+        <SafeAreaView style={styles.fullscreenModalContainer}>
+          <View style={styles.fullscreenModalHeader}>
+            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
+              <Ionicons name="close" size={26} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.fullscreenModalTitle}>{t('selectIcon')}</Text>
+            <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
+              <Text style={styles.headerDoneText}>{t('done')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.categoryNavbar}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
+              {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) => {
+                const isActive = activeIconCategory === cat;
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.categoryTab, isActive && styles.categoryTabActive]}
+                    onPress={() => setActiveIconCategory(cat)}
+                  >
+                    <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
+            <View style={styles.iconCategoryGrid}>
+              {ICON_CATEGORIES[activeIconCategory].map((iconName) => {
+                const isSelected = form.icon === iconName;
+                return (
+                  <TouchableOpacity
+                    key={iconName}
+                    style={[
+                      styles.iconTile,
+                      isSelected && { borderColor: form.color, backgroundColor: form.color + '15' }]}
+                    onPress={() => {
+                      patch({ icon: iconName })
+                    }}
+                  >
+                    <Ionicons name={iconName as any} size={30} color={isSelected ? form.color : '#374151'} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
+        <SafeAreaView style={styles.fullscreenModalContainer}>
+          <View style={styles.fullscreenModalHeader}>
+            <TouchableOpacity
+              onPress={handleCloseFrequencyModal}
+            >
+              <Ionicons name="close" size={26} color="#1F2937" />
+            </TouchableOpacity>
+            <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
+            <TouchableOpacity
+              onPress={handleCloseFrequencyModal}
+            >
+              <Text style={styles.headerDoneText}>{t('done')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
+            <TouchableOpacity
+              style={styles.frequencyOptionCard}
+              onPress={() => {
+                patch({ frequencyType: 'days_of_week', frequencyDisplay: describeWeekDays(form.weekDays, t) });
+              }}
+            >
+              <View style={styles.frequencyOptionHeader}>
+                <Ionicons
+                  name={form.frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={form.frequencyType === 'days_of_week' ? form.color : '#9CA3AF'}
+                />
+                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
+              </View>
+
+              {form.frequencyType === 'days_of_week' && (
+                <View style={styles.weekDaysPickerRow} >
+                  {WEEK_DAYS.map((day, idx) => {
+                    const isSelected = form.weekDays[idx];
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.weekDayCircle,
+                          isSelected && { backgroundColor: form.color }
+                        ]}
+                        onPress={() => toggleWeekDaySelection(idx)}
+                      >
+                        <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
+                          {day}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.frequencyOptionCard}
+              onPress={() => {
+                patch({ frequencyType: 'days_of_month', frequencyDisplay: formatMonthDaysDisplay(form.monthDays, t) });
+              }}
+            >
+              <View style={styles.frequencyOptionHeader}>
+                <Ionicons
+                  name={form.frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
+                  size={20}
+                  color={form.frequencyType === 'days_of_month' ? form.color : '#9CA3AF'}
+                />
+                <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
+              </View>
+
+              {form.frequencyType === 'days_of_month' && (
+                <View style={styles.monthDaysGridContainer}>
+                  <View style={[styles.monthDaysRow, styles.monthDaysRowFirst]}>
+                    {[1, 2, 3, 4, 5].map((day) => {
+                      const isSelected = form.monthDays.includes(day);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.monthDayCircle,
+                            isSelected && { backgroundColor: form.color }
+                          ]}
+                          onPress={() => toggleMonthDaySelection(day)}
+                        >
+                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {[
+                    [6, 7, 8, 9, 10, 11, 12],
+                    [13, 14, 15, 16, 17, 18, 19],
+                    [20, 21, 22, 23, 24, 25, 26],
+                  ].map((rowDays, rowIndex) => (
+                    <View key={rowIndex} style={styles.monthDaysRow}>
+                      {rowDays.map((day) => {
+                        const isSelected = form.monthDays.includes(day);
+                        return (
+                          <TouchableOpacity
+                            key={day}
+                            style={[
+                              styles.monthDayCircle,
+                              isSelected && { backgroundColor: form.color },
+                            ]}
+                            onPress={() => toggleMonthDaySelection(day)}
+                          >
+                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                              {day}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ))}
+                  <View style={[styles.monthDaysRow, styles.monthDaysRowEnd]}>
+                    {[27, 28, 29, 30, 31].map((day) => {
+                      const isSelected = form.monthDays.includes(day);
+                      return (
+                        <TouchableOpacity
+                          key={day}
+                          style={[
+                            styles.monthDayCircle,
+                            isSelected && { backgroundColor: form.color },
+                          ]}
+                          onPress={() => toggleMonthDaySelection(day)}
+                        >
+                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                            {day}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+    </>
+  );
+};
+
+const HabitFormModal = React.memo<{
+  visible: boolean;
+  sessionKey: number;
+  habit?: Habit;
+  onClose: () => void;
+  onSave: (draft: HabitDraft) => void;
+}>(({ visible, sessionKey, habit, onClose, onSave }) => (
+  <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent={true}>
+    <HabitFormBody key={sessionKey} habit={habit} onClose={onClose} onSave={onSave} />
+  </Modal>
+));
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -936,146 +1590,29 @@ export default function App() {
     () => ({ info: dragInfo, dragId, dragTo, committing: dragCommitting }),
     []
   );
+  const habits = useHabitsStore((s) => s.habits);
+  const habitLogs = useHabitsStore((s) => s.habitLogs);
+  const relapseLogs = useHabitsStore((s) => s.relapseLogs);
+  const toggleCompletion = useHabitsStore((s) => s.toggleCompletion);
+  const confirmRelapseInStore = useHabitsStore((s) => s.confirmRelapse);
+  const createHabit = useHabitsStore((s) => s.createHabit);
+  const updateHabit = useHabitsStore((s) => s.updateHabit);
+  const deleteHabit = useHabitsStore((s) => s.deleteHabit);
+  const reorderHabit = useHabitsStore((s) => s.reorderHabit);
+  const hydrated = useHabitsHydrated();
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [habitLogs, setHabitLogs] = useState<HabitLogs>({});
-  const [relapseLogs, setRelapseLogs] = useState<Record<string, string[]>>({});
   const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
   const [relapsingHabitId, setRelapsingHabitId] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
-
-  const [habitType, setHabitType] = useState<'Build a habit' | 'Quit a habit' | 'Task'>('Build a habit');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedIcon, setSelectedIcon] = useState(() => getRandomItem(ICON_CATEGORIES.All));
-  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
-  const [activeIconCategory, setActiveIconCategory] = useState<keyof typeof ICON_CATEGORIES>('All');
-
-  const [newTitle, setNewTitle] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [selectedColor, setSelectedColor] = useState(() => getRandomItem(AVAILABLE_COLORS));
-  const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
-  const [frequencyType, setFrequencyType] = useState<'days_of_week' | 'days_of_month' | 'some_days'>('days_of_week');
-  const [timeOfDay, setTimeOfDay] = useState<'Morning' | 'Afternoon' | 'Evening' | undefined>(undefined);
-  const [isReminderEnabled, setIsReminderEnabled] = useState(false);
-  const [reminderSelectedHour, setReminderSelectedHour] = useState('05');
-  const [reminderSelectedMinute, setReminderSelectedMinute] = useState('00');
-  const [reminderPeriod, setReminderPeriod] = useState<'AM' | 'PM'>('AM');
-  const [reminderTime, setReminderTime] = useState(new Date());
-  const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
-  const [taskDate, setTaskDate] = useState(new Date());
-  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeMenuHabitId, setActiveMenuHabitId] = useState<string | null>(null);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
-
-  const [selectedWeekDays, setSelectedWeekDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
-  const [frequencyDisplay, setFrequencyDisplay] = useState(t('everyday'));
+  const [formSession, setFormSession] = useState(0);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
-
-
-  const [selectedMonthDays, setSelectedMonthDays] = useState<number[]>([]);
-
-  const updateFrequencyDisplay = (daysArr: boolean[]) => {
-    const [sun, mon, tue, wed, thu, fri, sat] = daysArr;
-    const count = daysArr.filter(Boolean).length;
-    const dayNames = [t('Sunday'), t('Monday'), t('Tuesday'), t('Wednesday'), t('Thursday'), t('Friday'), t('Saturday')];
-    if (count === 7) {
-      setFrequencyDisplay(t('everyday'));
-      return;
-    } else if (count === 6) {
-      const missingIndex = daysArr.findIndex((val) => !val);
-      setFrequencyDisplay(`${t('everydayBut')} ${dayNames[missingIndex]}`);
-      return;
-    } else if (count === 5 && mon && tue && wed && thu && fri && !sun && !sat) {
-      setFrequencyDisplay(t('weekdays'));
-      return;
-    } else if (count === 3 && tue && wed && thu && !sun && !mon && !fri && !sat) {
-      setFrequencyDisplay(t('midweek'));
-      return;
-    } else if (count === 2 && sun && sat && !mon && !tue && !wed && !thu && !fri) {
-      setFrequencyDisplay(t('weekend'));
-      return;
-    } else if (count === 4 || count === 5) {
-      const extendedDays = [...daysArr, ...daysArr];
-      let startIdx = -1;
-      for (let i = 0; i < 7; i++) {
-        let isConsecutive = true;
-        for (let j = 0; j < count; j++) {
-          if (!extendedDays[i + j]) {
-            isConsecutive = false;
-            break;
-          }
-        }
-        if (isConsecutive) {
-          startIdx = i;
-          break;
-        }
-      }
-
-      if (startIdx !== -1) {
-        const endIdx = (startIdx + count - 1) % 7;
-        setFrequencyDisplay(`${t('from')}${dayNames[startIdx]} ${t('to')} ${dayNames[endIdx]}`);
-        return;
-      }
-    } else if (count === 0) {
-      setFrequencyDisplay(t('selectAtLeast1Day'));
-      return;
-    }
-    const selectedNames = daysArr
-      .map((isSelected, index) => (isSelected ? dayNames[index] : null))
-      .filter(Boolean);
-
-    setFrequencyDisplay(selectedNames.join(', '));
-  };
-
-  const getOrdinalSuffix = (day: number) => {
-    if (day > 3 && day < 21) return `${day}th`;
-    switch (day % 10) {
-      case 1: return `${day}${t('first')}`;
-      case 2: return `${day}${t('second')}`;
-      case 3: return `${day}${t('third')}`;
-      default: return `${day}${t('th')}`;
-    }
-  };
-
-  const formatMonthDaysDisplay = (days: number[]): string => {
-    if (days.length === 0) return t('selectAtLeast1Day');
-
-    const sorted = [...days].sort((a, b) => a - b);
-    const ranges: string[] = [];
-    let rangeStart = sorted[0];
-    let prevDay = sorted[0];
-
-    for (let i = 1; i <= sorted.length; i++) {
-      const currentDay = sorted[i];
-      if (currentDay !== prevDay + 1) {
-        if (rangeStart === prevDay) {
-          ranges.push(getOrdinalSuffix(rangeStart));
-        } else if (prevDay === rangeStart + 1) {
-          ranges.push(`${getOrdinalSuffix(rangeStart)}, ${getOrdinalSuffix(prevDay)}`);
-        } else {
-          ranges.push(`${getOrdinalSuffix(rangeStart)} - ${getOrdinalSuffix(prevDay)}`);
-        }
-        rangeStart = currentDay;
-      }
-      prevDay = currentDay;
-    }
-    return `${ranges.join(', ')} ${t('ofEachMonth')}`;
-  };
-
-  const handleCloseFrequencyModal = () => {
-    if (frequencyType === 'days_of_week') {
-      const count = selectedWeekDays.filter(Boolean).length;
-      if (count === 0) return;
-    } else if (frequencyType === 'days_of_month') {
-      if (selectedMonthDays.length === 0) return;
-    }
-    setIsFrequencyModalOpen(false);
-  };
 
   const handleMonthCurrent = () => {
     const now = new Date();
@@ -1094,6 +1631,7 @@ export default function App() {
       calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
     }, 300);
   }
+
 
   const handleHeaderDatePress = () => {
     const today = new Date();
@@ -1134,263 +1672,107 @@ export default function App() {
     setHeaderDateText(`${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate, i18n.language, t]);
 
-  const toggleHabitCompletion = (habitId: string) => {
-    const todayStr = formatDateKey(new Date());
-    if (activeDateKey > todayStr) return;
-    setHabitLogs((prevLogs) => {
-      const currentCompleted = prevLogs[activeDateKey] || [];
-      const exists = currentCompleted.includes(habitId);
-      const updated = exists
-        ? currentCompleted.filter((id) => id !== habitId)
-        : [...currentCompleted, habitId];
-      return {
-        ...prevLogs,
-        [activeDateKey]: updated,
-      };
-    });
+  const getHabitsForDate = (date: Date) => habitsForDate(habits, date);
+  const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
+
+  const getDisplayDescription = (habit: Habit) => {
+    const quoteIndex = getQuitQuoteIndex(habit, activeDateKey);
+    return quoteIndex === null ? habit.description : QUIT_QUOTES_KEYS[quoteIndex];
   };
 
-  const handleRelapse = (habitId: string) => {
+  const handleToggle = useCallback(
+    (habitId: string) => toggleCompletion(habitId, activeDateKey),
+    [toggleCompletion, activeDateKey]
+  );
+
+  const handleRelapse = useCallback((habitId: string) => {
     setRelapsingHabitId(habitId);
     setIsRelapseModalVisible(true);
-  };
+  }, []);
 
   const confirmRelapse = () => {
     if (relapsingHabitId) {
-      setRelapseLogs((prevLogs) => {
-        const currentRelapsed = prevLogs[activeDateKey] || [];
-        if (!currentRelapsed.includes(relapsingHabitId)) {
-          return { ...prevLogs, [activeDateKey]: [...currentRelapsed, relapsingHabitId] };
-        }
-        return prevLogs;
-      });
+      confirmRelapseInStore(relapsingHabitId, activeDateKey);
     }
     setIsRelapseModalVisible(false);
     setRelapsingHabitId(null);
   };
 
-  const getQuitStreak = (habit: Habit) => {
-    if (!habit.createdAt) return 0;
-    let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const currentActiveDate = new Date(activeDate);
-    currentActiveDate.setHours(0, 0, 0, 0);
-    let checkDate = currentActiveDate > today ? new Date(today) : new Date(currentActiveDate);
-    const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
-    const startDate = new Date(startYear, startMonth - 1, startDay);
+  const handleToggleMenu = useCallback((habitId: string) => {
+    setActiveMenuHabitId((prev) => (prev === habitId ? null : habitId));
+  }, []);
 
-    while (checkDate >= startDate) {
-      const key = formatDateKey(checkDate);
-      const relapses = relapseLogs[key] || [];
-      if (relapses.includes(habit.id)) {
-        break;
-      }
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-    return streak;
-  };
+  const handleLongPress = useCallback(() => {
+    setIsEditMode(true);
+    triggerHaptic();
+  }, []);
 
-  const getDisplayDescription = (habit: Habit) => {
-    let displayDescription = habit.description;
+  const handleDragCancel = useCallback(() => {
+    setIsEditMode(false);
+  }, []);
 
-    if (habit.type === 'Quit a habit' && habit.quoteOrder && habit.createdAt) {
-      const [startYear, startMonth, startDay] = habit.createdAt.split('-').map(Number);
-      const startDate = new Date(startYear, startMonth - 1, startDay);
-      const [currYear, currMonth, currDay] = activeDateKey.split('-').map(Number);
-      const currentDate = new Date(currYear, currMonth - 1, currDay);
-      let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays < 0) diffDays = 0;
-      const currentQuoteIndex = habit.quoteOrder[diffDays % 6];
-      displayDescription = QUIT_QUOTES_KEYS[currentQuoteIndex];
-    }
+  const groupOrdersRef = useRef<Record<string, string[]>>({});
+  const handleGroupIds = useCallback((groupKey: string, ids: string[]) => {
+    groupOrdersRef.current[groupKey] = ids;
+  }, []);
 
-    return displayDescription;
-  };
+  const handleReorder = useCallback(
+    (habitId: string, toIndex: number, groupKey: string) => {
+      setIsEditMode(false);
+      setActiveMenuHabitId(null);
+      reorderHabit(habitId, toIndex, groupOrdersRef.current[groupKey] ?? []);
+    },
+    [reorderHabit]
+  );
 
-  const QuitSettings = () => {
-    setFrequencyDisplay(t('everyday'));
-    setSelectedWeekDays([true, true, true, true, true, true, true]);
-    setFrequencyType('days_of_week');
-  };
+  const handleDeleteHabit = useCallback(
+    (habitId: string) => {
+      deleteHabit(habitId);
+      setActiveMenuHabitId(null);
+    },
+    [deleteHabit]
+  );
 
-  const handleTaskDateChange = (event: any, selectedDate?: Date) => {
-    if (Platform.OS === 'android') setIsDatePickerVisible(false);
-    if (selectedDate) setTaskDate(selectedDate);
-  };
+  const openCreateForm = useCallback(() => {
+    setEditingHabitId(null);
+    setActiveMenuHabitId(null);
+    setFormSession((n) => n + 1);
+    setIsModalVisible(true);
+    triggerButtonHaptics();
+  }, []);
 
-  const handleTaskDateDismiss = () => {
-    setIsDatePickerVisible(false);
-  };
-
-  const handleCreateHabit = async () => {
-    if (!newTitle.trim()) return;
-    const isQuit = habitType === 'Quit a habit';
-    const isTask = habitType === 'Task';
-
-    if (editingHabitId) {
-      setHabits((prev) => prev.map((h) => {
-        if (h.id === editingHabitId) {
-          return {
-            ...h,
-            title: newTitle,
-            description: isQuit ? '' : newDescription,
-            icon: selectedIcon,
-            color: selectedColor,
-            type: habitType,
-            frequency: frequencyDisplay,
-            timeOfDay: isQuit ? undefined : timeOfDay,
-            selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
-            selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
-            quoteOrder: isQuit ? (h.quoteOrder || [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5)) : undefined,
-            createdAt: h.createdAt || activeDateKey,
-            reminderEnabled: isReminderEnabled,
-            reminderHour: reminderSelectedHour,
-            reminderMinute: reminderSelectedMinute,
-            reminderPeriod: reminderPeriod,
-            targetDate: isTask ? formatDateKey(taskDate) : undefined,
-          };
-        }
-        return h;
-      }));
-    } else {
-      const newId = Date.now().toString();
-      const randomizedOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
-      const newHabit: Habit = {
-        id: newId,
-        title: newTitle,
-        description: isQuit ? '' : newDescription,
-        icon: selectedIcon,
-        color: selectedColor,
-        frequency: isQuit ? frequencyDisplay : frequencyDisplay,
-        selectedWeekDays: isQuit ? [true, true, true, true, true, true, true] : frequencyType === 'days_of_week' ? [...selectedWeekDays] : undefined,
-        selectedMonthDays: isQuit ? undefined : frequencyType === 'days_of_month' ? [...selectedMonthDays] : undefined,
-        type: habitType,
-        createdAt: activeDateKey,
-        quoteOrder: isQuit ? randomizedOrder : undefined,
-        targetDate: isTask ? formatDateKey(taskDate) : undefined,
-        timeOfDay: isQuit ? undefined : timeOfDay,
-        order: habits.length,
-        reminderEnabled: isReminderEnabled,
-        reminderHour: reminderSelectedHour,
-        reminderMinute: reminderSelectedMinute,
-        reminderPeriod: reminderPeriod
-      };
-      /*
-      if (isQuit) {
-        setHabitLogs((prevLogs) => {
-          const currentCompleted = prevLogs[activeDateKey] || [];
-          return {
-            ...prevLogs,
-            [activeDateKey]: [...currentCompleted, newId],
-          };
-        });
-      }
-      */
-      /*
-      if (isReminderEnabled) {
-        await scheduleHabitReminders(
-          newId,
-          newTitle,
-          reminderSelectedHour,
-          reminderSelectedMinute,
-          reminderPeriod,
-          frequencyType,
-          selectedWeekDays,
-          selectedMonthDays
-        );
-      }
-    */
-      setHabits([...habits, newHabit]);
-    }
-    resetForm();
-    setIsModalVisible(false);
-    if (Platform.OS === 'android') {
-      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
-  const toggleSwitch = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setIsReminderEnabled((previousState) => !previousState);
-  };
-
-  const handleReminderSaveTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
-    setReminderSelectedHour(hour);
-    setReminderSelectedMinute(minute);
-    setReminderPeriod(period);
-    setIsReminderPickerVisible(false);
-  };
-
-  const handleStartEdit = (habitId: string) => {
-    const habitToEdit = habits.find((h) => h.id === habitId);
-    if (habitToEdit) {
-      setEditingHabitId(habitToEdit.id);
-      setNewTitle(habitToEdit.title);
-      setNewDescription(habitToEdit.description || '');
-      setSelectedIcon(habitToEdit.icon);
-      setSelectedColor(habitToEdit.color);
-      setHabitType(habitToEdit.type || 'Build a habit');
-      if (habitToEdit.type === 'Task' && habitToEdit.targetDate){
-        const [year, month, day] = habitToEdit.targetDate.split('-').map(Number);
-        setTaskDate(new Date(year, month - 1, day));
-      } else {
-        setTaskDate(new Date());
-      }
-      if (habitToEdit.reminderEnabled) {
-        setIsReminderEnabled(true);
-        setReminderSelectedHour(habitToEdit.reminderHour || '5');
-        setReminderSelectedMinute(habitToEdit.reminderMinute || '00');
-        setReminderPeriod(habitToEdit.reminderPeriod || 'AM');
-      } else {
-        setIsReminderEnabled(false);
-        setReminderSelectedHour('5');
-        setReminderSelectedMinute('00');
-        setReminderPeriod('AM');
-      }
-
-      if (habitToEdit.frequency) setFrequencyDisplay(habitToEdit.frequency);
-      if (habitToEdit.timeOfDay) setTimeOfDay(habitToEdit.timeOfDay);
-      if (habitToEdit.selectedWeekDays) {
-        setFrequencyType('days_of_week');
-        setSelectedWeekDays([...habitToEdit.selectedWeekDays]);
-      } else if (habitToEdit.selectedMonthDays) {
-        setFrequencyType('days_of_month');
-        setSelectedMonthDays([...habitToEdit.selectedMonthDays]);
-      } else {
-        setFrequencyType('days_of_week');
-        setSelectedWeekDays([true, true, true, true, true, true, true]);
-      }
+  const handleStartEdit = useCallback((habitId: string) => {
+    if (useHabitsStore.getState().habits.some((h) => h.id === habitId)) {
+      setEditingHabitId(habitId);
+      setFormSession((n) => n + 1);
       setIsModalVisible(true);
     }
     setActiveMenuHabitId(null);
-  };
+  }, []);
 
-  const handleDeleteHabit = () => {
-    if (activeMenuHabitId) {
-      setHabits((prev) => prev.filter((h) => h.id !== activeMenuHabitId));
-    }
-    setActiveMenuHabitId(null);
-  };
+  const handleCloseForm = useCallback(() => {
+    setIsModalVisible(false);
+    setEditingHabitId(null);
+  }, []);
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'android') {
-      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Long_Press);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-  };
-
-  const triggerButtonHaptics = () => {
-    if (Platform.OS === 'android') {
-      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
+  const handleSaveHabit = useCallback(
+    (draft: HabitDraft) => {
+      if (editingHabitId) {
+        updateHabit(editingHabitId, draft, activeDateKey);
+      } else {
+        createHabit(draft, activeDateKey);
+      }
+      setIsModalVisible(false);
+      setEditingHabitId(null);
+      setActiveMenuHabitId(null);
+      if (Platform.OS === 'android') {
+        Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+    },
+    [editingHabitId, activeDateKey, createHabit, updateHabit]
+  );
 
   const triggerSwapHaptics = () => {
     if (Platform.OS === 'android') {
@@ -1400,71 +1782,7 @@ export default function App() {
     }
   }
 
-  const resetForm = () => {
-    setNewTitle('');
-    setNewDescription('');
-    setSelectedIcon(getRandomItem(ICON_CATEGORIES.All));
-    setSelectedColor(getRandomItem(AVAILABLE_COLORS));
-    setHabitType('Build a habit');
-    setIsDropdownOpen(false);
-    setSelectedWeekDays([true, true, true, true, true, true, true]);
-    setSelectedMonthDays([]);
-    setFrequencyType('days_of_week');
-    setFrequencyDisplay(t('everyday'));
-    setTimeOfDay(undefined);
-    setTaskDate(new Date());
-    setReminderSelectedHour('05');
-    setReminderSelectedMinute('00');
-    setReminderPeriod(('AM'));
-    setIsReminderEnabled(false);
-    setEditingHabitId(null);
-    setActiveMenuHabitId(null);
-  };
-
-  const resetFormWhenSetHabitType = () => {
-    setIsDropdownOpen(false);
-    setSelectedWeekDays([true, true, true, true, true, true, true]);
-    setSelectedMonthDays([]);
-    setFrequencyType('days_of_week');
-    setFrequencyDisplay(t('everyday'));
-    setActiveMenuHabitId(null)
-  };
-
-  const toggleWeekDaySelection = (index: number) => {
-    const updated = [...selectedWeekDays];
-    updated[index] = !updated[index];
-    setSelectedWeekDays(updated);
-    updateFrequencyDisplay(updated);
-  };
-
-  const toggleMonthDaySelection = (day: number) => {
-    let updated: number[];
-    if (selectedMonthDays.includes(day)) {
-      updated = selectedMonthDays.filter((d) => d !== day);
-    } else {
-      updated = [...selectedMonthDays, day];
-    }
-    setSelectedMonthDays(updated);
-    setFrequencyDisplay(formatMonthDaysDisplay(updated));
-  };
-
-  const visibleHabits = useMemo(() => {
-    const currentDayOfWeek = activeDate.getDay();
-    const currentDayOfMonth = activeDate.getDate();
-
-    return habits.filter((habit) => {
-      if (habit.type === 'Task') {
-        return habit.targetDate === activeDateKey;
-      }
-      if (habit.selectedWeekDays) {
-        return habit.selectedWeekDays[currentDayOfWeek];
-      }
-      if (habit.selectedMonthDays) {
-        return habit.selectedMonthDays.includes(currentDayOfMonth);
-      }
-      return true;
-    });
-  }, [habits, activeDate, activeDateKey]);
+  const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
 
   const flatListRef = useRef<FlatList>(null);
   const calendarFlatListRef = useRef<FlatList>(null);
@@ -1495,112 +1813,7 @@ export default function App() {
     }
   };
 
-  const getHabitsForDate = (date: Date) => {
-    const dateKey = formatDateKey(date);
-    const dayOfWeek = date.getDay();
-    const dayOfMonth = date.getDate();
-    return habits.filter((habit) => {
-      if (habit.type === 'Task') {
-        return habit.targetDate === dateKey;
-      }
-      if (habit.selectedWeekDays) {
-        return habit.selectedWeekDays[dayOfWeek];
-      }
-      if (habit.selectedMonthDays) {
-        return habit.selectedMonthDays.includes(dayOfMonth);
-      }
-      return true;
-    });
-  };
-
-  const streakStats = useMemo(() => {
-    if (habits.length === 0) {
-      return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
-    }
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayKey = formatDateKey(today);
-    const todayCompletedCount = (habitLogs[todayKey] || []).length;
-    const habitsToday = getHabitsForDate(today);
-    const isTodayPerfect = habitsToday.length > 0 && todayCompletedCount >= habitsToday.length;
-
-    let countPerfect = 0;
-    let checkDate = new Date(today);
-
-    if (isTodayPerfect) {
-      countPerfect++;
-    }
-    checkDate.setDate(checkDate.getDate() - 1);
-
-    while (true) {
-      const key = formatDateKey(checkDate);
-      const completedCount = (habitLogs[key] || []).length;
-      const habitsOnCheckDate = getHabitsForDate(checkDate);
-      const isPerfect = habitsOnCheckDate.length > 0 && completedCount >= habitsOnCheckDate.length;
-
-      if (isPerfect) {
-        countPerfect++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-
-    let countLogged = 0;
-    checkDate = new Date(today);
-    const isTodayLogged = todayCompletedCount > 0;
-
-    if (isTodayLogged) {
-      countLogged++;
-    }
-    checkDate.setDate(checkDate.getDate() - 1);
-
-    while (true) {
-      const key = formatDateKey(checkDate);
-      const completedCount = (habitLogs[key] || []).length;
-
-      if (completedCount > 0) {
-        countLogged++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-
-    let loggedBest = 0;
-    let perfectBest = 0;
-    let tempLogged = 0;
-    let tempPerfect = 0;
-    const historicDate = new Date(today);
-
-    for (let i = 0; i < 365; i++) {
-      const key = formatDateKey(historicDate);
-      const completedCount = (habitLogs[key] || []).length;
-      const habitsOnHistoricDate = getHabitsForDate(historicDate);
-      const isPerfectHistoric = habitsOnHistoricDate.length > 0 && completedCount >= habitsOnHistoricDate.length;
-
-      if (completedCount > 0) {
-        tempLogged++;
-        if (tempLogged > loggedBest) loggedBest = tempLogged;
-      } else {
-        tempLogged = 0;
-      }
-      if (isPerfectHistoric) {
-        tempPerfect++;
-        if (tempPerfect > perfectBest) perfectBest = tempPerfect;
-      } else {
-        tempPerfect = 0;
-      }
-      historicDate.setDate(historicDate.getDate() - 1);
-    }
-    return {
-      loggedCurrent: countLogged,
-      loggedBest,
-      perfectCurrent: countPerfect,
-      perfectBest
-    };
-  }, [habitLogs, habits]);
+  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs), [habits, habitLogs]);
 
   const getCalendarDaysForMonth = (baseDate: Date, monthOffset: number) => {
     const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
@@ -1665,25 +1878,6 @@ export default function App() {
     setActiveMenuHabitId(null)
   };
 
-  const reorderHabit = (habitId: string, toIndex: number, orderedIds: string[]) => {
-    setHabits((prev) => {
-      const fromIndex = orderedIds.indexOf(habitId);
-      if (fromIndex === -1) return [...prev];
-      const ids = [...orderedIds];
-      ids.splice(fromIndex, 1);
-      ids.splice(Math.max(0, Math.min(toIndex, ids.length)), 0, habitId);
-
-      const byId = new Map(prev.map((h) => [h.id, h]));
-      const groupIds = new Set(ids);
-      const sortedAll = [...prev].sort((a, b) => (a.order || 0) - (b.order || 0));
-      let k = 0;
-      return sortedAll.map((h, i) => {
-        const source = groupIds.has(h.id) ? byId.get(ids[k++])! : h;
-        return { ...source, order: i };
-      });
-    });
-  };
-
   const getLocale = (languageCode: string) => {
     switch (languageCode) {
       case 'es': return 'es-ES';
@@ -1692,6 +1886,10 @@ export default function App() {
       default: return 'en-US';
     }
   };
+
+  if (!hydrated) {
+    return <View style={{ flex: 1, backgroundColor: '#f9f9f7' }} />;
+  }
 
   return (
     <GestureHandlerRootView>
@@ -1862,6 +2060,7 @@ export default function App() {
                             version={habits}
                             raised={hasActiveMenu}
                             drag={dragCtx}
+                            onIdsChange={handleGroupIds}
                           >
                             {pending.map((habit, index) => (
                               <SwipeableHabitCard
@@ -1869,19 +2068,16 @@ export default function App() {
                                 habit={habit}
                                 isCompleted={false}
                                 isFailed={false}
-                                onToggle={toggleHabitCompletion}
+                                onToggle={handleToggle}
                                 onRelapse={handleRelapse}
                                 displayDescription={getDisplayDescription(habit)}
                                 streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                                 isEditMode={isEditMode}
-                                onLongPress={() => {
-                                  setIsEditMode(true);
-                                  triggerHaptic();
-                                }}
-                                onReorder={(id, toIndex) => [setIsEditMode(false), setActiveMenuHabitId(null), reorderHabit(id, toIndex, pending.map(h => h.id))]}
-                                onDragCancel={() => { setIsEditMode(false) }}
+                                onLongPress={handleLongPress}
+                                onReorder={handleReorder}
+                                onDragCancel={handleDragCancel}
                                 isMenuOpen={activeMenuHabitId === habit.id}
-                                onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                                onToggleMenu={handleToggleMenu}
                                 onEdit={handleStartEdit}
                                 onDelete={handleDeleteHabit}
                                 index={index}
@@ -1898,18 +2094,18 @@ export default function App() {
                             {completed.map((habit) => (
                               <TouchableOpacity
                                 key={`completed-${habit.id}`}
-                                onPress={() => toggleHabitCompletion(habit.id)}
+                                onPress={() => handleToggle(habit.id)}
                                 activeOpacity={0.8}
                               >
                                 <SwipeableHabitCard
                                   habit={habit}
                                   isCompleted={true}
                                   isFailed={false}
-                                  onToggle={toggleHabitCompletion}
+                                  onToggle={handleToggle}
                                   displayDescription={getDisplayDescription(habit)}
                                   streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                                   isMenuOpen={activeMenuHabitId === habit.id}
-                                  onToggleMenu={(id) => setActiveMenuHabitId(prev => prev === id ? null : id)}
+                                  onToggleMenu={handleToggleMenu}
                                   onEdit={handleStartEdit}
                                   onDelete={handleDeleteHabit}
                                   drag={dragCtx}
@@ -1935,7 +2131,7 @@ export default function App() {
                           habit={relapsedHabit}
                           isCompleted={false}
                           isFailed={true}
-                          onToggle={toggleHabitCompletion}
+                          onToggle={handleToggle}
                           displayDescription={getDisplayDescription(relapsedHabit)}
                           drag={dragCtx}
                         />
@@ -1948,7 +2144,7 @@ export default function App() {
                   );
                 })()
               )}
-              <TouchableOpacity style={styles.createHabitButton} onPress={() => { setIsModalVisible(true), resetForm(), triggerButtonHaptics() }}>
+              <TouchableOpacity style={styles.createHabitButton} onPress={openCreateForm}>
                 <Ionicons name="add" size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -1960,7 +2156,7 @@ export default function App() {
               <Ionicons name="grid-outline" size={22} color="#00B763" />
               <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab} onPress={() => { setIsModalVisible(true), resetForm(), triggerButtonHaptics() }}>
+            <TouchableOpacity style={styles.bottomTab} onPress={openCreateForm}>
               <Ionicons name="add-circle" size={22} color="#6B7280" />
               <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
             </TouchableOpacity>
@@ -1974,418 +2170,13 @@ export default function App() {
             </TouchableOpacity>
           </View>
         </View>
-        <Modal visible={isModalVisible} animationType="slide" transparent={false} statusBarTranslucent={true}>
-          <SafeAreaView style={styles.createHabitModalContainer}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-            <View style={styles.createHabitHeader}>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)} style={styles.closeButton}>
-                <Ionicons name="close" size={26} color="#1F2937" />
-              </TouchableOpacity>
-
-              <View style={styles.dropdownWrapper}>
-                <Text style={styles.dropdownTitle}>{t(habitType)}</Text>
-              </View>
-
-              <View style={{ width: 26 }} />
-            </View>
-
-            <ScrollView style={styles.createHabitBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.iconSelectionSection}>
-                <View style={[styles.iconBoxBackground, { backgroundColor: selectedColor + '15' }]}>
-                  <TouchableOpacity
-                    style={[styles.iconCircleButton, { backgroundColor: selectedColor }]}
-                    onPress={() => setIsIconPickerOpen(true)}
-                  >
-                    <Ionicons name={selectedIcon as any} size={28} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.typeSelectorContainer}>
-                {(['Build a habit', 'Quit a habit', 'Task'] as const).map((type) => {
-                  const isSelected = habitType === type;
-                  const displayLabel = type === 'Build a habit' ? t('build') : type === 'Quit a habit' ? t('quit') : t('task');
-
-                  return (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.typeSelectorButton,
-                        isSelected && styles.typeSelectorButtonSelected
-                      ]}
-                      onPress={() => [setHabitType(type), resetFormWhenSetHabitType()]}
-                    >
-                      <Text style={[styles.typeSelectorText, isSelected && { color: selectedColor }]}>
-                        {displayLabel}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>
-                  {habitType === 'Task' ? t('taskName') : t('newHabit')}
-                </Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={newTitle}
-                  onChangeText={setNewTitle}
-                />
-              </View>
-
-              {habitType !== 'Quit a habit' && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.fieldLabel}>{t('description')}</Text>
-                  <TextInput
-                    style={styles.formInput}
-                    value={newDescription}
-                    onChangeText={setNewDescription}
-                    multiline={true}
-                  />
-                </View>
-              )}
-
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>{t('color')}</Text>
-                <View style={styles.colorGrid}>
-                  {AVAILABLE_COLORS.map((color) => {
-                    const isSelected = selectedColor === color;
-                    return (
-                      <TouchableOpacity
-                        key={color}
-                        style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
-                        onPress={() => setSelectedColor(color)}
-                      >
-                        {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {habitType !== 'Task' && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.fieldLabel}>{t('frequency')}</Text>
-                  {habitType === 'Quit a habit' ? (
-                    <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
-                      <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
-                      <Text style={styles.frequencyValueText}>{frequencyDisplay}</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-
-              {habitType !== 'Quit a habit' && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.fieldLabel}>{t('timeOfDay')}</Text>
-                  <View style={styles.timeOfDayContainer}>
-                    {(['Morning', 'Afternoon', 'Evening'] as const).map((time) => {
-                      const isSelected = timeOfDay === time;
-                      const displayTime = time === 'Morning' ? (t('morning')) :
-                        time === 'Afternoon' ? (t('afternoon')) :
-                          (t('evening'));
-                      return (
-                        <TouchableOpacity
-                          key={time}
-                          style={[
-                            styles.timeOfDayButton,
-                            isSelected && { backgroundColor: selectedColor, borderColor: selectedColor }
-                          ]}
-                          onPress={() => setTimeOfDay(isSelected ? undefined : time)}
-                        >
-                          <Text style={[styles.timeOfDayText, isSelected && { color: '#FFFFFF' }]}>
-                            {displayTime}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {habitType === 'Task' && (
-                <View style={styles.formGroup}>
-                  <Text style={styles.fieldLabel}>{t('when')}</Text>
-                  <TouchableOpacity
-                    style={styles.frequencyInputSelector}
-                    onPress={() => setIsDatePickerVisible(true)}
-                  >
-                    <Text style={styles.frequencyValueText}>
-                      {t('doItOn')}: {taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
-                  </TouchableOpacity>
-
-                  {isDatePickerVisible && (
-                    <DateTimePicker
-                      value={taskDate}
-                      mode="date"
-                      display="default"
-                      onValueChange={handleTaskDateChange}
-                      onDismiss={handleTaskDateDismiss}
-                    />
-                  )}
-                  {Platform.OS === 'ios' && isDatePickerVisible && (
-                    <TouchableOpacity
-                      style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
-                      onPress={() => setIsDatePickerVisible(false)}
-                    >
-                      <Text style={{ color: selectedColor, fontWeight: '600' }}>{t('done')}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-
-              <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>{t('reminder')}</Text>
-                <View style={styles.reminderCardContainer}>
-                  <View style={styles.reminderHeaderRow}>
-                    <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
-                    <Switch
-                      trackColor={{ false: '#767577', true: selectedColor + '10' }}
-                      thumbColor={isReminderEnabled ? selectedColor : '#F4F3F4'}
-                      ios_backgroundColor="#3E3E3E"
-                      onValueChange={toggleSwitch}
-                      value={isReminderEnabled}
-                    />
-                  </View>
-
-                  {isReminderEnabled && (
-                    <Animated.View
-                      entering={FadeInUp.duration(200)}
-                      style={styles.reminderExpandedContent}>
-                      <View style={styles.reminderDivider} />
-                      <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
-                        <Text style={styles.reminderTimeButtonText}>
-                          {`${reminderSelectedHour}:${reminderSelectedMinute} ${reminderPeriod}`}
-                        </Text>
-                      </TouchableOpacity>
-                    </Animated.View>
-                  )}
-                  <CustomTimePickerModal
-                    visible={isReminderPickerVisible}
-                    reminderSelectedHour={reminderSelectedHour}
-                    reminderSelectedMinute={reminderSelectedMinute}
-                    reminderSelectedPeriod={reminderPeriod}
-                    onConfirm={(h, m, p) => handleReminderSaveTime(h, m, p)}
-                    onClose={() => setIsReminderPickerVisible(false)}
-                  />
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={styles.createHabitFooter}>
-              <TouchableOpacity style={[styles.saveHabitButton, { backgroundColor: selectedColor }]} onPress={handleCreateHabit}>
-                <Text style={styles.saveButtonText}>{t('saveHabit')}</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Modal>
-
-        <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
-          <SafeAreaView style={styles.fullscreenModalContainer}>
-            <View style={styles.fullscreenModalHeader}>
-              <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-                <Ionicons name="close" size={26} color="#1F2937" />
-              </TouchableOpacity>
-              <Text style={styles.fullscreenModalTitle}>{t('selectIcon')}</Text>
-              <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-                <Text style={styles.headerDoneText}>{t('done')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.categoryNavbar}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryNavContent}>
-                {(Object.keys(ICON_CATEGORIES) as Array<keyof typeof ICON_CATEGORIES>).map((cat) => {
-                  const isActive = activeIconCategory === cat;
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[styles.categoryTab, isActive && styles.categoryTabActive]}
-                      onPress={() => setActiveIconCategory(cat)}
-                    >
-                      <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-
-            <ScrollView style={styles.iconScrollContainer} showsVerticalScrollIndicator={false}>
-              <View style={styles.iconCategoryGrid}>
-                {ICON_CATEGORIES[activeIconCategory].map((iconName) => {
-                  const isSelected = selectedIcon === iconName;
-                  return (
-                    <TouchableOpacity
-                      key={iconName}
-                      style={[
-                        styles.iconTile,
-                        isSelected && { borderColor: selectedColor, backgroundColor: selectedColor + '15' }]}
-                      onPress={() => {
-                        setSelectedIcon(iconName)
-                      }}
-                    >
-                      <Ionicons name={iconName as any} size={30} color={isSelected ? selectedColor : '#374151'} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
-
-        <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
-          <SafeAreaView style={styles.fullscreenModalContainer}>
-            <View style={styles.fullscreenModalHeader}>
-              <TouchableOpacity
-                onPress={handleCloseFrequencyModal}
-              >
-                <Ionicons name="close" size={26} color="#1F2937" />
-              </TouchableOpacity>
-              <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
-              <TouchableOpacity
-                onPress={handleCloseFrequencyModal}
-              >
-                <Text style={styles.headerDoneText}>{t('done')}</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.frequencyBody} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity
-                style={styles.frequencyOptionCard}
-                onPress={() => {
-                  setFrequencyType('days_of_week');
-                  updateFrequencyDisplay(selectedWeekDays);
-                }}
-              >
-                <View style={styles.frequencyOptionHeader}>
-                  <Ionicons
-                    name={frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={frequencyType === 'days_of_week' ? selectedColor : '#9CA3AF'}
-                  />
-                  <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
-                </View>
-
-                {frequencyType === 'days_of_week' && (
-                  <View style={styles.weekDaysPickerRow} >
-                    {WEEK_DAYS.map((day, idx) => {
-                      const isSelected = selectedWeekDays[idx];
-                      return (
-                        <TouchableOpacity
-                          key={idx}
-                          style={[
-                            styles.weekDayCircle,
-                            isSelected && { backgroundColor: selectedColor }
-                          ]}
-                          onPress={() => toggleWeekDaySelection(idx)}
-                        >
-                          <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
-                            {day}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.frequencyOptionCard}
-                onPress={() => {
-                  setFrequencyType('days_of_month');
-                  setFrequencyDisplay(formatMonthDaysDisplay(selectedMonthDays));
-                }}
-              >
-                <View style={styles.frequencyOptionHeader}>
-                  <Ionicons
-                    name={frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={frequencyType === 'days_of_month' ? selectedColor : '#9CA3AF'}
-                  />
-                  <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
-                </View>
-
-                {frequencyType === 'days_of_month' && (
-                  <View style={styles.monthDaysGridContainer}>
-                    <View style={[styles.monthDaysRow, styles.monthDaysRowFirst]}>
-                      {[1, 2, 3, 4, 5].map((day) => {
-                        const isSelected = selectedMonthDays.includes(day);
-                        return (
-                          <TouchableOpacity
-                            key={day}
-                            style={[
-                              styles.monthDayCircle,
-                              isSelected && { backgroundColor: selectedColor }
-                            ]}
-                            onPress={() => toggleMonthDaySelection(day)}
-                          >
-                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
-                              {day}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-
-                    {[
-                      [6, 7, 8, 9, 10, 11, 12],
-                      [13, 14, 15, 16, 17, 18, 19],
-                      [20, 21, 22, 23, 24, 25, 26],
-                    ].map((rowDays, rowIndex) => (
-                      <View key={rowIndex} style={styles.monthDaysRow}>
-                        {rowDays.map((day) => {
-                          const isSelected = selectedMonthDays.includes(day);
-                          return (
-                            <TouchableOpacity
-                              key={day}
-                              style={[
-                                styles.monthDayCircle,
-                                isSelected && { backgroundColor: selectedColor },
-                              ]}
-                              onPress={() => toggleMonthDaySelection(day)}
-                            >
-                              <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
-                                {day}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    ))}
-                    <View style={[styles.monthDaysRow, styles.monthDaysRowEnd]}>
-                      {[27, 28, 29, 30, 31].map((day) => {
-                        const isSelected = selectedMonthDays.includes(day);
-                        return (
-                          <TouchableOpacity
-                            key={day}
-                            style={[
-                              styles.monthDayCircle,
-                              isSelected && { backgroundColor: selectedColor },
-                            ]}
-                            onPress={() => toggleMonthDaySelection(day)}
-                          >
-                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
-                              {day}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
+        <HabitFormModal
+          visible={isModalVisible}
+          sessionKey={formSession}
+          habit={editingHabitId ? habits.find((h) => h.id === editingHabitId) : undefined}
+          onClose={handleCloseForm}
+          onSave={handleSaveHabit}
+        />
 
         <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false} statusBarTranslucent={true}>
           <SafeAreaView style={styles.streaksContainer}>
@@ -2583,8 +2374,6 @@ const styles = StyleSheet.create({
   calendarShadowBox: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    //borderBottomLeftRadius: 16,
-    //borderBottomRightRadius: 16,
     marginHorizontal: 16,
     marginTop: 6,
     marginBottom: 16,
