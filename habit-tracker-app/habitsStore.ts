@@ -1,10 +1,17 @@
-import { reloadAppAsync } from 'expo';
-import { useEffect, useState } from 'react';
-import { date } from 'react-i18next/icu.macro';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-//MMKV
+import type { StateStorage } from 'zustand/middleware';
+import { createMMKV } from 'react-native-mmkv';
+
+const mmkv = createMMKV({ id: 'habits-storage' });
+
+const mmkvStorage: StateStorage = {
+    setItem: (name, value) => mmkv.set(name, value),
+    getItem: (name) => mmkv.getString(name) ?? null,
+    removeItem: (name) => {
+        mmkv.remove(name);
+    },
+};
 
 export type HabitType = 'Build a habit' | 'Quit a habit' | 'Task';
 export interface HabitReminder {
@@ -69,11 +76,49 @@ export const getHabitsForDate = (habits: Habit[], date: Date): Habit[] => {
     });
 };
 
+export const isQuitAutoCompleted = (
+    habit: Habit,
+    dateKey: string,
+    relapseLogs: RelapseLogs,
+    todayKey: string
+): boolean =>
+    habit.type === 'Quit a habit' &&
+    !!habit.createdAt &&
+    dateKey < todayKey &&
+    dateKey >= habit.createdAt &&
+    !(relapseLogs[dateKey] || []).includes(habit.id);
+
+export const isHabitDone = (
+    habit: Habit,
+    dateKey: string,
+    habitLogs: HabitLogs,
+    relapseLogs: RelapseLogs,
+    todayKey: string
+): boolean =>
+    (habitLogs[dateKey] || []).includes(habit.id) ||
+    isQuitAutoCompleted(habit, dateKey, relapseLogs, todayKey);
+
+export const getDayProgress = (
+    habits: Habit[],
+    habitLogs: HabitLogs,
+    relapseLogs: RelapseLogs,
+    date: Date
+): { total: number; done: number } => {
+    const dateKey = formatDateKey(date);
+    const todayKey = formatDateKey(new Date());
+    const scheduled = getHabitsForDate(habits, date);
+    let done = 0;
+    for (const habit of scheduled) {
+        if (isHabitDone(habit, dateKey, habitLogs, relapseLogs, todayKey)) done++;
+    }
+    return { total: scheduled.length, done };
+};
+
 export const getQuitQuoteIndex = (habit: Habit, dateKey: string): number | null => {
     if (habit.type !== 'Quit a habit' || !habit.quoteOrder || !habit.createdAt) return null;
     const startDate = parseDateKey(habit.createdAt);
     const currentDate = parseDateKey(dateKey);
-    let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 42));
+    let diffDays = Math.round((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays < 0) diffDays = 0;
     return habit.quoteOrder[diffDays % QUIT_QUOTE_COUNT];
 };
@@ -100,56 +145,39 @@ export const getQuitStreak = (habit: Habit, relapseLogs: RelapseLogs, activeDate
     return streak;
 };
 
-export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
+export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs, relapseLogs: RelapseLogs) => {
     if (habits.length === 0) {
         return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
     }
+
+    const MAX_DAYS = 3660;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayKey = formatDateKey(today);
-    const todayCompletedCount = (habitLogs[todayKey] || []).length;
-    const habitsToday = getHabitsForDate(habits, today);
-    const isTodayPerfect = habitsToday.length > 0 && todayCompletedCount >= habitsToday.length;
-    let countPerfect = 0;
-    let checkDate = new Date(today);
+    const progressOn = (date: Date) => getDayProgress(habits, habitLogs, relapseLogs, date);
+    const isPerfect = (p: { total: number; done: number }) => p.total > 0 && p.done >= p.total;
 
-    if (isTodayPerfect) {
+    const todayProgress = progressOn(today);
+
+    let countPerfect = 0;
+    const perfectDate = new Date(today);
+    if (isPerfect(todayProgress)) {
         countPerfect++;
     }
-    checkDate.setDate(checkDate.getDate() - 1);
-
-    while (true) {
-        const key = formatDateKey(checkDate);
-        const completedCount = (habitLogs[key] || []).length
-        const habitsOnCheckDate = getHabitsForDate(habits, checkDate);
-        const isPerfect = habitsOnCheckDate.length > 0 && completedCount >= habitsOnCheckDate.length;
-
-        if (isPerfect) {
-            countPerfect++;
-            checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-            break;
-        }
+    perfectDate.setDate(perfectDate.getDate() - 1);
+    for (let i = 0; i < MAX_DAYS && isPerfect(progressOn(perfectDate)); i++) {
+        countPerfect++;
+        perfectDate.setDate(perfectDate.getDate() - 1);
     }
 
     let countLogged = 0;
-    checkDate = new Date(today);
-    const isTodayLogged = todayCompletedCount > 0;
-
-    if (isTodayLogged) {
+    const loggedDate = new Date(today);
+    if (todayProgress.done > 0) {
         countLogged++;
     }
-    checkDate.setDate(checkDate.getDate() - 1);
-
-    while (true) {
-        const key = formatDateKey(checkDate);
-        const completedCount = (habitLogs[key] || []).length;
-        if (completedCount > 0) {
-            countLogged++;
-            checkDate.setDate(checkDate.getDate() - 1);
-        } else {
-            break;
-        }
+    loggedDate.setDate(loggedDate.getDate() - 1);
+    for (let i = 0; i < MAX_DAYS && progressOn(loggedDate).done > 0; i++) {
+        countLogged++;
+        loggedDate.setDate(loggedDate.getDate() - 1);
     }
 
     let loggedBest = 0;
@@ -159,18 +187,15 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
     const historicDate = new Date(today);
 
     for (let i = 0; i < 365; i++) {
-        const key = formatDateKey(historicDate);
-        const completedCount = (habitLogs[key] || []).length;
-        const habitsOnHistoricDate = getHabitsForDate(habits, historicDate);
-        const isPerfectHistoric = habitsOnHistoricDate.length > 0 && completedCount >= habitsOnHistoricDate.length;
+        const progress = progressOn(historicDate);
 
-        if (completedCount > 0) {
+        if (progress.done > 0) {
             tempLogged++;
             if (tempLogged > loggedBest) loggedBest = tempLogged;
         } else {
             tempLogged = 0;
         }
-        if (isPerfectHistoric) {
+        if (isPerfect(progress)) {
             tempPerfect++;
             if (tempPerfect > perfectBest) perfectBest = tempPerfect;
         } else {
@@ -185,9 +210,6 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs) => {
         perfectBest,
     };
 };
-
-let hydrationFailed = false;
-const hydrationListeners = new Set<() => void>();
 
 interface HabitsState {
     habits: Habit[];
@@ -220,9 +242,7 @@ export const useHabitsStore = create<HabitsState>()(
                 set((s) => {
                     const currentRelapsed = s.relapseLogs[dateKey] || [];
                     if (currentRelapsed.includes(habitId)) return s;
-                    return {
-                        relapseLogs: { ...s.relapseLogs, [dateKey]: [...currentRelapsed, habitId] }
-                    };
+                    return { relapseLogs: { ...s.relapseLogs, [dateKey]: [...currentRelapsed, habitId] } };
                 });
             },
 
@@ -293,34 +313,12 @@ export const useHabitsStore = create<HabitsState>()(
         {
             name: 'habits-store-v1',
             version: 1,
-            storage: createJSONStorage(() => AsyncStorage),
+            storage: createJSONStorage(() => mmkvStorage),
             partialize: (s) => ({
                 habits: s.habits,
                 habitLogs: s.habitLogs,
                 relapseLogs: s.relapseLogs,
             }),
-            onRehydrateStorage: () => (_state, error) => {
-                if (error) {
-                    hydrationFailed = true;
-                    hydrationListeners.forEach((l) => l());
-                }
-            },
         }
     )
 );
-
-export const useHabitsHydrated = () => {
-    const isReady = () => useHabitsStore.persist.hasHydrated() || hydrationFailed;
-    const [hydrated, setHydrated] = useState(isReady);
-    useEffect(() => {
-        const update = () => setHydrated(isReady());
-        const unsub = useHabitsStore.persist.onFinishHydration(update);
-        hydrationListeners.add(update);
-        update();
-        return () => {
-            unsub();
-            hydrationListeners.delete(update);
-        };
-    }, []);
-    return hydrated;
-};

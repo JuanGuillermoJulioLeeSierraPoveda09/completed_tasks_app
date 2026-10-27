@@ -52,10 +52,11 @@ import './i18n';
 import * as Haptics from 'expo-haptics';
 import {
   useHabitsStore,
-  useHabitsHydrated,
   formatDateKey,
   parseDateKey,
   getHabitsForDate as habitsForDate,
+  getDayProgress as dayProgress,
+  isHabitDone,
   getQuitQuoteIndex,
   getQuitStreak as computeQuitStreak,
   computeStreakStats,
@@ -1599,7 +1600,6 @@ export default function App() {
   const updateHabit = useHabitsStore((s) => s.updateHabit);
   const deleteHabit = useHabitsStore((s) => s.deleteHabit);
   const reorderHabit = useHabitsStore((s) => s.reorderHabit);
-  const hydrated = useHabitsHydrated();
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
   const [headerDateText, setHeaderDateText] = useState<string>('');
@@ -1672,7 +1672,7 @@ export default function App() {
     setHeaderDateText(`${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate, i18n.language, t]);
 
-  const getHabitsForDate = (date: Date) => habitsForDate(habits, date);
+  const getDayProgress = (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date);
   const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
 
   const getDisplayDescription = (habit: Habit) => {
@@ -1813,7 +1813,7 @@ export default function App() {
     }
   };
 
-  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs), [habits, habitLogs]);
+  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs), [habits, habitLogs, relapseLogs]);
 
   const getCalendarDaysForMonth = (baseDate: Date, monthOffset: number) => {
     const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
@@ -1887,10 +1887,6 @@ export default function App() {
     }
   };
 
-  if (!hydrated) {
-    return <View style={{ flex: 1, backgroundColor: '#f9f9f7' }} />;
-  }
-
   return (
     <GestureHandlerRootView>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -1907,11 +1903,8 @@ export default function App() {
             <View style={styles.rightActions}>
               <TouchableOpacity style={styles.streakBadge} onPress={() => [setIsStreaksModalVisible(true), setActiveMenuHabitId(null)]}>
                 {(() => {
-                  const today = new Date();
-                  const todayStr = formatDateKey(today);
-                  const todayLogs = habitLogs[todayStr] || [];
-                  const habitsForToday = getHabitsForDate(today);
-                  const isTodayCompleted = habits.length > 0 && todayLogs.length >= habitsForToday.length && habitsForToday.length > 0;
+                  const todayProgress = getDayProgress(new Date());
+                  const isTodayCompleted = todayProgress.total > 0 && todayProgress.done >= todayProgress.total;
                   const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
 
                   return (
@@ -1985,13 +1978,11 @@ export default function App() {
                         {days.map((dayItem, index) => {
                           const dateKey = formatDateKey(dayItem.fullDate);
                           const isToday = dateKey === todayStr;
-                          const completedList = habitLogs[dateKey] || [];
-                          const count = completedList.length;
+                          const { total, done } = getDayProgress(dayItem.fullDate);
                           let dotColor = '#D1D5DB';
-                          const habitsForThisDay = getHabitsForDate(dayItem.fullDate);
 
-                          if (count > 0) {
-                            dotColor = habitsForThisDay.length > 0 && count >= habitsForThisDay.length ? '#10B981' : '#F59E0B';
+                          if (done > 0) {
+                            dotColor = total > 0 && done >= total ? '#10B981' : '#F59E0B';
                           }
                           return (
                             <TouchableOpacity
@@ -2029,14 +2020,8 @@ export default function App() {
               ) : (
                 (() => {
                   const todayStr = formatDateKey(new Date());
-                  const isPastDay = activeDateKey < todayStr;
-                  const isHabitCompleted = (h: Habit) => {
-                    if (h.type === 'Quit a habit' && isPastDay && h.createdAt && activeDateKey >= h.createdAt) {
-                      return true;
-                    }
-                    return completedIds.includes(h.id);
-                  };
-                  const completedIds = habitLogs[activeDateKey] || [];
+                  const isHabitCompleted = (h: Habit) =>
+                    isHabitDone(h, activeDateKey, habitLogs, relapseLogs, todayStr);
                   const relapsedIds = relapseLogs[activeDateKey] || [];
                   const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
                   const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
@@ -2046,6 +2031,8 @@ export default function App() {
                     const pending = groupHabits.filter(h => !isHabitCompleted(h));
                     const completed = groupHabits.filter(h => isHabitCompleted(h));
                     const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
+                    const pendingHasMenu = pending.some(h => h.id === activeMenuHabitId);
+                    const completedHasMenu = completed.some(h => h.id === activeMenuHabitId);
 
                     return (
                       <Animated.View
@@ -2058,7 +2045,7 @@ export default function App() {
                             groupKey={title || 'no-time'}
                             ids={pending.map(h => h.id)}
                             version={habits}
-                            raised={hasActiveMenu}
+                            raised={pendingHasMenu}
                             drag={dragCtx}
                             onIdsChange={handleGroupIds}
                           >
@@ -2090,12 +2077,13 @@ export default function App() {
                         )}
 
                         {completed.length > 0 && (
-                          <View style={{ marginTop: pending.length > 0 ? 10 : 0 }}>
+                          <View style={{ marginTop: pending.length > 0 ? 10 : 0, zIndex: completedHasMenu ? 6 : 0 }}>
                             {completed.map((habit) => (
                               <TouchableOpacity
                                 key={`completed-${habit.id}`}
                                 onPress={() => handleToggle(habit.id)}
                                 activeOpacity={0.8}
+                                style={{ zIndex: activeMenuHabitId === habit.id ? 10 : 0 }}
                               >
                                 <SwipeableHabitCard
                                   habit={habit}
@@ -2266,12 +2254,10 @@ export default function App() {
                         const dateKey = formatDateKey(dayItem.date);
                         const todayStr = formatDateKey(new Date());
                         const isToday = dateKey === todayStr;
-                        const completedList = habitLogs[dateKey] || [];
-                        const count = completedList.length;
-                        const habitsForCell = getHabitsForDate(dayItem.date);
+                        const { total, done } = getDayProgress(dayItem.date);
                         let dotColor = '#CBD5E1';
-                        if (count > 0) {
-                          dotColor = habitsForCell.length > 0 && count >= habitsForCell.length ? '#10B981' : '#F59E0B';
+                        if (done > 0) {
+                          dotColor = total > 0 && done >= total ? '#10B981' : '#F59E0B';
                         }
                         return (
                           <TouchableOpacity
