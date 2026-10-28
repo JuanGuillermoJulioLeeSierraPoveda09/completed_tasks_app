@@ -2,7 +2,8 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { createMMKV } from 'react-native-mmkv';
 import i18n from './i18n';
-import type { HabitReminder } from './habitsStore';
+import { parseDateKey} from './habitsStore';
+import type { HabitDraft } from './habitsStore';
 
 const prefs = createMMKV({ id: 'notification-prefs' });
 const PROMPT_SNOOZED_AT = 'promptSnoozedAt';
@@ -52,31 +53,51 @@ export async function requestNotificationPermission() {
     return granted;
 }
 
-const reminderIdFor = (habitId: string) => `habit-reminder-${habitId}`;
+export async function cancelHabitReminders(habitId: string) {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    const HabitReminders = scheduled.filter((n) => n.content.data?.habitId === habitId);
+    await Promise.all(HabitReminders.map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)));
+}
 
-export async function scheduleHabitReminder(habitId: string, habitTitle: string, reminder?: HabitReminder) {
-    if (!reminder) {
-        await Notifications.cancelScheduledNotificationAsync(reminderIdFor(habitId));
-        return;
+function buildReminderTriggers(habit: HabitDraft, hour: number, minute: number): Notifications.SchedulableNotificationTriggerInput[] {
+    const channelId = REMINDERS_CHANNEL_ID;
+    const { DAILY, WEEKLY, MONTHLY, DATE } = Notifications.SchedulableTriggerInputTypes;
+
+    if (habit.type === 'Task') {
+        if (!habit.targetDate) return [];
+        const date = parseDateKey(habit.targetDate);
+        date.setHours(hour, minute, 0, 0);
+        return date.getTime() > Date.now() ? [{ type: DATE, date, channelId}] : [];
     }
+    if (habit.selectedWeekDays) {
+        if (habit.selectedWeekDays.every(Boolean)) return [{ type: DAILY, hour, minute, channelId }];
+        return habit.selectedWeekDays.flatMap((isSelected, dayIndex) =>
+            isSelected ? [{ type: WEEKLY, weekday: dayIndex + 1, hour, minute, channelId }] : []
+        );
+    }
+    if  (habit.selectedMonthDays) {
+        return habit.selectedMonthDays.map((day) => ({ type: MONTHLY, day, hour, minute, channelId }));
+    }
+    return [{ type: DAILY, hour, minute, channelId }];
+}
+
+export async function scheduleHabitReminder(habitId: string, habit: HabitDraft) {
+    await cancelHabitReminders(habitId);
+    if (!habit.reminder) return;
     const { granted } = await Notifications.getPermissionsAsync();
     if (!granted) return;
 
     await ensureReminderChannel();
-    const hour = (parseInt(reminder.hour, 10) % 12) + (reminder.period === 'PM' ? 12 : 0);
-    await Notifications.scheduleNotificationAsync({
-        identifier: reminderIdFor(habitId),
-        content: {
-            title: i18n.t('reminderNotifTitle', { habit: habitTitle }),
-            body: i18n.t('reminderNotifBody'),
-            sound: true,
-            data: { habitId },
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour,
-            minute: parseInt(reminder.minute, 10),
-            channelId: REMINDERS_CHANNEL_ID,
-        },
-    });
+    const hour = (parseInt(habit.reminder.hour, 10) % 12) + (habit.reminder.period === 'PM' ? 12 : 0);
+    const minute = parseInt(habit.reminder.minute, 10);
+    const content = {
+        title: i18n.t('reminderNotifTitle', { habit: habit.title }),
+        body: i18n.t('reminderNotifBody'),
+        sound: true,
+        data: {habitId },
+    };
+
+    await Promise.all(
+        buildReminderTriggers(habit, hour, minute).map((trigger) => Notifications.scheduleNotificationAsync({ content, trigger }))
+    )
 }

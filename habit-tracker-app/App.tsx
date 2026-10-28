@@ -68,6 +68,7 @@ import {
   snoozeNotificationPrompt,
   requestNotificationPermission,
   scheduleHabitReminder,
+  cancelHabitReminders,
 } from './notifications';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 interface CustomTimePickerModalProps {
@@ -1718,6 +1719,7 @@ export default function App() {
   const handleDeleteHabit = useCallback(
     (habitId: string) => {
       deleteHabit(habitId);
+      cancelHabitReminders(habitId);
       setActiveMenuHabitId(null);
     },
     [deleteHabit]
@@ -1753,7 +1755,7 @@ export default function App() {
       } else {
         savedHabitId = createHabit(draft, activeDateKey).id;
       }
-      if (savedHabitId) scheduleHabitReminder(savedHabitId, draft.title, draft.reminder);
+      if (savedHabitId) scheduleHabitReminder(savedHabitId, draft);
       setIsModalVisible(false);
       setEditingHabitId(null);
       setActiveMenuHabitId(null);
