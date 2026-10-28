@@ -62,17 +62,14 @@ import {
   computeStreakStats,
 } from './habitsStore';
 import type { Habit, HabitDraft, HabitType } from './habitsStore';
-/*
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: false
-  }),
-});
-*/
+import {
+  ensureReminderChannel,
+  shouldShowNotificationPrompt,
+  snoozeNotificationPrompt,
+  requestNotificationPermission,
+  scheduleHabitReminder,
+} from './notifications';
+import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
@@ -187,35 +184,6 @@ const triggerButtonHaptics = () => {
 const PADDED_HOURS = ['', ...INFINITE_HOURS, ''];
 const PADDED_MINUTES = ['', ...INFINITE_MINUTES, ''];
 const PADDED_PERIODS = ['', ...REMINDER_PERIODS, ''];
-/*
-async function registerForPushNotificationsAsync() {
-  let token;
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') {
-    console.log('Fallo al obtener el token para notificaciones push!');
-    return false;
-  }
-  return true;
-}
-
-useEffect(() => {
-  registerForPushNotificationsAsync();
-}, []);
-*/
 
 const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
   if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }} />;
@@ -1605,6 +1573,28 @@ export default function App() {
   const [headerDateText, setHeaderDateText] = useState<string>('');
   const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
   const [relapsingHabitId, setRelapsingHabitId] = useState<string | null>(null);
+  const [isNotificationPromptVisible, setIsNotificationPromptVisible] = useState(false);
+
+  useEffect(() => {
+    let promptTimer: ReturnType<typeof setTimeout> | undefined;
+    ensureReminderChannel();
+    shouldShowNotificationPrompt().then((show) => {
+      if (show) promptTimer = setTimeout(() => setIsNotificationPromptVisible(true), 800);
+    });
+    return () => clearTimeout(promptTimer);
+  }, []);
+
+  const handleEnableNotifications = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsNotificationPromptVisible(false);
+    const granted = await requestNotificationPermission();
+    if (!granted) snoozeNotificationPrompt();
+  }, []);
+
+  const handleNotificationPromptLater = useCallback(() => {
+    snoozeNotificationPrompt();
+    setIsNotificationPromptVisible(false);
+  }, []);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1757,11 +1747,13 @@ export default function App() {
 
   const handleSaveHabit = useCallback(
     (draft: HabitDraft) => {
+      let savedHabitId = editingHabitId;
       if (editingHabitId) {
         updateHabit(editingHabitId, draft, activeDateKey);
       } else {
-        createHabit(draft, activeDateKey);
+        savedHabitId = createHabit(draft, activeDateKey).id;
       }
+      if (savedHabitId) scheduleHabitReminder(savedHabitId, draft.title, draft.reminder);
       setIsModalVisible(false);
       setEditingHabitId(null);
       setActiveMenuHabitId(null);
@@ -2318,6 +2310,12 @@ export default function App() {
             </Animated.View>
           </View>
         </Modal>
+
+        <NotificationPermissionModal
+          visible={isNotificationPromptVisible}
+          onEnable={handleEnableNotifications}
+          onLater={handleNotificationPromptLater}
+        />
       </SafeAreaView>
     </GestureHandlerRootView >
   );

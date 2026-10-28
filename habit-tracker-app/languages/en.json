@@ -75,5 +75,19 @@
     "evening": "Evening",
     "edit": "Edit",
     "delete": "Delete",
-    "selectIcon": "Select Icon"
+    "selectIcon": "Select Icon",
+    "notifPromptTitle": "Never miss a habit",
+    "notifPromptBody": "Turn on notifications and we'll give you a gentle nudge right when it's time to show up for your goals.",
+    "notifPromptBenefitReminders": "Reminders at the exact time you choose",
+    "notifPromptBenefitStreaks": "Stay on track and protect your streaks",
+    "notifPromptBenefitControl": "Only for the habits you pick. No spam, ever",
+    "notifPromptEnable": "Turn on notifications",
+    "notifPromptLater": "Maybe later",
+    "notifPromptFootnote": "You can change this anytime in your phone's settings.",
+    "notifPreviewApp": "Habit Tracker",
+    "notifPreviewNow": "now",
+    "notifPreviewTitle": "Time for your morning run",
+    "notifPreviewBody": "Keep your 5-day streak going!",
+    "reminderNotifTitle": "Time for: {{habit}}",
+    "reminderNotifBody": "A small step today keeps your streak alive."
 }
