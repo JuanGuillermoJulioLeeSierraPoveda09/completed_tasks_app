@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { createMMKV } from 'react-native-mmkv';
 import i18n from './i18n';
 import { parseDateKey} from './habitsStore';
-import type { HabitDraft } from './habitsStore';
+import type { Habit, HabitDraft } from './habitsStore';
 
 const prefs = createMMKV({ id: 'notification-prefs' });
 const PROMPT_SNOOZED_AT = 'promptSnoozedAt';
@@ -46,11 +46,20 @@ export async function requestNotificationPermission() {
     const current = await Notifications.getPermissionsAsync();
     if (current.granted) return true;
     if (!current.canAskAgain) {
-        await Linking.openSettings();
+        //await Linking.openSettings();
         return false;
     }
     const { granted } = await Notifications.requestPermissionsAsync();
     return granted;
+}
+
+export async function areNotificationsEnabled() {
+    const { granted } = await Notifications.getPermissionsAsync();
+    return granted;
+}
+
+export function openNotificationSettings() {
+    Linking.openSettings();
 }
 
 export async function cancelHabitReminders(habitId: string) {
@@ -100,4 +109,10 @@ export async function scheduleHabitReminder(habitId: string, habit: HabitDraft) 
     await Promise.all(
         buildReminderTriggers(habit, hour, minute).map((trigger) => Notifications.scheduleNotificationAsync({ content, trigger }))
     )
+}
+
+export async function rescheduleAllHabitReminders(habits: Habit[]) {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    if(!(await areNotificationsEnabled())) return;
+    await Promise.all(habits.map((habit) => scheduleHabitReminder(habit.id, habit)));
 }
