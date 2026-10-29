@@ -75,6 +75,7 @@ import {
   openNotificationSettings,
 } from './notifications';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
+import WeekStrip from './src/components/WeekStrip';
 interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
@@ -1698,7 +1699,10 @@ export default function App() {
     setHeaderDateText(`${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${dayNum}`);
   }, [activeDate, i18n.language, t]);
 
-  const getDayProgress = (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date);
+  const getDayProgress = useCallback(
+    (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
+    [habits, habitLogs, relapseLogs]
+  );
   const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
 
   const getDisplayDescription = (habit: Habit) => {
@@ -1813,20 +1817,11 @@ export default function App() {
 
   const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
 
-  const flatListRef = useRef<FlatList>(null);
   const calendarFlatListRef = useRef<FlatList>(null);
-  const handleScrollEnd = (event: any) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const pageIndex = Math.round(contentOffsetX / (SCREEN_WIDTH - 32));
-
-    if (pageIndex === 0) {
-      setWeekOffset((prev) => prev - 1);
-      flatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    } else if (pageIndex === 2) {
-      setWeekOffset((prev) => prev + 1);
-      flatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    }
-  };
+  const handleSelectWeekDay = useCallback((index: number) => {
+    setSelectedDayIndex(index);
+    setActiveMenuHabitId(null);
+  }, []);
 
   const handleCalendarScrollEnd = (event: any) => {
     const contentOffsetX = event.nativeEvent.contentOffset.x;
@@ -1956,79 +1951,13 @@ export default function App() {
             onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
             <View style={styles.calendarShadowBox}>
               <View style={styles.calendarContainer}>
-                <View style={styles.fixedHeaderRow}>
-                  {WEEK_DAYS.map((day, idx) => {
-                    const isSelected = idx === selectedDayIndex;
-                    return (
-                      <TouchableOpacity key={idx} style={styles.dayHeaderCell} onPress={() => setSelectedDayIndex(idx)}>
-                        <View style={[styles.letterCircle, isSelected && styles.letterCircleSelected]}>
-                          <Text style={[styles.fixedDayText, isSelected && styles.fixedDayTextSelected]}>
-                            {day}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <FlatList
-                  ref={flatListRef}
-                  data={[-1, 0, 1]}
-                  horizontal
-                  pagingEnabled={false}
-                  snapToInterval={SCREEN_WIDTH - 32}
-                  snapToAlignment="center"
-                  decelerationRate="fast"
-                  showsHorizontalScrollIndicator={false}
-                  initialScrollIndex={1}
-                  getItemLayout={(_, index) => ({
-                    length: SCREEN_WIDTH - 32,
-                    offset: (SCREEN_WIDTH - 32) * index,
-                    index,
-                  })}
-                  onMomentumScrollEnd={handleScrollEnd}
-                  keyExtractor={(item) => item.toString()}
-                  renderItem={({ item }) => {
-                    const targetOffset = weekOffset + item;
-                    const today = new Date();
-                    const todayStr = formatDateKey(today);
-                    const currentDayOfWeek = today.getDay();
-                    const startOfWeek = new Date(today);
-                    startOfWeek.setDate(today.getDate() - currentDayOfWeek + targetOffset * 7);
-
-                    const days = Array.from({ length: 7 }).map((_, i) => {
-                      const d = new Date(startOfWeek);
-                      d.setDate(startOfWeek.getDate() + i);
-                      return { date: d.getDate(), fullDate: d };
-                    });
-
-                    return (
-                      <View style={[styles.weekRow, { width: SCREEN_WIDTH - 32 }]}>
-                        {days.map((dayItem, index) => {
-                          const dateKey = formatDateKey(dayItem.fullDate);
-                          const isToday = dateKey === todayStr;
-                          const { total, done } = getDayProgress(dayItem.fullDate);
-                          let dotColor = '#D1D5DB';
-
-                          if (done > 0) {
-                            dotColor = total > 0 && done >= total ? '#10B981' : '#F59E0B';
-                          }
-                          return (
-                            <TouchableOpacity
-                              key={index}
-                              style={styles.dayCard}
-                              onPress={() => [setSelectedDayIndex(index), setActiveMenuHabitId(null)]}
-                            >
-                              <Text style={[styles.dateNumber, isToday && styles.dateNumberToday]}>
-                                {dayItem.date}
-                              </Text>
-                              <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    );
-                  }}
+                <WeekStrip
+                  weekOffset={weekOffset}
+                  selectedDayIndex={selectedDayIndex}
+                  weekDayLabels={WEEK_DAYS}
+                  getDayProgress={getDayProgress}
+                  onChangeWeek={setWeekOffset}
+                  onSelectDay={handleSelectWeekDay}
                 />
               </View>
             </View>
@@ -2387,7 +2316,7 @@ const styles = StyleSheet.create({
   settingsButton: { padding: 4 },
   mainContent: { flex: 1 },
   calendarContainer: {
-    paddingVertical: 12,
+    paddingVertical: 4,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
@@ -2407,60 +2336,6 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 3,
   },
-  fixedHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    marginBottom: 8,
-  },
-  dayHeaderCell: {
-    width: (SCREEN_WIDTH - 64) / 7,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  letterCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  letterCircleSelected: {
-    backgroundColor: '#000',
-    borderWidth: 1.5,
-    borderRadius: 14,
-    borderColor: '#000',
-  },
-  fixedDayText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  fixedDayTextSelected: {
-    color: '#FFFFFF',
-  },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-  },
-  dayCard: {
-    width: (SCREEN_WIDTH - 64) / 7,
-    height: 36,
-    //borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateNumber: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1F2837',
-  },
-  dateNumberToday: {
-    color: '#00B763',
-    fontWeight: '800',
-  },
-  dateNumberSelected: { color: '#FFFFFF' },
   habitsSection: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
   sectionHeaderRow: {
