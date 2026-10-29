@@ -77,6 +77,7 @@ import {
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 import WeekStrip from './src/components/WeekStrip';
 import MonthCalendar from './src/components/MonthCalendar';
+import { FONTS } from './fonts';
 interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
@@ -1290,7 +1291,7 @@ const HabitFormBody: React.FC<{
                   style={{ marginTop: 8, alignItems: 'flex-end', paddingRight: 10 }}
                   onPress={() => setIsDatePickerVisible(false)}
                 >
-                  <Text style={{ color: form.color, fontWeight: '600' }}>{t('done')}</Text>
+                  <Text style={{ color: form.color, fontFamily: FONTS.semiBold }}>{t('done')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -2150,7 +2151,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6
   },
-  dateText: { fontSize: 22, fontWeight: '800', color: '#1F2937' },
+  dateText: { fontSize: 22, fontFamily: FONTS.extraBold, color: '#1F2937' },
   streakBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2161,7 +2162,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
-  streakText: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  streakText: { fontSize: 16, fontFamily: FONTS.bold, color: '#1F2937' },
   settingsButton: { padding: 4 },
   mainContent: { flex: 1 },
   calendarContainer: {
@@ -2186,7 +2187,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   habitsSection: { paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 12 },
+  sectionTitle: { fontSize: 18, fontFamily: FONTS.bold, color: '#1F2937', marginBottom: 12 },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2211,7 +2212,7 @@ const styles = StyleSheet.create({
   },
   doneEditText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     fontSize: 13,
   },
   reorderControls: {
@@ -2234,8 +2235,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     marginBottom: 10,
   },
-  emptyText: { color: '#4B5563', fontWeight: '600', fontSize: 14 },
-  emptySubtext: { color: '#9CA3AF', fontSize: 12, marginTop: 4 },
+  emptyText: { color: '#4B5563', fontFamily: FONTS.semiBold, fontSize: 14 },
+  emptySubtext: { color: '#9CA3AF', fontSize: 12, fontFamily: FONTS.regular, marginTop: 4 },
   habitCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2255,9 +2256,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   habitInfo: { flex: 1, marginLeft: 12 },
-  habitTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  habitTitle: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
   habitTitleCompleted: { textDecorationLine: 'line-through', color: '#6B7280' },
-  habitDescription: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  habitDescription: { fontSize: 12, fontFamily: FONTS.regular, color: '#6B7280', marginTop: 2 },
   optionsButton: {
     paddingLeft: 6,
     marginLeft: 4,
@@ -2288,7 +2289,7 @@ const styles = StyleSheet.create({
   },
   inlinePopupText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#1F2937',
   },
   inlinePopupDivider: {
@@ -2316,7 +2317,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  createHabitText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
+  createHabitText: { color: '#FFFFFF', fontFamily: FONTS.semiBold, fontSize: 15 },
   bottomBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -2327,7 +2328,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
   },
   bottomTab: { alignItems: 'center' },
-  bottomTabText: { fontSize: 11, color: '#6B7280', marginTop: 2 },
+  bottomTabText: { fontSize: 11, fontFamily: FONTS.regular, color: '#6B7280', marginTop: 2 },
 
   modalOverlay: {
     flex: 1,
@@ -2342,8 +2343,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, color: '#1F2937' },
-  modalSubtitle: { fontSize: 14, fontWeight: '700', marginBottom: 10, color: '#3b3b3b' },
+  modalTitle: { fontSize: 18, fontFamily: FONTS.bold, marginBottom: 16, color: '#1F2937' },
+  modalSubtitle: { fontSize: 14, fontFamily: FONTS.bold, marginBottom: 10, color: '#3b3b3b' },
   input: {
     borderWidth: 1,
     borderColor: '#D1D5D8',
@@ -2351,13 +2352,14 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     fontSize: 14,
+    fontFamily: FONTS.regular,
   },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 8 },
   modalButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8 },
   cancelButton: { backgroundColor: '#F3F4F6' },
-  cancelButtonText: { color: '#4B5563', fontWeight: '600' },
+  cancelButtonText: { color: '#4B5563', fontFamily: FONTS.semiBold },
   saveButton: { backgroundColor: '#00B763' },
-  saveButtonText: { color: '#FFFFFF', fontWeight: '600' },
+  saveButtonText: { color: '#FFFFFF', fontFamily: FONTS.semiBold },
 
   createHabitModalContainer: {
     flex: 1,
@@ -2383,7 +2385,7 @@ const styles = StyleSheet.create({
   },
   dropdownTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#1F2937',
   },
   dropdownMenu: {
@@ -2409,11 +2411,11 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 14,
     color: '#4B5563',
-    fontWeight: '500',
+    fontFamily: FONTS.medium,
   },
   dropdownOptionSelected: {
     color: '#00B763',
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
   },
   createHabitBody: {
     flex: 1,
@@ -2462,7 +2464,7 @@ const styles = StyleSheet.create({
   },
   typeSelectorText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#6B7280'
   },
   formGroup: {
@@ -2470,7 +2472,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#1F2937',
     marginBottom: 8,
   },
@@ -2482,6 +2484,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 15,
+    fontFamily: FONTS.regular,
     color: '#1F2937',
   },
   frequencyInputSelector: {
@@ -2495,7 +2498,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  frequencyValueText: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  frequencyValueText: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2534,12 +2537,12 @@ const styles = StyleSheet.create({
   },
   timeOfDayText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#1F2937'
   },
   timeOfDayHeader: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#1F2937',
     marginTop: 12,
     marginBottom: 10
@@ -2557,7 +2560,7 @@ const styles = StyleSheet.create({
   saveHabitButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
   },
 
   fullscreenModalContainer: { flex: 1, backgroundColor: '#FFFFFF' },
@@ -2570,8 +2573,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  fullscreenModalTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  headerDoneText: { fontSize: 16, fontWeight: '700', color: '#00B763' },
+  fullscreenModalTitle: { fontSize: 18, fontFamily: FONTS.bold, color: '#1F2937' },
+  headerDoneText: { fontSize: 16, fontFamily: FONTS.bold, color: '#00B763' },
 
   categoryNavbar: {
     borderBottomWidth: 1,
@@ -2586,7 +2589,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB'
   },
   categoryTabActive: { backgroundColor: '#1F2937' },
-  categoryTabText: { fontSize: 13, fontWeight: '600', color: '#4B5563' },
+  categoryTabText: { fontSize: 13, fontFamily: FONTS.semiBold, color: '#4B5563' },
   categoryTabTextActive: { color: '#FFFFFF' },
   iconScrollContainer: { flex: 1, padding: 16 },
   iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 25 },
@@ -2611,7 +2614,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   frequencyOptionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  frequencyOptionTitle: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
+  frequencyOptionTitle: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
   weekDaysPickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   weekDayCircle: {
     width: 36,
@@ -2621,7 +2624,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weekDayCircleText: { fontSize: 13, fontWeight: '700', color: '#4B5563' },
+  weekDayCircleText: { fontSize: 13, fontFamily: FONTS.bold, color: '#4B5563' },
 
   monthDaysGridContainer: {
     marginTop: 16,
@@ -2653,7 +2656,7 @@ const styles = StyleSheet.create({
   },
   monthDayText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#4B5563'
   },
 
@@ -2670,7 +2673,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.3,
     borderColor: '#F3F4F6'
   },
-  streaksTitle: { fontSize: 20, fontWeight: '700', color: '#1F2937' },
+  streaksTitle: { fontSize: 17, fontFamily: FONTS.bold, color: '#1F2937' },
 
   streaksTopBox: {
     flexDirection: 'row',
@@ -2692,9 +2695,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     marginVertical: 8,
   },
-  streakLabel: { fontSize: 15, fontWeight: '700', color: '#1F2937', marginTop: 8 },
-  streakNumber: { fontSize: 32, fontWeight: '800', marginVertical: 2 },
-  streakSubtext: { fontSize: 13, color: '#6B7280', marginBottom: 10 },
+  streakLabel: { fontSize: 15, fontFamily: FONTS.bold, color: '#1F2937', marginTop: 8 },
+  streakNumber: { fontSize: 32, fontFamily: FONTS.extraBold, marginVertical: 2 },
+  streakSubtext: { fontSize: 13, fontFamily: FONTS.regular, color: '#6B7280', marginBottom: 10 },
   bestBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2706,7 +2709,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
-  bestText: { color: '#374151', fontWeight: '600', fontSize: 14 },
+  bestText: { color: '#374151', fontFamily: FONTS.semiBold, fontSize: 14 },
   calendarSectionBox: {
     backgroundColor: '#F3F4F6',
     padding: 16,
@@ -2746,7 +2749,7 @@ const styles = StyleSheet.create({
   },
   reminderTimeButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#1F2937',
   },
   reminderSaveButton: {
@@ -2759,7 +2762,7 @@ const styles = StyleSheet.create({
   },
   reminderSaveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#FFFFFF',
   },
   reminderWindowCardContainer: {
@@ -2781,7 +2784,7 @@ const styles = StyleSheet.create({
   },
   reminderCardTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#000000',
   },
   reminderCloseButton: {
@@ -2809,14 +2812,14 @@ const styles = StyleSheet.create({
   reminderPickerText: {
     fontSize: 18,
     color: '#D1D5DB',
-    fontWeight: '400',
+    fontFamily: FONTS.regular,
     lineHeight: REMINDER_ITEM_HEIGHT,
     textAlign: 'center',
   },
   reminderPickerTextSelected: {
     fontSize: 20,
     color: '#000000',
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     lineHeight: REMINDER_ITEM_HEIGHT,
     marginHorizontal: 10,
     textAlign: 'center',
@@ -2824,7 +2827,7 @@ const styles = StyleSheet.create({
   reminderTimeSeparator: {
     color: '#000000',
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: FONTS.bold,
     lineHeight: REMINDER_ITEM_HEIGHT,
     textAlign: 'center',
   },
@@ -2885,7 +2888,7 @@ const styles = StyleSheet.create({
   },
   habitTitleGestural: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#1F2937'
   },
   habitCardFailedGestural: {
@@ -2921,13 +2924,14 @@ const styles = StyleSheet.create({
   },
   relapseModalTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
     color: '#1F2937',
     marginBottom: 8,
     textAlign: 'center',
   },
   relapseModalText: {
     fontSize: 14,
+    fontFamily: FONTS.regular,
     color: '#6B7280',
     textAlign: 'center',
     marginBottom: 24,
@@ -2951,7 +2955,7 @@ const styles = StyleSheet.create({
   relapseButtonCancelText: {
     color: '#4B5563',
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
   },
   relapseButtonConfirm: {
     backgroundColor: '#DC2626'
@@ -2959,7 +2963,7 @@ const styles = StyleSheet.create({
   relapseButtonConfirmText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700'
+    fontFamily: FONTS.bold
   },
   streakBadgeMini: {
     flexDirection: 'row',
@@ -2973,6 +2977,6 @@ const styles = StyleSheet.create({
   streakBadgeMiniText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
   },
 });

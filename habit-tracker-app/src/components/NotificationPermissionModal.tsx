@@ -15,6 +15,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
+import { FONTS } from '../../fonts';
 const BRAND = '#00B763';
 const BRAND_SOFT = '#E6F8EF';
 
@@ -210,10 +211,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 2,
   },
-  previewApp: { fontSize: 11, fontWeight: '600', color: '#6B7280' },
-  previewTime: { fontSize: 11, color: '#9CA3AF' },
-  previewTitle: { fontSize: 14, fontWeight: '700', color: '#1F2937' },
-  previewBody: { fontSize: 12, color: '#6B7280', marginTop: 1 },
+  previewApp: { fontSize: 11, fontFamily: FONTS.semiBold, color: '#6B7280' },
+  previewTime: { fontSize: 11, fontFamily: FONTS.regular, color: '#9CA3AF' },
+  previewTitle: { fontSize: 14, fontFamily: FONTS.bold, color: '#1F2937' },
+  previewBody: { fontSize: 12, fontFamily: FONTS.regular, color: '#6B7280', marginTop: 1 },
   content: {
     paddingHorizontal: 24,
     paddingTop: 22,
@@ -221,13 +222,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
     color: '#1F2937',
     textAlign: 'center',
     marginBottom: 8,
   },
   body: {
     fontSize: 14,
+    fontFamily: FONTS.regular,
     lineHeight: 20,
     color: '#6B7280',
     textAlign: 'center',
@@ -243,7 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  benefitText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#374151' },
+  benefitText: { flex: 1, fontSize: 14, fontFamily: FONTS.semiBold, color: '#374151' },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -258,8 +260,8 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 4,
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontFamily: FONTS.bold },
   secondaryButton: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
-  secondaryButtonText: { color: '#6B7280', fontSize: 15, fontWeight: '600' },
-  footnote: { fontSize: 11, color: '#9CA3AF', textAlign: 'center' },
+  secondaryButtonText: { color: '#6B7280', fontSize: 15, fontFamily: FONTS.semiBold },
+  footnote: { fontSize: 11, fontFamily: FONTS.regular, color: '#9CA3AF', textAlign: 'center' },
 });

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
 
+import { FONTS } from '../../fonts';
 const MONTHS_EACH_SIDE = 240;
 const CENTER_INDEX = MONTHS_EACH_SIDE;
 const MONTH_OFFSETS = Array.from({ length: MONTHS_EACH_SIDE * 2 + 1 }, (_, i) => i - MONTHS_EACH_SIDE);
@@ -104,13 +105,13 @@ export default function MonthCalendar({ weekDayLabels, locale, getDayProgress, o
     <View>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goToMonth(visibleOffsetRef.current - 1, true)} style={styles.navButton}>
-          <Ionicons name="chevron-back" size={22} color="#1F2937" />
+          <Ionicons name="chevron-back" size={20} color="#1F2937" />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleTitlePress}>
           <Text style={styles.title}>{title}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => goToMonth(visibleOffsetRef.current + 1, true)} style={styles.navButton}>
-          <Ionicons name="chevron-forward" size={22} color="#1F2937" />
+          <Ionicons name="chevron-forward" size={20} color="#1F2937" />
         </TouchableOpacity>
       </View>
 
@@ -159,28 +160,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 26,
+    marginBottom: 25,
   },
   navButton: {
     padding: 6,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontFamily: FONTS.bold,
     color: '#1F2937',
     textTransform: 'capitalize',
   },
   weekDaysRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 6,
   },
   weekDayCell: {
     alignItems: 'center',
   },
   weekDayText: {
     color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 13,
+    fontFamily: FONTS.semiBold,
   },
   monthGrid: {
     flexDirection: 'row',
@@ -189,24 +190,24 @@ const styles = StyleSheet.create({
   dayCell: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   dayNumber: {
     color: '#1F2937',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: FONTS.semiBold,
   },
   dayNumberOutside: {
     color: '#9CA3AF',
   },
   dayNumberToday: {
     color: '#00B763',
-    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 4,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginTop: 3,
   },
 });

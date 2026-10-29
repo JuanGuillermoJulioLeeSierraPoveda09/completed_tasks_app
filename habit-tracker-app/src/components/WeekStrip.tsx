@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
 
+import { FONTS } from '../../fonts';
 const BRAND = '#00B763';
 const HORIZONTAL_PADDING = 8;
 const WEEKS_EACH_SIDE = 520;
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
   },
   letterText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.bold,
     color: '#6B7280',
   },
   letterTextSelected: {
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
   },
   dateNumber: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONTS.semiBold,
     color: '#1F2937',
   },
   dateNumberFuture: {
@@ -246,7 +247,7 @@ const styles = StyleSheet.create({
   },
   dateNumberToday: {
     color: BRAND,
-    fontWeight: '800',
+    fontFamily: FONTS.extraBold,
   },
   statusDot: {
     width: 6,
