@@ -13,6 +13,7 @@ import {
   Platform,
   LayoutAnimation,
   Alert,
+  AppState,
   Vibration,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -69,6 +70,9 @@ import {
   requestNotificationPermission,
   scheduleHabitReminder,
   cancelHabitReminders,
+  rescheduleAllHabitReminders,
+  areNotificationsEnabled,
+  openNotificationSettings,
 } from './notifications';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 interface CustomTimePickerModalProps {
@@ -1066,9 +1070,18 @@ const HabitFormBody: React.FC<{
   const [isReminderPickerVisible, setIsReminderPickerVisible] = useState(false);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
 
-  const toggleSwitch = () => {
+  const toggleSwitch = async () => {
+    const turningOn = !form.reminderEnabled;
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setForm((f) => ({ ...f, reminderEnabled: !f.reminderEnabled }));
+    if (!turningOn) return;
+    const granted = await requestNotificationPermission();
+    if (!granted) {
+      Alert.alert(t('reminderBlockedTitle'), t('remindersBlockedBody'), [
+        { text: t('notNow'), style: 'cancel' },
+        { text: t('openSettings'), onPress: openNotificationSettings },
+      ]);
+    }
   };
 
   const handleReminderSaveTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
@@ -1585,17 +1598,39 @@ export default function App() {
     return () => clearTimeout(promptTimer);
   }, []);
 
+  useEffect(() => {
+    rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+    });
+    return () => subscription.remove();
+  }, []);
+
   const handleEnableNotifications = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsNotificationPromptVisible(false);
     const granted = await requestNotificationPermission();
-    if (!granted) snoozeNotificationPrompt();
+    if (!granted) rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+    else snoozeNotificationPrompt();
   }, []);
 
   const handleNotificationPromptLater = useCallback(() => {
     snoozeNotificationPrompt();
     setIsNotificationPromptVisible(false);
   }, []);
+
+  const handleMePress = useCallback(async () => {
+    const enabled = await areNotificationsEnabled();
+    Alert.alert(
+      t('notifSettingsTitle'),
+      enabled ? t('notifSettingsOnBody') : t('notifSettingsOffBody'),
+      [
+        { text: t('notNow'), style: 'cancel' },
+        { text: t('openSettings'), onPress: openNotificationSettings },
+      ]
+    );
+  }, [t]);
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isStreaksModalVisible, setIsStreaksModalVisible] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -2146,7 +2181,7 @@ export default function App() {
               <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
               <Text style={styles.bottomTabText}>{t('analytics')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab}>
+            <TouchableOpacity style={styles.bottomTab} onPress={handleMePress}>
               <Ionicons name="person-outline" size={22} color="#6B7280" />
               <Text style={styles.bottomTabText}>{t('me')}</Text>
             </TouchableOpacity>
