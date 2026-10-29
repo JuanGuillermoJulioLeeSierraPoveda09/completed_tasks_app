@@ -210,6 +210,65 @@ const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; is
   (prevProps, nextProps) => prevProps.isSelected === nextProps.isSelected
 );
 
+// Only two values, so a native ScrollView's snapping gets stuck at the edges; drive the offset ourselves
+const PERIOD_MAX_OFFSET = (REMINDER_PERIODS.length - 1) * REMINDER_ITEM_HEIGHT;
+
+const PeriodWheel: React.FC<{
+  visible: boolean;
+  initialPeriod: 'AM' | 'PM';
+  period: 'AM' | 'PM';
+  onChange: (period: 'AM' | 'PM') => void;
+}> = ({ visible, initialPeriod, period, onChange }) => {
+  const offset = useSharedValue(REMINDER_PERIODS.indexOf(initialPeriod) * REMINDER_ITEM_HEIGHT);
+  const startOffset = useSharedValue(0);
+  const lastIndex = useSharedValue(REMINDER_PERIODS.indexOf(initialPeriod));
+
+  useEffect(() => {
+    if (!visible) return;
+    const index = REMINDER_PERIODS.indexOf(initialPeriod);
+    cancelAnimation(offset);
+    offset.value = index * REMINDER_ITEM_HEIGHT;
+    lastIndex.value = index;
+  }, [visible, initialPeriod]);
+
+  const panGesture = Gesture.Pan()
+    .onBegin(() => {
+      cancelAnimation(offset);
+      startOffset.value = offset.value;
+    })
+    .onUpdate((e) => {
+      offset.value = Math.min(Math.max(startOffset.value - e.translationY, 0), PERIOD_MAX_OFFSET);
+      const index = Math.round(offset.value / REMINDER_ITEM_HEIGHT);
+      if (index !== lastIndex.value) {
+        lastIndex.value = index;
+        runOnJS(onChange)(REMINDER_PERIODS[index]);
+      }
+    })
+    .onFinalize((e) => {
+      const projected = Math.min(Math.max(offset.value - e.velocityY * 0.1, 0), PERIOD_MAX_OFFSET);
+      const index = Math.round(projected / REMINDER_ITEM_HEIGHT);
+      lastIndex.value = index;
+      offset.value = withTiming(index * REMINDER_ITEM_HEIGHT, { duration: 180 });
+      runOnJS(onChange)(REMINDER_PERIODS[index]);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -offset.value }],
+  }));
+
+  return (
+    <GestureDetector gesture={panGesture}>
+      <View style={{ height: CONTAINER_HEIGHT, width: 60, overflow: 'hidden' }}>
+        <Animated.View style={animatedStyle}>
+          {PADDED_PERIODS.map((item, index) => (
+            <MemorizedPickerItem key={`p-${index}-${item}`} item={item} isSelected={item === period} />
+          ))}
+        </Animated.View>
+      </View>
+    </GestureDetector>
+  );
+};
+
 export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   visible,
   reminderSelectedHour,
@@ -224,7 +283,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
   const hourFlatListRef = useRef<FlatList>(null);
   const minuteFlatListRef = useRef<FlatList>(null);
-  const periodFlatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
     if (visible) {
@@ -235,7 +293,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       const targetHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
       const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
       const targetMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
-      const targetPeriodIndex = reminderSelectedPeriod === 'AM' ? 0 : 1;
       setTimeout(() => {
         hourFlatListRef.current?.scrollToOffset({
           offset: targetHourIndex * REMINDER_ITEM_HEIGHT,
@@ -243,10 +300,6 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
         });
         minuteFlatListRef.current?.scrollToOffset({
           offset: targetMinuteIndex * REMINDER_ITEM_HEIGHT,
-          animated: false,
-        });
-        periodFlatListRef.current?.scrollToOffset({
-          offset: targetPeriodIndex * REMINDER_ITEM_HEIGHT,
           animated: false,
         });
       }, 100);
@@ -300,6 +353,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
       onRequestClose={onClose}
       statusBarTranslucent={true}
     >
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.modalOverlay}>
         <View style={styles.reminderWindowCardContainer}>
           <View style={styles.reminderCardHeader}>
@@ -378,34 +432,11 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               renderItem={({ item }) => <MemorizedPickerItem item={item} isSelected={item === minute} />}
             />
             <View style={{ width: 16 }} />
-            <FlatList
-              ref={periodFlatListRef}
-              data={PADDED_PERIODS}
-              style={{ height: CONTAINER_HEIGHT, width: 60 }}
-              contentContainerStyle={{ paddingBottom: REMINDER_ITEM_HEIGHT * 1.1 }}
-              keyExtractor={(item, index) => `p-${index}-${item}`}
-              showsVerticalScrollIndicator={false}
-              snapToInterval={REMINDER_ITEM_HEIGHT}
-              snapToAlignment="start"
-              decelerationRate="normal"
-              disableIntervalMomentum={false}
-              bounces={false}
-              getItemLayout={(_, index) => ({
-                length: REMINDER_ITEM_HEIGHT,
-                offset: REMINDER_ITEM_HEIGHT * index,
-                index,
-              })}
-              scrollEventThrottle={16}
-              onScroll={(e) => handleScrollProgress(e.nativeEvent.contentOffset.y, REMINDER_PERIODS, setPeriod)}
-              onMomentumScrollEnd={(e) => handleScrollEnd(e.nativeEvent.contentOffset.y, REMINDER_PERIODS, setPeriod, periodFlatListRef)}
-              onScrollEndDrag={(e) => {
-                const validOffsetY = Math.max(0, e.nativeEvent.contentOffset.y);
-                const index = Math.round(validOffsetY / REMINDER_ITEM_HEIGHT);
-                const safeIndex = Math.min(Math.max(0, index), REMINDER_PERIODS.length - 1);
-                setPeriod(REMINDER_PERIODS[safeIndex]);
-              }}
-              extraData={period}
-              renderItem={({ item }) => <MemorizedPickerItem item={item} isSelected={item === period} />}
+            <PeriodWheel
+              visible={visible}
+              initialPeriod={reminderSelectedPeriod}
+              period={period}
+              onChange={setPeriod}
             />
           </View>
 
@@ -417,6 +448,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
