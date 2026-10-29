@@ -210,7 +210,6 @@ const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; is
   (prevProps, nextProps) => prevProps.isSelected === nextProps.isSelected
 );
 
-// Only two values, so a native ScrollView's snapping gets stuck at the edges; drive the offset ourselves
 const PERIOD_MAX_OFFSET = (REMINDER_PERIODS.length - 1) * REMINDER_ITEM_HEIGHT;
 
 const PeriodWheel: React.FC<{
@@ -284,13 +283,11 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   const hourFlatListRef = useRef<FlatList>(null);
   const minuteFlatListRef = useRef<FlatList>(null);
 
-  // The modal unmounts its content while hidden, so the lists remount here on every open
   const baseHour = parseInt(reminderSelectedHour, 10) || 5;
   const initialHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
   const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
   const initialMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
 
-  // Reset during render (not in an effect) so the first frame of the modal already shows the right selection
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
@@ -1200,7 +1197,7 @@ const HabitFormBody: React.FC<{
                 const isSelected = form.color === color;
                 return (
                   <TouchableOpacity
-                    key={color}
+                    key={`${color}-${isSelected}`}
                     style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
                     onPress={() => patch({ color })}
                   >
