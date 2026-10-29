@@ -89,5 +89,12 @@
     "notifPreviewTitle": "Time for your morning run",
     "notifPreviewBody": "Keep your 5-day streak going!",
     "reminderNotifTitle": "Time for: {{habit}}",
-    "reminderNotifBody": "A small step today keeps your streak alive."
+    "reminderNotifBody": "A small step today keeps your streak alive.",
+    "remindersBlockedTitle": "Notifications are off",
+    "remindersBlockedBody": "Your reminder is saved, but it won't arrive until you allow notifications for this app.",
+    "notifSettingsTitle": "Notifications",
+    "notifSettingsOnBody": "Reminders are on. To turn them off, open your phone's settings and disable notifications for this app.",
+    "notifSettingsOffBody": "Reminders are off. To turn them on, open your phone's settings and allow notifications for this app.",
+    "notNow": "Not now",
+    "openSettings": "Open settings"
 }
