@@ -284,27 +284,22 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   const hourFlatListRef = useRef<FlatList>(null);
   const minuteFlatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
+  // The modal unmounts its content while hidden, so the lists remount here on every open
+  const baseHour = parseInt(reminderSelectedHour, 10) || 5;
+  const initialHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
+  const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
+  const initialMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
+
+  // Reset during render (not in an effect) so the first frame of the modal already shows the right selection
+  const [wasVisible, setWasVisible] = useState(visible);
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
     if (visible) {
-      setHour(reminderSelectedHour);
+      setHour(String(baseHour));
       setMinute(reminderSelectedMinute);
       setPeriod(reminderSelectedPeriod);
-      const baseHour = parseInt(reminderSelectedHour, 10) || 8;
-      const targetHourIndex = (LOOP_FACTOR / 2) * 12 + (baseHour - 1);
-      const baseMinute = parseInt(reminderSelectedMinute, 10) || 0;
-      const targetMinuteIndex = (LOOP_FACTOR / 2) * 60 + baseMinute;
-      setTimeout(() => {
-        hourFlatListRef.current?.scrollToOffset({
-          offset: targetHourIndex * REMINDER_ITEM_HEIGHT,
-          animated: false,
-        });
-        minuteFlatListRef.current?.scrollToOffset({
-          offset: targetMinuteIndex * REMINDER_ITEM_HEIGHT,
-          animated: false,
-        });
-      }, 100);
     }
-  }, [visible, reminderSelectedHour, reminderSelectedMinute, reminderSelectedPeriod]);
+  }
 
   const handleScrollEnd = <T extends string>(
     offsetY: number,
@@ -368,6 +363,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               ref={hourFlatListRef}
               style={{ height: CONTAINER_HEIGHT, width: 60 }}
               data={PADDED_HOURS}
+              initialScrollIndex={initialHourIndex}
               keyExtractor={(_, index) => `h-${index}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
@@ -404,6 +400,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
               ref={minuteFlatListRef}
               style={{ height: CONTAINER_HEIGHT, width: 60 }}
               data={PADDED_MINUTES}
+              initialScrollIndex={initialMinuteIndex}
               keyExtractor={(_, index) => `m-${index}`}
               showsVerticalScrollIndicator={false}
               snapToInterval={REMINDER_ITEM_HEIGHT}
@@ -452,44 +449,7 @@ export const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
     </Modal>
   );
 };
-/*
-export async function scheduleHabitReminders(
-  habitID: string,
-  habitTitle: string,
-  hourStr: string,
-  minuteStr: string,
-  period: 'AM' | 'PM',
-  frequencyType: string,
-  selectedWeekDays?: boolean[],
-  selectedMonthDays?: number[]
-) {
-  let hour = parseInt(hourStr, 10);
-  const minute = parseInt(minuteStr, 10);
-  if (period === 'PM' && hour !== 12) hour += 12;
-  if (period === 'AM' && hour === 12) hour = 0;
-  if (frequencyType === 'days_of_week' && selectedWeekDays) {
-    for (let dayIndex = 0; dayIndex < selectedWeekDays.length; dayIndex++) {
-      if (selectedWeekDays[dayIndex]) {
-        const weekdayForExpo = dayIndex + 1;
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '¡Hora de tu hábito!',
-            body: `Es momento de completar: ${habitTitle}`,
-            sound: true,
-            data: { habitID },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-            weekday: weekdayForExpo,
-            hour: hour,
-            minute: minute,
-          },
-        });
-      }
-    }
-  }
-}
-*/
+
 const CARD_GAP = 10;
 const CARD_FALLBACK_HEIGHT = 83;
 
@@ -1042,7 +1002,7 @@ const makeInitialForm = (habit: Habit | undefined, everyday: string): HabitFormS
       timeOfDay: undefined,
       taskDate: new Date(),
       reminderEnabled: false,
-      reminderHour: '08',
+      reminderHour: '05',
       reminderMinute: '00',
       reminderPeriod: 'AM',
     };
@@ -2759,6 +2719,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   reminderHeaderRow: {
+    paddingVertical: 9,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
