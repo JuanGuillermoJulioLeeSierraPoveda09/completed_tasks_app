@@ -2005,24 +2005,23 @@ export default function App() {
           </ScrollView>
 
 
-          <View style={styles.bottomBar}>
-            <TouchableOpacity style={styles.bottomTab}>
-              <Ionicons name="grid-outline" size={22} color="#00B763" />
-              <Text style={[styles.bottomTabText, { color: '#00B763' }]}>{t('menu')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab} onPress={openCreateForm}>
-              <Ionicons name="add-circle" size={22} color="#6B7280" />
-              <Text style={styles.bottomTabText}>{t('newHabit')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab}>
-              <Ionicons name="bar-chart-outline" size={22} color="#6B7280" />
-              <Text style={styles.bottomTabText}>{t('analytics')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.bottomTab} onPress={handleMePress}>
-              <Ionicons name="person-outline" size={22} color="#6B7280" />
-              <Text style={styles.bottomTabText}>{t('me')}</Text>
-            </TouchableOpacity>
-          </View>
+          <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
+            {([
+              { key: 'menu', icon: 'grid', label: t('menu'), active: true },
+              { key: 'new', icon: 'add-circle-outline', label: t('newHabit'), onPress: openCreateForm },
+              { key: 'analytics', icon: 'bar-chart-outline', label: t('analytics') },
+              { key: 'me', icon: 'person-outline', label: t('me'), onPress: handleMePress },
+            ] as { key: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; active?: boolean; onPress?: () => void }[]).map((tab) => (
+              <TouchableOpacity key={tab.key} style={styles.bottomTab} onPress={tab.onPress} activeOpacity={0.7}>
+                <View style={[styles.bottomTabPill, tab.active && styles.bottomTabPillActive]}>
+                  <Ionicons name={tab.icon} size={21} color="#111111" />
+                  <Text style={[styles.bottomTabText, tab.active && styles.bottomTabTextActive]} numberOfLines={1}>
+                    {tab.label}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </SafeAreaView>
         </View>
         <HabitFormModal
           visible={isModalVisible}
@@ -2309,15 +2308,30 @@ const styles = StyleSheet.create({
   createHabitText: { color: '#FFFFFF', fontFamily: FONTS.semiBold, fontSize: 15 },
   bottomBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    borderTopWidth: 1,
+    paddingTop: 8,
+    paddingHorizontal: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  bottomTab: { alignItems: 'center' },
-  bottomTabText: { fontSize: 11, fontFamily: FONTS.regular, color: '#6B7280', marginTop: 2 },
+  bottomTab: { flex: 1, alignItems: 'center', paddingBottom: 8 },
+  bottomTabPill: {
+    minWidth: 72,
+    maxWidth: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomTabPillActive: { backgroundColor: '#ECECEC' },
+  bottomTabText: { fontSize: 11, fontFamily: FONTS.medium, color: '#111111', marginTop: 2, letterSpacing: 0.2 },
+  bottomTabTextActive: { fontFamily: FONTS.semiBold },
 
   modalOverlay: {
     flex: 1,
