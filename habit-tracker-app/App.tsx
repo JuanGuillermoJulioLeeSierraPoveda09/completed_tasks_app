@@ -76,6 +76,7 @@ import {
 } from './notifications';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 import WeekStrip from './src/components/WeekStrip';
+import MonthCalendar from './src/components/MonthCalendar';
 interface CustomTimePickerModalProps {
   visible: boolean;
   reminderSelectedHour: string;
@@ -86,8 +87,6 @@ interface CustomTimePickerModalProps {
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CALENDAR_CARD_WIDTH = SCREEN_WIDTH - 32;
-const CELL_WIDTH = Math.floor(CALENDAR_CARD_WIDTH / 7);
 const REMINDER_ITEM_HEIGHT = 45;
 const VISIBLE_ITEMS = 3;
 const CONTAINER_HEIGHT = REMINDER_ITEM_HEIGHT * VISIBLE_ITEMS;
@@ -1638,35 +1637,12 @@ export default function App() {
   const [activeMenuHabitId, setActiveMenuHabitId] = useState<string | null>(null);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [formSession, setFormSession] = useState(0);
-  const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date());
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-
-  const handleMonthCurrent = () => {
-    const now = new Date();
-    const isSameMonth =
-      currentCalendarDate.getMonth() === now.getMonth() &&
-      currentCalendarDate.getFullYear() === now.getFullYear();
-    if (isSameMonth) return;
-    const isFuture = now > currentCalendarDate;
-    calendarFlatListRef.current?.scrollToIndex({
-      index: isFuture ? 2 : 0,
-      animated: true
-    });
-    setTimeout(() => {
-      setCalendarMonth(now);
-      setCurrentCalendarDate(now);
-      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    }, 300);
-  }
 
 
   const handleHeaderDatePress = () => {
     const today = new Date();
     const todayStr = formatDateKey(today);
     const activeStr = formatDateKey(activeDate);
-    const now = new Date();
-    setCalendarMonth(now);
-    setCurrentCalendarDate(now);
     setActiveMenuHabitId(null);
     if (activeStr !== todayStr) {
       setWeekOffset(0);
@@ -1817,72 +1793,14 @@ export default function App() {
 
   const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
 
-  const calendarFlatListRef = useRef<FlatList>(null);
   const handleSelectWeekDay = useCallback((index: number) => {
     setSelectedDayIndex(index);
     setActiveMenuHabitId(null);
   }, []);
 
-  const handleCalendarScrollEnd = (event: any) => {
-    const contentOffsetX = event.nativeEvent.contentOffset.x;
-    const cardWidth = SCREEN_WIDTH - 64;
-    const pageIndex = Math.round(contentOffsetX / cardWidth);
-
-    if (pageIndex === 0) {
-      changeMonth('prev');
-      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    } else if (pageIndex == 2) {
-      changeMonth('next');
-      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    }
-  };
-
   const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs), [habits, habitLogs, relapseLogs]);
 
-  const getCalendarDaysForMonth = (baseDate: Date, monthOffset: number) => {
-    const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, 1);
-    const year = targetDate.getFullYear();
-    const month = targetDate.getMonth();
-    const firstDayOfMonth = new Date(year, month, 1);
-    const lastDayOfMonth = new Date(year, month + 1, 0);
-    const startingDayOfWeek = firstDayOfMonth.getDay();
-    const days = [];
-
-    for (let i = startingDayOfWeek; i > 0; i--) {
-      const date = new Date(year, month, 1 - i);
-      days.push({ date, isCurrentMonth: false });
-    }
-    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
-      const date = new Date(year, month, i);
-      days.push({ date, isCurrentMonth: true });
-    }
-    const remainingCells = (7 - (days.length % 7)) % 7;
-    for (let i = 1; i <= remainingCells; i++) {
-      const date = new Date(year, month + 1, i);
-      days.push({ date, isCurrentMonth: false });
-    }
-    return days;
-  };
-
-  const changeMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentCalendarDate);
-    newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentCalendarDate(newDate);
-  };
-
-  const handleCalendarScrollEndWithArrows = (movement: 'prev' | 'next') => {
-    if (movement === 'prev') {
-      calendarFlatListRef.current?.scrollToIndex({ index: 0, animated: true });
-    } else if (movement == 'next') {
-      calendarFlatListRef.current?.scrollToIndex({ index: 2, animated: true });
-    }
-    setTimeout(() => {
-      changeMonth(movement);
-      calendarFlatListRef.current?.scrollToIndex({ index: 1, animated: false });
-    }, 300);
-  };
-
-  const handleSelectedCalendarDay = (targetDate: Date) => {
+  const handleSelectedCalendarDay = useCallback((targetDate: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const target = new Date(targetDate);
@@ -1899,8 +1817,8 @@ export default function App() {
     setSelectedDayIndex(target.getDay());
     setWeekOffset(computedWeekOffset);
     setIsStreaksModalVisible(false);
-    setActiveMenuHabitId(null)
-  };
+    setActiveMenuHabitId(null);
+  }, []);
 
   const getLocale = (languageCode: string) => {
     switch (languageCode) {
@@ -2160,81 +2078,12 @@ export default function App() {
             </View>
 
             <View style={styles.calendarSectionBox}>
-              <View style={styles.calendarHeader}>
-                <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('prev')} style={styles.monthNavButton}>
-                  <Ionicons name="chevron-back" size={22} color="#1F2937" />
-                </TouchableOpacity>
-                <TouchableOpacity>
-                  <Text style={styles.calendarMonthText} onPress={handleMonthCurrent}>
-                    {currentCalendarDate.toLocaleDateString(currentLocale, {
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleCalendarScrollEndWithArrows('next')} style={styles.monthNavButton}>
-                  <Ionicons name="chevron-forward" size={22} color="#1F2937" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.weekDaysHeader}>
-                {WEEK_DAYS.map((day, idx) => (
-                  <View key={idx} style={styles.weekDayCell}>
-                    <Text style={styles.weekDayText}>
-                      {day}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              <FlatList
-                ref={calendarFlatListRef}
-                data={[-1, 0, 1]}
-                horizontal
-                pagingEnabled={false}
-                snapToInterval={SCREEN_WIDTH - 32}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                showsHorizontalScrollIndicator={false}
-                initialScrollIndex={1}
-                getItemLayout={(_, index) => ({
-                  length: SCREEN_WIDTH - 32,
-                  offset: (SCREEN_WIDTH - 32) * index,
-                  index,
-                })}
-                onMomentumScrollEnd={handleCalendarScrollEnd}
-                keyExtractor={(item) => item.toString()}
-                renderItem={({ item }) => {
-                  const days = getCalendarDaysForMonth(currentCalendarDate, item);
-                  return (
-                    <View style={[styles.calendarGrid, { width: SCREEN_WIDTH - 32 }]}  >
-                      {days.map((dayItem, index) => {
-                        const dateKey = formatDateKey(dayItem.date);
-                        const todayStr = formatDateKey(new Date());
-                        const isToday = dateKey === todayStr;
-                        const { total, done } = getDayProgress(dayItem.date);
-                        let dotColor = '#CBD5E1';
-                        if (done > 0) {
-                          dotColor = total > 0 && done >= total ? '#10B981' : '#F59E0B';
-                        }
-                        return (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.calendarCell}
-                            onPress={() => handleSelectedCalendarDay(dayItem.date)}
-                          >
-                            <Text style={[styles.calendarDayNum, !dayItem.isCurrentMonth && { color: '#9CA3AF' }, isToday && styles.calendarDayNumToday]}>
-                              {dayItem.date.getDate()}
-                            </Text>
-                            <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  );
-                }}
-              >
-              </FlatList>
+              <MonthCalendar
+                weekDayLabels={WEEK_DAYS}
+                locale={currentLocale}
+                getDayProgress={getDayProgress}
+                onSelectDate={handleSelectedCalendarDay}
+              />
             </View>
           </SafeAreaView>
         </Modal>
@@ -2863,37 +2712,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 200
   },
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 26,
-  },
-  monthNavButton: {
-    padding: 6,
-  },
-  calendarMonthText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  weekDaysHeader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-    marginBottom: 12,
-  },
-  weekDayCell: {
-    width: CELL_WIDTH,
-    alignItems: 'center',
-
-  },
-  weekDayText: { color: '#6B7280', fontSize: 16, fontWeight: '600' },
-  calendarGrid: { paddingLeft: 2, flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH, },
-  calendarCell: { width: CELL_WIDTH, justifyContent: 'center', alignItems: 'center', paddingVertical: 8, },
-  calendarDayNum: { color: '#1F2937', fontSize: 16, fontWeight: '600' },
-  calendarDayNumToday: { color: '#00B763', fontSize: 16, fontWeight: '800' },
-  statusDot: { width: 6, height: 6, borderRadius: 3, marginTop: 4 },
 
   reminderCardContainer: {
     backgroundColor: '#F9FAFB',

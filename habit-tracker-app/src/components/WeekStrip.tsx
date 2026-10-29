@@ -99,12 +99,11 @@ export default function WeekStrip({
   }, [selectedDayIndex, columnWidth]);
   const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: indicatorX.value }] }));
 
-  // Keeps the pager in sync when the week changes from outside (header "today" tap, month calendar).
   useEffect(() => {
     if (width === 0 || weekOffset === visibleOffset.current) return;
     const jump = Math.abs(weekOffset - visibleOffset.current);
     visibleOffset.current = weekOffset;
-    listRef.current?.scrollToIndex({ index: CENTER_INDEX + weekOffset, animated: jump <= 2 });
+    listRef.current?.scrollToIndex({ index: CENTER_INDEX + weekOffset, animated: jump <= 4 });
   }, [weekOffset, width]);
 
   const handleLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
