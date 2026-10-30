@@ -1569,6 +1569,30 @@ const MainHeader = React.memo<{
   </View>
 ));
 
+const BottomBar = React.memo<{ onCreate: () => void; onMe: () => void}>(({ onCreate, onMe }) => {
+  const { t } = useTranslation();
+  const tabs: { key:string; icon: React.ComponentProps<typeof Ionicons> ['name']; label: string; active?: boolean; onPress?: () => void }[] = [
+    { key: 'menu', icon: 'grid', label: t('menu'), active: true },
+    { key: 'new', icon: 'add-circle-outline', label: t('newHabit'), onPress: onCreate },
+    { key: 'analytics', icon: 'bar-chart-outline', label: t('analytics')},
+    { key: 'me', icon: 'person-outline', label: t('me')},
+  ];
+  return (
+    <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
+      {tabs.map((tab) => (
+        <TouchableOpacity key={tab.key} style={styles.bottomTab} onPress={tab.onPress} activeOpacity={0.7}>
+          <View style={[styles.bottomTabPill, tab.active && styles.bottomTabPillActive]}>
+            <Ionicons name={tab.icon} size={21} color="#111111" />
+            <Text style={[styles.bottomTabText, tab.active && styles.bottomTabTextActive]} numberOfLines={1}>
+              {tab.label}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ))}
+    </SafeAreaView>
+  );
+});
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
@@ -2006,24 +2030,10 @@ export default function App() {
             </View>
           </ScrollView>
 
-
-          <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
-            {([
-              { key: 'menu', icon: 'grid', label: t('menu'), active: true },
-              { key: 'new', icon: 'add-circle-outline', label: t('newHabit'), onPress: openCreateForm },
-              { key: 'analytics', icon: 'bar-chart-outline', label: t('analytics') },
-              { key: 'me', icon: 'person-outline', label: t('me'), onPress: handleMePress },
-            ] as { key: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; active?: boolean; onPress?: () => void }[]).map((tab) => (
-              <TouchableOpacity key={tab.key} style={styles.bottomTab} onPress={tab.onPress} activeOpacity={0.7}>
-                <View style={[styles.bottomTabPill, tab.active && styles.bottomTabPillActive]}>
-                  <Ionicons name={tab.icon} size={21} color="#111111" />
-                  <Text style={[styles.bottomTabText, tab.active && styles.bottomTabTextActive]} numberOfLines={1}>
-                    {tab.label}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </SafeAreaView>
+          <BottomBar 
+            onCreate={openCreateForm}
+            onMe={handleMePress}
+          />
         </View>
         <HabitFormModal
           visible={isModalVisible}
