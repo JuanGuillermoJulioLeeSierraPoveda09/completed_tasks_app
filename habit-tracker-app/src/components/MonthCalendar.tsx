@@ -1,6 +1,6 @@
 import React, { memo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type { GestureResponderEvent, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
@@ -9,7 +9,9 @@ import { FONTS } from '../../fonts';
 const MONTHS_EACH_SIDE = 240;
 const CENTER_INDEX = MONTHS_EACH_SIDE;
 const MONTH_OFFSETS = Array.from({ length: MONTHS_EACH_SIDE * 2 + 1 }, (_, i) => i - MONTHS_EACH_SIDE);
-const CELLS_PER_MONTH = 42;
+const DAYS_PER_ROW = 7;
+const ROWS_PER_MONTH = 6;
+const CELLS_PER_MONTH = DAYS_PER_ROW * ROWS_PER_MONTH;
 
 type DayProgress = { total: number; done: number };
 
@@ -31,6 +33,21 @@ const statusColor = ({ total, done }: DayProgress) => {
   if (done === 0) return '#CBD5E1';
   return total > 0 && done >= total ? '#10B981' : '#F59E0B';
 };
+const progressCaches = new WeakMap<(date: Date) => DayProgress, Map<string, DayProgress>>();
+const getCachedProgress = (getDayProgress: (date: Date) => DayProgress, date: Date, dateKey: string, todayKey: string) => {
+  let cache = progressCaches.get(getDayProgress);
+  if (!cache) {
+    cache = new Map();
+    progressCaches.set(getDayProgress, cache);
+  }
+  const key = `${todayKey}|${dateKey}`;
+  let progress = cache.get(key);
+  if (!progress) {
+    progress = getDayProgress(date);
+    cache.set(key, progress);
+  }
+  return progress;
+};
 
 interface MonthPageProps {
   monthOffset: number;
@@ -41,27 +58,41 @@ interface MonthPageProps {
   onSelectDate: (date: Date) => void;
 }
 
-const MonthPage = memo(({ monthOffset, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => (
-  <View style={[styles.monthGrid, { width }]}>
-    {getMonthCells(monthOffset).map(({ date, isCurrentMonth }) => {
-      const dateKey = formatDateKey(date);
-      const isToday = dateKey === todayKey;
-      return (
-        <Pressable key={dateKey} style={[styles.dayCell, { width: cellWidth }]} onPress={() => onSelectDate(date)}>
-          <Text style={[styles.dayNumber, !isCurrentMonth && styles.dayNumberOutside, isToday && styles.dayNumberToday]}>
-            {date.getDate()}
-          </Text>
-          <View
-            style={[
-              styles.statusDot,
-              { backgroundColor: isCurrentMonth ? statusColor(getDayProgress(date)) : 'transparent' },
-            ]}
-          />
-        </Pressable>
-      );
-    })}
-  </View>
-));
+const MonthPage = memo(({ monthOffset, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => {
+  const cells = getMonthCells(monthOffset);
+  const gridHeight = useRef(0);
+  const handlePress = (e: GestureResponderEvent) => {
+    if (gridHeight.current === 0 || cellWidth === 0) return;
+    const { locationX, locationY } = e.nativeEvent;
+    const column = Math.min(Math.max(Math.floor(locationX / cellWidth), 0), DAYS_PER_ROW - 1);
+    const row = Math.min(Math.max(Math.floor(locationY / (gridHeight.current / ROWS_PER_MONTH)), 0), ROWS_PER_MONTH - 1);
+    onSelectDate(cells[row * DAYS_PER_ROW + column].date);
+  };
+
+  return (
+    <Pressable onPress={handlePress} onLayout={(e) => { gridHeight.current = e.nativeEvent.layout.height; }}>
+      <View pointerEvents="none" style={[styles.monthGrid, { width }]}>
+        {cells.map(({ date, isCurrentMonth }) => {
+          const dateKey = formatDateKey(date);
+          const isToday = dateKey === todayKey;
+          return (
+            <View key={dateKey} style={[styles.dayCell, { width: cellWidth }]}>
+              <Text style={[styles.dayNumber, !isCurrentMonth && styles.dayNumberOutside, isToday && styles.dayNumberToday]}>
+                {date.getDate()}
+              </Text>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: isCurrentMonth ? statusColor(getCachedProgress(getDayProgress, date, dateKey, todayKey)) : 'transparent' },
+                ]}
+              />
+            </View>
+          );
+        })}
+      </View>
+    </Pressable>
+  );
+});
 
 interface MonthCalendarProps {
   weekDayLabels: string[];
@@ -135,7 +166,7 @@ function MonthCalendar({ weekDayLabels, locale, getDayProgress, onSelectDate }: 
           getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
           keyExtractor={(item) => String(item)}
           initialNumToRender={1}
-          maxToRenderPerBatch={2}
+          maxToRenderPerBatch={1}
           windowSize={3}
           onScroll={handleScroll}
           scrollEventThrottle={16}

@@ -1871,6 +1871,16 @@ export default function App() {
   const [isNotificationPromptVisible, setIsNotificationPromptVisible] = useState(false);
 
   useEffect(() => {
+  let last = Date.now();
+  const id = setInterval(() => {
+    const now = Date.now();
+    if (now - last > 150) console.log(`JS bloqueado: ${now - last} ms`);
+    last = now;
+  }, 16);
+  return () => clearInterval(id);
+}, []);
+
+  useEffect(() => {
     let promptTimer: ReturnType<typeof setTimeout> | undefined;
     ensureReminderChannel();
     shouldShowNotificationPrompt().then((show) => {
