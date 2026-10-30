@@ -79,7 +79,7 @@ interface WeekStripProps {
   onSelectDay: (index: number) => void;
 }
 
-export default function WeekStrip({
+function WeekStrip({
   weekOffset,
   selectedDayIndex,
   weekDayLabels,
@@ -180,6 +180,7 @@ export default function WeekStrip({
     </View>
   );
 }
+export default memo(WeekStrip);
 
 const LETTER_SIZE = 30;
 const LETTERS_ROW_TOP = 10;

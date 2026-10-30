@@ -1543,6 +1543,32 @@ const HabitFormModal = React.memo<{
   </Modal>
 ));
 
+const MainHeader = React.memo<{
+  dateText: string;
+  isTodayCompleted: boolean;
+  streak: number;
+  onDatePress: () => void;
+  onStreakPress: () => void;
+}>(({ dateText, isTodayCompleted, streak, onDatePress, onStreakPress }) => (
+  <View style={styles.navbar}>
+    <TouchableOpacity style={styles.dateSelector} onPress={onDatePress}>
+      <Text style={styles.dateText}>{dateText}</Text>
+      <Ionicons name="chevron-down" size={18} color="#1F2937" />
+    </TouchableOpacity>
+
+    <View style={styles.rightActions}>
+      <TouchableOpacity style={styles.streakBadge} onPress={onStreakPress}>
+        <Ionicons name="flame" size={22} color={isTodayCompleted ? '#F39E0B' : '#9CA3AF'} />
+        <Text style={styles.streakText}>{streak}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.settingsButton}>
+        <Ionicons name="settings-outline" size={22} color="#1F2937" />
+      </TouchableOpacity>
+    </View>
+  </View>
+));
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
@@ -1574,7 +1600,6 @@ export default function App() {
   const reorderHabit = useHabitsStore((s) => s.reorderHabit);
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
-  const [headerDateText, setHeaderDateText] = useState<string>('');
   const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
   const [relapsingHabitId, setRelapsingHabitId] = useState<string | null>(null);
   const [isNotificationPromptVisible, setIsNotificationPromptVisible] = useState(false);
@@ -1628,20 +1653,6 @@ export default function App() {
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [formSession, setFormSession] = useState(0);
 
-
-  const handleHeaderDatePress = () => {
-    const today = new Date();
-    const todayStr = formatDateKey(today);
-    const activeStr = formatDateKey(activeDate);
-    setActiveMenuHabitId(null);
-    if (activeStr !== todayStr) {
-      setWeekOffset(0);
-      setSelectedDayIndex(today.getDay());
-    } else {
-      setIsStreaksModalVisible(true);
-    }
-  };
-
   const activeDate = useMemo(() => {
     const today = new Date();
     const currentDayOfWeek = today.getDay();
@@ -1654,16 +1665,25 @@ export default function App() {
   }, [weekOffset, selectedDayIndex]);
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
-  useEffect(() => {
-    const todayStr = formatDateKey(new Date());
-    const activeStr = formatDateKey(activeDate);
-    const isToday = todayStr === activeStr;
-    const dayName = activeDate.toLocaleDateString(currentLocale, { weekday: 'short' });
+  const headerDateText = useMemo(() => {
+    const isToday = formatDateKey(new Date()) === formatDateKey(activeDate);
+    const dayName = activeDate.toLocaleDateString(currentLocale, {weekday: 'short' });
     const monthName = activeDate.toLocaleDateString(currentLocale, { month: 'short' });
-    const dayNum = activeDate.getDate();
+    return `${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${activeDate.getDate()}`;
+  }, [activeDate, currentLocale, t]);
 
-    setHeaderDateText(`${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${dayNum}`);
-  }, [activeDate, i18n.language, t]);
+  const handleHeaderDatePress = useCallback(() => {
+    const today = new Date();
+    const todayStr = formatDateKey(today);
+    const activeStr = formatDateKey(activeDate);
+    setActiveMenuHabitId(null);
+    if (activeStr !== todayStr) {
+      setWeekOffset(0);
+      setSelectedDayIndex(today.getDay());
+    } else {
+      setIsStreaksModalVisible(true);
+    }
+  }, [activeDate]);
 
   const getDayProgress = useCallback(
     (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
@@ -1773,14 +1793,6 @@ export default function App() {
     [editingHabitId, activeDateKey, createHabit, updateHabit]
   );
 
-  const triggerSwapHaptics = () => {
-    if (Platform.OS === 'android') {
-      Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Confirm);
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }
-
   const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
 
   const handleSelectWeekDay = useCallback((index: number) => {
@@ -1819,6 +1831,16 @@ export default function App() {
     }
   };
 
+  const handleStreakPress = useCallback(() => {
+    setIsStreaksModalVisible(true);
+    setActiveMenuHabitId(null);
+  }, []);
+
+  const isTodayCompleted = useMemo(() => {
+    const progress = getDayProgress(new Date());
+    return progress.total > 0 && progress.done >= progress.total;
+  }, [getDayProgress]);
+
   return (
     <GestureHandlerRootView>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -1826,33 +1848,13 @@ export default function App() {
         <View
           style={{ flex: 1 }}
         >
-          <View style={styles.navbar}>
-            <TouchableOpacity style={styles.dateSelector} onPress={handleHeaderDatePress}>
-              <Text style={styles.dateText}>{headerDateText}</Text>
-              <Ionicons name="chevron-down" size={18} color="#1F2937" />
-            </TouchableOpacity>
-
-            <View style={styles.rightActions}>
-              <TouchableOpacity style={styles.streakBadge} onPress={() => [setIsStreaksModalVisible(true), setActiveMenuHabitId(null)]}>
-                {(() => {
-                  const todayProgress = getDayProgress(new Date());
-                  const isTodayCompleted = todayProgress.total > 0 && todayProgress.done >= todayProgress.total;
-                  const flameColor = isTodayCompleted ? '#F59E0B' : '#9CA3AF';
-
-                  return (
-                    <>
-                      <Ionicons name="flame" size={22} color={flameColor} />
-                      <Text style={styles.streakText}>{streakStats.perfectCurrent}</Text>
-                    </>
-                  );
-                })()}
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.settingsButton}>
-                <Ionicons name="settings-outline" size={22} color="#1F2937" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <MainHeader 
+            dateText={headerDateText}
+            isTodayCompleted={isTodayCompleted}
+            streak={streakStats.perfectCurrent}
+            onDatePress={handleHeaderDatePress}
+            onStreakPress={handleStreakPress}
+          />
           <ScrollView
             style={styles.mainContent}
             showsVerticalScrollIndicator={false}

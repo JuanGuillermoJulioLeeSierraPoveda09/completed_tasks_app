@@ -70,7 +70,7 @@ interface MonthCalendarProps {
   onSelectDate: (date: Date) => void;
 }
 
-export default function MonthCalendar({ weekDayLabels, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
+function MonthCalendar({ weekDayLabels, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
   const [width, setWidth] = useState(0);
   const [visibleOffset, setVisibleOffset] = useState(0);
   const visibleOffsetRef = useRef(0);
@@ -154,6 +154,7 @@ export default function MonthCalendar({ weekDayLabels, locale, getDayProgress, o
     </View>
   );
 }
+export default memo(MonthCalendar);
 
 const styles = StyleSheet.create({
   header: {
