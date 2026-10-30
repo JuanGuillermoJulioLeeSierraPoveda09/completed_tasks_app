@@ -1593,10 +1593,43 @@ const BottomBar = React.memo<{ onCreate: () => void; onMe: () => void}>(({ onCre
   );
 });
 
-export default function App() {
-  const { t, i18n } = useTranslation();
-  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
-  const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
+const HabitList = React.memo<{
+  activeDate: Date;
+  activeDateKey: string;
+  activeMenuHabitId: string | null;
+  isEditMode: boolean;
+  dragCtx: DragContext;
+  handleToggle: (habitId: string) => void;
+  handleRelapse: (habitId: string) => void;
+  handleLongPress: () => void;
+  handleReorder: (habitId: string, toIndex: number, groupKey: string) => void;
+  handleDragCancel: () => void;
+  handleToggleMenu: (habitId: string) => void;
+  handleStartEdit: (habitId: string) => void;
+  handleDeleteHabit: (habitId: string) => void;
+  handleGroupIds: (groupKey: string, ids: string[]) => void;
+  openCreateForm: () => void;
+}>(({
+  activeDate,
+  activeDateKey,
+  activeMenuHabitId,
+  isEditMode,
+  dragCtx,
+  handleToggle,
+  handleRelapse,
+  handleLongPress,
+  handleReorder,
+  handleDragCancel,
+  handleToggleMenu,
+  handleStartEdit,
+  handleDeleteHabit,
+  handleGroupIds,
+  openCreateForm,
+}) => {
+  const { t } = useTranslation();
+  const habits = useHabitsStore((s) => s.habits);
+  const habitLogs = useHabitsStore((s) => s.habitLogs);
+  const relapseLogs = useHabitsStore((s) => s.relapseLogs);
   const QUIT_QUOTES_KEYS = useMemo(() => [
     t('youCanDoItSoldier'),
     t('stayStrongOneDayAtATime'),
@@ -1605,6 +1638,154 @@ export default function App() {
     t('youAreStrongerThanYourUrges'),
     t('keepGoingYoureDoingGreat')
   ], [t]);
+  const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
+  const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
+
+  const getDisplayDescription = (habit: Habit) => {
+    const quoteIndex = getQuitQuoteIndex(habit, activeDateKey);
+    return quoteIndex === null ? habit.description : QUIT_QUOTES_KEYS[quoteIndex];
+  };
+
+  return (
+    <View style={styles.habitsSection}>
+      {isEditMode && (
+        <Animated.View entering={FadeIn.duration(200)} style={styles.editModeOverlay} />
+      )}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
+      </View>
+
+      {visibleHabits.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
+          <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
+        </View>
+      ) : (
+        (() => {
+          const todayStr = formatDateKey(new Date());
+          const isHabitCompleted = (h: Habit) =>
+            isHabitDone(h, activeDateKey, habitLogs, relapseLogs, todayStr);
+          const relapsedIds = relapseLogs[activeDateKey] || [];
+          const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
+          const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
+          const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
+          const renderGroup = (title: string | null, groupHabits: Habit[]) => {
+            if (groupHabits.length === 0) return null;
+            const pending = groupHabits.filter(h => !isHabitCompleted(h));
+            const completed = groupHabits.filter(h => isHabitCompleted(h));
+            const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
+            const pendingHasMenu = pending.some(h => h.id === activeMenuHabitId);
+            const completedHasMenu = completed.some(h => h.id === activeMenuHabitId);
+
+            return (
+              <Animated.View
+                key={title || 'no-time'}
+                style={hasActiveMenu ? { zIndex: 100, elevation: 3 } : { zIndex: 10, elevation: 1 }}
+              >
+                {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
+                {pending.length > 0 && (
+                  <PendingGroupList
+                    groupKey={title || 'no-time'}
+                    ids={pending.map(h => h.id)}
+                    version={habits}
+                    raised={pendingHasMenu}
+                    drag={dragCtx}
+                    onIdsChange={handleGroupIds}
+                  >
+                    {pending.map((habit, index) => (
+                      <SwipeableHabitCard
+                        key={`pending-${habit.id}`}
+                        habit={habit}
+                        isCompleted={false}
+                        isFailed={false}
+                        onToggle={handleToggle}
+                        onRelapse={handleRelapse}
+                        displayDescription={getDisplayDescription(habit)}
+                        streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                        isEditMode={isEditMode}
+                        onLongPress={handleLongPress}
+                        onReorder={handleReorder}
+                        onDragCancel={handleDragCancel}
+                        isMenuOpen={activeMenuHabitId === habit.id}
+                        onToggleMenu={handleToggleMenu}
+                        onEdit={handleStartEdit}
+                        onDelete={handleDeleteHabit}
+                        index={index}
+                        positioned
+                        groupKey={title || 'no-time'}
+                        drag={dragCtx}
+                      />
+                    ))}
+                  </PendingGroupList>
+                )}
+
+                {completed.length > 0 && (
+                  <View style={{ marginTop: pending.length > 0 ? 10 : 0, zIndex: completedHasMenu ? 6 : 0 }}>
+                    {completed.map((habit) => (
+                      <TouchableOpacity
+                        key={`completed-${habit.id}`}
+                        onPress={() => handleToggle(habit.id)}
+                        activeOpacity={0.8}
+                        style={{ zIndex: activeMenuHabitId === habit.id ? 10 : 0 }}
+                      >
+                        <SwipeableHabitCard
+                          habit={habit}
+                          isCompleted={true}
+                          isFailed={false}
+                          onToggle={handleToggle}
+                          displayDescription={getDisplayDescription(habit)}
+                          streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
+                          isMenuOpen={activeMenuHabitId === habit.id}
+                          onToggleMenu={handleToggleMenu}
+                          onEdit={handleStartEdit}
+                          onDelete={handleDeleteHabit}
+                          drag={dragCtx}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </Animated.View>
+            );
+          };
+
+          const noTimeHabits = activeHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
+          const morningHabits = activeHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
+          const afternoonHabits = activeHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
+          const eveningHabits = activeHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
+
+          return (
+            <View>
+              {relapsedHabits.map((relapsedHabit) => (
+                <SwipeableHabitCard
+                  key={`relapsed-${relapsedHabit.id}`}
+                  habit={relapsedHabit}
+                  isCompleted={false}
+                  isFailed={true}
+                  onToggle={handleToggle}
+                  displayDescription={getDisplayDescription(relapsedHabit)}
+                  drag={dragCtx}
+                />
+              ))}
+              {renderGroup(null, noTimeHabits)}
+              {renderGroup(t('morning') || 'Mañana', morningHabits)}
+              {renderGroup(t('afternoon') || 'Tarde', afternoonHabits)}
+              {renderGroup(t('evening') || 'Noche', eveningHabits)}
+            </View>
+          );
+        })()
+      )}
+      <TouchableOpacity style={styles.createHabitButton} onPress={openCreateForm}>
+        <Ionicons name="add" size={22} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+export default function App() {
+  const { t, i18n } = useTranslation();
+  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
+  const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const dragInfo = useSharedValue<InfoMap>({});
   const dragId = useSharedValue('');
   const dragTo = useSharedValue(-1);
@@ -1713,13 +1894,6 @@ export default function App() {
     (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
     [habits, habitLogs, relapseLogs]
   );
-  const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
-
-  const getDisplayDescription = (habit: Habit) => {
-    const quoteIndex = getQuitQuoteIndex(habit, activeDateKey);
-    return quoteIndex === null ? habit.description : QUIT_QUOTES_KEYS[quoteIndex];
-  };
-
   const handleToggle = useCallback(
     (habitId: string) => toggleCompletion(habitId, activeDateKey),
     [toggleCompletion, activeDateKey]
@@ -1817,8 +1991,6 @@ export default function App() {
     [editingHabitId, activeDateKey, createHabit, updateHabit]
   );
 
-  const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
-
   const handleSelectWeekDay = useCallback((index: number) => {
     setSelectedDayIndex(index);
     setActiveMenuHabitId(null);
@@ -1896,138 +2068,23 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.habitsSection}>
-              {isEditMode && (
-                <Animated.View entering={FadeIn.duration(200)} style={styles.editModeOverlay} />
-              )}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>{t('yourHabits')}</Text>
-              </View>
-
-              {visibleHabits.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>{t('youDontHaveAnyHabitsYet')}</Text>
-                  <Text style={styles.emptySubtext}>{t('createOneToStartTracking')}</Text>
-                </View>
-              ) : (
-                (() => {
-                  const todayStr = formatDateKey(new Date());
-                  const isHabitCompleted = (h: Habit) =>
-                    isHabitDone(h, activeDateKey, habitLogs, relapseLogs, todayStr);
-                  const relapsedIds = relapseLogs[activeDateKey] || [];
-                  const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
-                  const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));
-                  const activeHabits = sortedHabits.filter(h => !relapsedIds.includes(h.id));
-                  const renderGroup = (title: string | null, groupHabits: Habit[]) => {
-                    if (groupHabits.length === 0) return null;
-                    const pending = groupHabits.filter(h => !isHabitCompleted(h));
-                    const completed = groupHabits.filter(h => isHabitCompleted(h));
-                    const hasActiveMenu = groupHabits.some(h => h.id === activeMenuHabitId);
-                    const pendingHasMenu = pending.some(h => h.id === activeMenuHabitId);
-                    const completedHasMenu = completed.some(h => h.id === activeMenuHabitId);
-
-                    return (
-                      <Animated.View
-                        key={title || 'no-time'}
-                        style={hasActiveMenu ? { zIndex: 100, elevation: 3 } : { zIndex: 10, elevation: 1 }}
-                      >
-                        {title && <Text style={styles.timeOfDayHeader}>{title}</Text>}
-                        {pending.length > 0 && (
-                          <PendingGroupList
-                            groupKey={title || 'no-time'}
-                            ids={pending.map(h => h.id)}
-                            version={habits}
-                            raised={pendingHasMenu}
-                            drag={dragCtx}
-                            onIdsChange={handleGroupIds}
-                          >
-                            {pending.map((habit, index) => (
-                              <SwipeableHabitCard
-                                key={`pending-${habit.id}`}
-                                habit={habit}
-                                isCompleted={false}
-                                isFailed={false}
-                                onToggle={handleToggle}
-                                onRelapse={handleRelapse}
-                                displayDescription={getDisplayDescription(habit)}
-                                streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                                isEditMode={isEditMode}
-                                onLongPress={handleLongPress}
-                                onReorder={handleReorder}
-                                onDragCancel={handleDragCancel}
-                                isMenuOpen={activeMenuHabitId === habit.id}
-                                onToggleMenu={handleToggleMenu}
-                                onEdit={handleStartEdit}
-                                onDelete={handleDeleteHabit}
-                                index={index}
-                                positioned
-                                groupKey={title || 'no-time'}
-                                drag={dragCtx}
-                              />
-                            ))}
-                          </PendingGroupList>
-                        )}
-
-                        {completed.length > 0 && (
-                          <View style={{ marginTop: pending.length > 0 ? 10 : 0, zIndex: completedHasMenu ? 6 : 0 }}>
-                            {completed.map((habit) => (
-                              <TouchableOpacity
-                                key={`completed-${habit.id}`}
-                                onPress={() => handleToggle(habit.id)}
-                                activeOpacity={0.8}
-                                style={{ zIndex: activeMenuHabitId === habit.id ? 10 : 0 }}
-                              >
-                                <SwipeableHabitCard
-                                  habit={habit}
-                                  isCompleted={true}
-                                  isFailed={false}
-                                  onToggle={handleToggle}
-                                  displayDescription={getDisplayDescription(habit)}
-                                  streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
-                                  isMenuOpen={activeMenuHabitId === habit.id}
-                                  onToggleMenu={handleToggleMenu}
-                                  onEdit={handleStartEdit}
-                                  onDelete={handleDeleteHabit}
-                                  drag={dragCtx}
-                                />
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        )}
-                      </Animated.View>
-                    );
-                  };
-
-                  const noTimeHabits = activeHabits.filter(h => !h.timeOfDay || h.type === 'Quit a habit');
-                  const morningHabits = activeHabits.filter(h => h.timeOfDay === 'Morning' && h.type !== 'Quit a habit');
-                  const afternoonHabits = activeHabits.filter(h => h.timeOfDay === 'Afternoon' && h.type !== 'Quit a habit');
-                  const eveningHabits = activeHabits.filter(h => h.timeOfDay === 'Evening' && h.type !== 'Quit a habit');
-
-                  return (
-                    <View>
-                      {relapsedHabits.map((relapsedHabit) => (
-                        <SwipeableHabitCard
-                          key={`relapsed-${relapsedHabit.id}`}
-                          habit={relapsedHabit}
-                          isCompleted={false}
-                          isFailed={true}
-                          onToggle={handleToggle}
-                          displayDescription={getDisplayDescription(relapsedHabit)}
-                          drag={dragCtx}
-                        />
-                      ))}
-                      {renderGroup(null, noTimeHabits)}
-                      {renderGroup(t('morning') || 'Mañana', morningHabits)}
-                      {renderGroup(t('afternoon') || 'Tarde', afternoonHabits)}
-                      {renderGroup(t('evening') || 'Noche', eveningHabits)}
-                    </View>
-                  );
-                })()
-              )}
-              <TouchableOpacity style={styles.createHabitButton} onPress={openCreateForm}>
-                <Ionicons name="add" size={22} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
+            <HabitList
+              activeDate={activeDate}
+              activeDateKey={activeDateKey}
+              activeMenuHabitId={activeMenuHabitId}
+              isEditMode={isEditMode}
+              dragCtx={dragCtx}
+              handleToggle={handleToggle}
+              handleRelapse={handleRelapse}
+              handleLongPress={handleLongPress}
+              handleReorder={handleReorder}
+              handleDragCancel={handleDragCancel}
+              handleToggleMenu={handleToggleMenu}
+              handleStartEdit={handleStartEdit}
+              handleDeleteHabit={handleDeleteHabit}
+              handleGroupIds={handleGroupIds}
+              openCreateForm={openCreateForm}
+            />
           </ScrollView>
 
           <BottomBar 
