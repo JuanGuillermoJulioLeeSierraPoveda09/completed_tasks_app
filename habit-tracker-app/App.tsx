@@ -1571,11 +1571,11 @@ const MainHeader = React.memo<{
 
 const BottomBar = React.memo<{ onCreate: () => void; onMe: () => void}>(({ onCreate, onMe }) => {
   const { t } = useTranslation();
-  const tabs: { key:string; icon: React.ComponentProps<typeof Ionicons> ['name']; label: string; active?: boolean; onPress?: () => void }[] = [
+  const tabs: { key: string; icon: React.ComponentProps<typeof Ionicons>['name']; label: string; active?: boolean; onPress?: () => void }[] = [
     { key: 'menu', icon: 'grid', label: t('menu'), active: true },
     { key: 'new', icon: 'add-circle-outline', label: t('newHabit'), onPress: onCreate },
-    { key: 'analytics', icon: 'bar-chart-outline', label: t('analytics')},
-    { key: 'me', icon: 'person-outline', label: t('me')},
+    { key: 'analytics', icon: 'bar-chart-outline', label: t('analytics') },
+    { key: 'me', icon: 'person-outline', label: t('me') },
   ];
   return (
     <SafeAreaView style={styles.bottomBar} edges={['bottom']}>
@@ -1782,6 +1782,67 @@ const HabitList = React.memo<{
   );
 });
 
+const StreaksModal = React.memo<{
+  visible: boolean;
+  stats: ReturnType<typeof computeStreakStats>;
+  weekDayLabels: string[];
+  locale: string;
+  getDayProgress: (date: Date) => { total: number; done: number };
+  onSelectDate: (date: Date) => void;
+  onClose: () => void;
+}>(({ visible, stats, weekDayLabels, locale, getDayProgress, onSelectDate, onClose }) => {
+  const { t } = useTranslation();
+  return (
+    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent={true}>
+      <SafeAreaView style={styles.streaksContainer}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={styles.streaksHeader}>
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={28} color="#1F2937" />
+          </TouchableOpacity>
+          <Text style={styles.streaksTitle}>{t('myStreaks')}</Text>
+          <View style={{ width: 28 }} />
+        </View>
+
+        <View style={styles.streaksTopBox}>
+          <View style={styles.streakCard}>
+            <Ionicons name="flame" size={56} color="#F59E0B" />
+            <Text style={styles.streakLabel}>{t('loggedDays')}</Text>
+            <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>
+              {stats.loggedCurrent}
+            </Text>
+            <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
+            <View style={styles.bestBadge}>
+              <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
+              <Text style={styles.bestText}>{t('best')}: {stats.loggedBest}</Text>
+            </View>
+            </View>
+            <View style={styles.streakDivider} />
+            <View style={styles.streakCard}>
+              <Ionicons name="flame" size={56} color="#10B981" />
+              <Text style={styles.streakLabel}>{t('perfectDays')}</Text>
+              <Text style={[styles.streakNumber, { color: '#10B981' }]}>{stats.perfectCurrent}</Text>
+              <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
+              <View style={styles.bestBadge}>
+                <Ionicons name="trophy-outline" size={16} color="#10B981" />
+                <Text style={styles.bestText}>{t('best')}: {stats.perfectBest}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.calendarSectionBox}>
+            <MonthCalendar 
+              weekDayLabels={weekDayLabels}
+              locale={locale}
+              getDayProgress={getDayProgress}
+              onSelectDate={onSelectDate}
+            />
+          </View>
+      </SafeAreaView>
+    </Modal>
+  );
+});
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
@@ -1872,7 +1933,7 @@ export default function App() {
 
   const headerDateText = useMemo(() => {
     const isToday = formatDateKey(new Date()) === formatDateKey(activeDate);
-    const dayName = activeDate.toLocaleDateString(currentLocale, {weekday: 'short' });
+    const dayName = activeDate.toLocaleDateString(currentLocale, { weekday: 'short' });
     const monthName = activeDate.toLocaleDateString(currentLocale, { month: 'short' });
     return `${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${activeDate.getDate()}`;
   }, [activeDate, currentLocale, t]);
@@ -2032,6 +2093,8 @@ export default function App() {
     setActiveMenuHabitId(null);
   }, []);
 
+  const handleCloseStreaks = useCallback(() => setIsStreaksModalVisible(false), []);
+
   const isTodayCompleted = useMemo(() => {
     const progress = getDayProgress(new Date());
     return progress.total > 0 && progress.done >= progress.total;
@@ -2044,7 +2107,7 @@ export default function App() {
         <View
           style={{ flex: 1 }}
         >
-          <MainHeader 
+          <MainHeader
             dateText={headerDateText}
             isTodayCompleted={isTodayCompleted}
             streak={streakStats.perfectCurrent}
@@ -2087,7 +2150,7 @@ export default function App() {
             />
           </ScrollView>
 
-          <BottomBar 
+          <BottomBar
             onCreate={openCreateForm}
             onMe={handleMePress}
           />
@@ -2100,51 +2163,15 @@ export default function App() {
           onSave={handleSaveHabit}
         />
 
-        <Modal visible={isStreaksModalVisible} animationType="fade" transparent={false} statusBarTranslucent={true}>
-          <SafeAreaView style={styles.streaksContainer}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-            <View style={styles.streaksHeader}>
-              <TouchableOpacity onPress={() => setIsStreaksModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#1F2937" />
-              </TouchableOpacity>
-              <Text style={styles.streaksTitle}>{t('myStreaks')}</Text>
-              <View style={{ width: 28 }} />
-            </View>
-
-            <View style={styles.streaksTopBox}>
-              <View style={styles.streakCard}>
-                <Ionicons name="flame" size={56} color="#F59E0B" />
-                <Text style={styles.streakLabel}>{t('loggedDays')}</Text>
-                <Text style={[styles.streakNumber, { color: '#F59E0B' }]}>{streakStats.loggedCurrent}</Text>
-                <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
-                <View style={styles.bestBadge}>
-                  <Ionicons name="trophy-outline" size={16} color="#F59E0B" />
-                  <Text style={styles.bestText}>{t('best')}: {streakStats.loggedBest}</Text>
-                </View>
-              </View>
-              <View style={styles.streakDivider} />
-              <View style={styles.streakCard}>
-                <Ionicons name="flame" size={56} color="#10B981" />
-                <Text style={styles.streakLabel}>{t('perfectDays')}</Text>
-                <Text style={[styles.streakNumber, { color: '#10B981' }]}>{streakStats.perfectCurrent}</Text>
-                <Text style={styles.streakSubtext}>{t('currentStreak')}</Text>
-                <View style={styles.bestBadge}>
-                  <Ionicons name="trophy-outline" size={16} color="#10B981" />
-                  <Text style={styles.bestText}>{t('best')}: {streakStats.perfectBest}</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.calendarSectionBox}>
-              <MonthCalendar
-                weekDayLabels={WEEK_DAYS}
-                locale={currentLocale}
-                getDayProgress={getDayProgress}
-                onSelectDate={handleSelectedCalendarDay}
-              />
-            </View>
-          </SafeAreaView>
-        </Modal>
+        <StreaksModal
+          visible={isStreaksModalVisible}
+          stats={streakStats}
+          weekDayLabels={WEEK_DAYS}
+          locale={currentLocale}
+          getDayProgress={getDayProgress}
+          onSelectDate={handleSelectedCalendarDay}
+          onClose={handleCloseStreaks}
+        />
 
         <Modal
           visible={isRelapseModalVisible}
