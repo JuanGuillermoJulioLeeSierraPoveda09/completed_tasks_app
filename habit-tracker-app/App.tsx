@@ -22,7 +22,6 @@ import {
 import Animated, {
   FadeInUp,
   FadeOutUp,
-  LinearTransition,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -547,6 +546,39 @@ interface SwipeableHabitCardProps {
   onDragCancel?: () => void;
 }
 
+const HabitCardMenu: React.FC<{
+  habitId: string;
+  isMenuOpen?: boolean;
+  onToggleMenu: (habitId: string) => void;
+  onEdit?: (habitId: string) => void;
+  onDelete?: (habitId: string) => void;
+}> = ({ habitId, isMenuOpen, onToggleMenu, onEdit, onDelete }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={{ position: 'relative', zIndex: 100 }}>
+      <TouchableOpacity style={styles.optionsButton} onPress={() => onToggleMenu(habitId)}>
+        <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
+      </TouchableOpacity>
+
+      {isMenuOpen && (
+        <TouchableOpacity activeOpacity={1} style={{ position: 'absolute', right: 0 }}>
+          <View style={styles.inlineMenuPopup}>
+            <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onEdit && onEdit(habitId)}>
+              <Ionicons name="pencil-outline" size={18} color="#1F2937" />
+              <Text style={styles.inlinePopupText}>{t('edit')}</Text>
+            </TouchableOpacity>
+            <View style={styles.inlinePopupDivider} />
+            <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onDelete && onDelete(habitId)}>
+              <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              <Text style={[styles.inlinePopupText, { color: '#DC2626' }]}>{t('delete')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
 const NEVER_OFFSET = 100000;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 const RELAPSE_THRESHOLD = SCREEN_WIDTH * 0.4;
@@ -571,7 +603,6 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
   drag,
   onDragCancel
 }) => {
-  const { t } = useTranslation();
   const { info, dragId, dragTo, committing } = drag;
   const reportHeight = React.useContext(GroupMeasureContext);
   const habitId = habit.id;
@@ -741,7 +772,6 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
   };
   return (
     <Animated.View
-      layout={positioned ? undefined : LinearTransition.duration(200)}
       onLayout={groupKey ? handleLayout : undefined}
       style={[
         styles.swipeableContainer,
@@ -803,27 +833,13 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
               )}
 
               {!isEditMode && onToggleMenu && (
-                <Animated.View entering={FadeIn} style={{ position: 'relative', zIndex: 100 }}>
-                  <TouchableOpacity style={styles.optionsButton} onPress={() => onToggleMenu(habit.id)}>
-                    <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
-                  </TouchableOpacity>
-
-                  {isMenuOpen && (
-                    <TouchableOpacity activeOpacity={1} style={{ position: 'absolute', right: 0 }}>
-                      <View style={styles.inlineMenuPopup}>
-                        <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onEdit && onEdit(habit.id)}>
-                          <Ionicons name="pencil-outline" size={18} color="#1F2937" />
-                          <Text style={styles.inlinePopupText}>{t('edit')}</Text>
-                        </TouchableOpacity>
-                        <View style={styles.inlinePopupDivider} />
-                        <TouchableOpacity style={styles.inlinePopupItem} onPress={() => onDelete && onDelete(habit.id)}>
-                          <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                          <Text style={[styles.inlinePopupText, { color: '#DC2626' }]}>{t('delete')}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  )}
-                </Animated.View>
+                <HabitCardMenu
+                  habitId={habit.id}
+                  isMenuOpen={isMenuOpen}
+                  onToggleMenu={onToggleMenu}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               )}
             </View>
           )}
@@ -834,6 +850,45 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
 }
 
 const SwipeableHabitCard = React.memo(SwipeableHabitCardBase);
+
+// Completed cards can't be swiped or dragged, so they skip the gestures and animated values that make mounting expensive
+const CompletedHabitCard = React.memo<{
+  habit: Habit;
+  displayDescription?: string;
+  streak?: number;
+  isMenuOpen: boolean;
+  onToggleMenu: (habitId: string) => void;
+  onEdit: (habitId: string) => void;
+  onDelete: (habitId: string) => void;
+}>(({ habit, displayDescription, streak, isMenuOpen, onToggleMenu, onEdit, onDelete }) => (
+  <View style={[styles.swipeableContainer, { zIndex: isMenuOpen ? 10 : 1, elevation: 0 }]}>
+    <View style={[styles.habitCardGestural, styles.habitCardCompletedGestural]}>
+      <View style={[styles.iconContainerGesture, { backgroundColor: '#F3F4F6' }]}>
+        <Ionicons name="checkmark-circle" size={24} color="#9CA3AF" />
+      </View>
+      <View style={styles.habitInfo}>
+        <Text style={[styles.habitTitleGestural, styles.habitTitleCompleted]}>{habit.title}</Text>
+        {displayDescription ? <Text style={styles.habitDescription}>{displayDescription}</Text> : null}
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
+        {habit.type === 'Quit a habit' && streak !== undefined && (
+          <View style={[styles.streakBadgeMini, { backgroundColor: habit.color }]}>
+            <Ionicons name="flame" size={12} color="#FFFFFF" />
+            <Text style={styles.streakBadgeMiniText}>{streak}</Text>
+          </View>
+        )}
+        <HabitCardMenu
+          habitId={habit.id}
+          isMenuOpen={isMenuOpen}
+          onToggleMenu={onToggleMenu}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      </View>
+    </View>
+  </View>
+));
+
 const PendingGroupList: React.FC<{
   groupKey: string;
   ids: string[];
@@ -1728,18 +1783,14 @@ const HabitList = React.memo<{
                         activeOpacity={0.8}
                         style={{ zIndex: activeMenuHabitId === habit.id ? 10 : 0 }}
                       >
-                        <SwipeableHabitCard
+                        <CompletedHabitCard
                           habit={habit}
-                          isCompleted={true}
-                          isFailed={false}
-                          onToggle={handleToggle}
                           displayDescription={getDisplayDescription(habit)}
                           streak={habit.type === 'Quit a habit' ? getQuitStreak(habit) : undefined}
                           isMenuOpen={activeMenuHabitId === habit.id}
                           onToggleMenu={handleToggleMenu}
                           onEdit={handleStartEdit}
                           onDelete={handleDeleteHabit}
-                          drag={dragCtx}
                         />
                       </TouchableOpacity>
                     ))}
@@ -1843,6 +1894,50 @@ const StreaksModal = React.memo<{
   );
 });
 
+const RelapseModal = React.memo<{
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}>(({ visible, onCancel, onConfirm }) => {
+  const { t } = useTranslation();
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType='fade'
+      statusBarTranslucent={true}
+    >
+      <View style={styles.modalOverlay}>
+        <Animated.View entering={FadeInUp.duration(300)} style={styles.relapseModalCard}>
+          <View style={styles.relapseIconWrapper}>
+            <Ionicons name="warning" size={36} color="#DC2626" />
+          </View>
+          <Text style={styles.relapseModalTitle}>
+            {t('relapseWarningTitle')}
+          </Text>
+          <Text style={styles.relapseModalText}>
+            {t('relapseWarningBody')}
+          </Text>
+          <View style={styles.relapseModalButtons}>
+            <TouchableOpacity
+              style={[styles.relapseButton, styles.relapseButtonCancel]}
+              onPress={onCancel}
+            >
+              <Text style={styles.relapseButtonCancelText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.relapseButton, styles.relapseButtonConfirm]}
+              onPress={onConfirm}
+            >
+              <Text style={styles.relapseButtonConfirmText}>{t('confirmRelapse')}</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+});
+
 export default function App() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
@@ -1874,7 +1969,7 @@ export default function App() {
   let last = Date.now();
   const id = setInterval(() => {
     const now = Date.now();
-    if (now - last > 150) console.log(`JS bloqueado: ${now - last} ms`);
+    if (now - last > 100) console.log(`JS bloqueado: ${now - last} ms`);
     last = now;
   }, 16);
   return () => clearInterval(id);
@@ -1965,9 +2060,13 @@ export default function App() {
     (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
     [habits, habitLogs, relapseLogs]
   );
+  // Read through a ref so changing day doesn't hand every memoized card a new onToggle
+  const activeDateKeyRef = useRef(activeDateKey);
+  activeDateKeyRef.current = activeDateKey;
+
   const handleToggle = useCallback(
-    (habitId: string) => toggleCompletion(habitId, activeDateKey),
-    [toggleCompletion, activeDateKey]
+    (habitId: string) => toggleCompletion(habitId, activeDateKeyRef.current),
+    [toggleCompletion]
   );
 
   const handleRelapse = useCallback((habitId: string) => {
@@ -1975,13 +2074,18 @@ export default function App() {
     setIsRelapseModalVisible(true);
   }, []);
 
-  const confirmRelapse = () => {
+  const confirmRelapse = useCallback(() => {
     if (relapsingHabitId) {
       confirmRelapseInStore(relapsingHabitId, activeDateKey);
     }
     setIsRelapseModalVisible(false);
     setRelapsingHabitId(null);
-  };
+  }, [relapsingHabitId, activeDateKey, confirmRelapseInStore]);
+
+  const cancelRelapse = useCallback(() => {
+    setIsRelapseModalVisible(false);
+    setRelapsingHabitId(null);
+  }, []);
 
   const handleToggleMenu = useCallback((habitId: string) => {
     setActiveMenuHabitId((prev) => (prev === habitId ? null : habitId));
@@ -2183,43 +2287,11 @@ export default function App() {
           onClose={handleCloseStreaks}
         />
 
-        <Modal
+        <RelapseModal
           visible={isRelapseModalVisible}
-          transparent={true}
-          animationType='fade'
-          statusBarTranslucent={true}
-        >
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInUp.duration(300)} style={styles.relapseModalCard}>
-              <View style={styles.relapseIconWrapper}>
-                <Ionicons name="warning" size={36} color="#DC2626" />
-              </View>
-              <Text style={styles.relapseModalTitle}>
-                {t('relapseWarningTitle')}
-              </Text>
-              <Text style={styles.relapseModalText}>
-                {t('relapseWarningBody')}
-              </Text>
-              <View style={styles.relapseModalButtons}>
-                <TouchableOpacity
-                  style={[styles.relapseButton, styles.relapseButtonCancel]}
-                  onPress={() => {
-                    setIsRelapseModalVisible(false);
-                    setRelapsingHabitId(null);
-                  }}
-                >
-                  <Text style={styles.relapseButtonCancelText}>{t('cancel')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.relapseButton, styles.relapseButtonConfirm]}
-                  onPress={confirmRelapse}
-                >
-                  <Text style={styles.relapseButtonConfirmText}>{t('confirmRelapse')}</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </View>
-        </Modal>
+          onCancel={cancelRelapse}
+          onConfirm={confirmRelapse}
+        />
 
         <NotificationPermissionModal
           visible={isNotificationPromptVisible}

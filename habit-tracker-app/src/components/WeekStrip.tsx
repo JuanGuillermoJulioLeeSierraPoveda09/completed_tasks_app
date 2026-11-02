@@ -118,12 +118,16 @@ function WeekStrip({
     onChangeWeek(offset);
   };
 
+  // Read through a ref so selecting a day doesn't hand every memoized WeekPage a new onSelectDay
+  const selectedDayRef = useRef(selectedDayIndex);
+  selectedDayRef.current = selectedDayIndex;
+
   const handleSelectDay = useCallback(
     (index: number) => {
-      if (index !== selectedDayIndex) Haptics.selectionAsync();
+      if (index !== selectedDayRef.current) Haptics.selectionAsync();
       onSelectDay(index);
     },
-    [selectedDayIndex, onSelectDay]
+    [onSelectDay]
   );
 
   return (
