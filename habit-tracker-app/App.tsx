@@ -100,6 +100,7 @@ const AVAILABLE_COLORS = [
   '#8B5CF6', '#EC4899', '#06B6D4', '#3B82F6',
   '#84CC16', '#14B8A6', '#6366F1', '#D97706',
 ];
+const COLOR_ROWS = [AVAILABLE_COLORS.slice(0, 6), AVAILABLE_COLORS.slice(6)];
 
 const ICON_CATEGORIES = {
   All: [
@@ -851,7 +852,6 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
 
 const SwipeableHabitCard = React.memo(SwipeableHabitCardBase);
 
-// Completed cards can't be swiped or dragged, so they skip the gestures and animated values that make mounting expensive
 const CompletedHabitCard = React.memo<{
   habit: Habit;
   displayDescription?: string;
@@ -1248,18 +1248,22 @@ const HabitFormBody: React.FC<{
           <View style={styles.formGroup}>
             <Text style={styles.fieldLabel}>{t('color')}</Text>
             <View style={styles.colorGrid}>
-              {AVAILABLE_COLORS.map((color) => {
-                const isSelected = form.color === color;
-                return (
-                  <TouchableOpacity
-                    key={`${color}-${isSelected}`}
-                    style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
-                    onPress={() => patch({ color })}
-                  >
-                    {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
-                  </TouchableOpacity>
-                );
-              })}
+              {COLOR_ROWS.map((row, rowIndex) => (
+                <View key={rowIndex} style={styles.colorRow}>
+                  {row.map((color) => {
+                    const isSelected = form.color === color;
+                    return (
+                      <TouchableOpacity
+                        key={`${color}-${isSelected}`}
+                        style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
+                        onPress={() => patch({ color })}
+                      >
+                        {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
             </View>
           </View>
 
@@ -2060,7 +2064,6 @@ export default function App() {
     (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
     [habits, habitLogs, relapseLogs]
   );
-  // Read through a ref so changing day doesn't hand every memoized card a new onToggle
   const activeDateKeyRef = useRef(activeDateKey);
   activeDateKeyRef.current = activeDateKey;
 
@@ -2681,10 +2684,12 @@ const styles = StyleSheet.create({
   },
   frequencyValueText: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
   colorGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
     marginTop: 4,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   colorOption: {
     width: 44,
