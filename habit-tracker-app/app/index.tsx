@@ -12,6 +12,7 @@ import NotificationPermissionModal from '../src/components/NotificationPermissio
 import WeekStrip from '../src/components/WeekStrip';
 import { triggerHaptic, triggerButtonHaptics } from '../src/utils/haptics';
 import { type InfoMap, type DragContext } from '../src/utils/dragLayout';
+import { getRelativeDay } from '../src/utils/relativeDay';
 import HabitFormModal from '../src/components/HabitFormModal';
 import MainHeader from '../src/components/MainHeader';
 import BottomBar from '../src/components/BottomBar';
@@ -110,10 +111,11 @@ export default function HomeScreen() {
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
   const headerDateText = useMemo(() => {
-    const isToday = formatDateKey(new Date()) === formatDateKey(activeDate);
+    const relativeDay = getRelativeDay(activeDate);
+    if (relativeDay) return t(relativeDay);
     const dayName = activeDate.toLocaleDateString(currentLocale, { weekday: 'short' });
     const monthName = activeDate.toLocaleDateString(currentLocale, { month: 'short' });
-    return `${isToday ? t('today') + ', ' : ''}${dayName} ${monthName} ${activeDate.getDate()}`;
+    return `${dayName} ${monthName} ${activeDate.getDate()}`;
   }, [activeDate, currentLocale, t]);
 
   const handleHeaderDatePress = useCallback(() => {
