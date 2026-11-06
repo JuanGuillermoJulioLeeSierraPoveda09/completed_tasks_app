@@ -14,7 +14,6 @@ export const FONT_ASSETS = {
   PlusJakartaSans_800ExtraBold,
 };
 
-// On Android, fontWeight doesn't pick a weight from a custom font, so each weight is its own family.
 export const FONTS = {
   regular: 'PlusJakartaSans_400Regular',
   medium: 'PlusJakartaSans_500Medium',

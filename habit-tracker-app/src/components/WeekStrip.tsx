@@ -118,7 +118,6 @@ function WeekStrip({
     onChangeWeek(offset);
   };
 
-  // Read through a ref so selecting a day doesn't hand every memoized WeekPage a new onSelectDay
   const selectedDayRef = useRef(selectedDayIndex);
   selectedDayRef.current = selectedDayIndex;
 

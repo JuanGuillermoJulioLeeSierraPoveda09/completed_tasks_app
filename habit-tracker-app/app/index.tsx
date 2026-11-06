@@ -1,25 +1,24 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { StyleSheet, View, StatusBar, Platform, Alert, AppState } from 'react-native';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
-import './i18n';
 import * as Haptics from 'expo-haptics';
-import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from './habitsStore';
-import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllHabitReminders, areNotificationsEnabled, openNotificationSettings } from './notifications';
-import NotificationPermissionModal from './src/components/NotificationPermissionModal';
-import WeekStrip from './src/components/WeekStrip';
-import { triggerHaptic, triggerButtonHaptics } from './src/utils/haptics';
-import { type InfoMap, type DragContext } from './src/utils/dragLayout';
-import HabitFormModal from './src/components/HabitFormModal';
-import MainHeader from './src/components/MainHeader';
-import BottomBar from './src/components/BottomBar';
-import HabitList from './src/components/HabitList';
-import StreaksModal from './src/components/StreaksModal';
-import RelapseModal from './src/components/RelapseModal';
+import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
+import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllHabitReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
+import NotificationPermissionModal from '../src/components/NotificationPermissionModal';
+import WeekStrip from '../src/components/WeekStrip';
+import { triggerHaptic, triggerButtonHaptics } from '../src/utils/haptics';
+import { type InfoMap, type DragContext } from '../src/utils/dragLayout';
+import HabitFormModal from '../src/components/HabitFormModal';
+import MainHeader from '../src/components/MainHeader';
+import BottomBar from '../src/components/BottomBar';
+import HabitList from '../src/components/HabitList';
+import StreaksModal from '../src/components/StreaksModal';
+import RelapseModal from '../src/components/RelapseModal';
 
-export default function App() {
+export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
@@ -286,7 +285,6 @@ export default function App() {
   }, [getDayProgress]);
 
   return (
-    <GestureHandlerRootView>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
         <View
@@ -370,7 +368,6 @@ export default function App() {
           onLater={handleNotificationPromptLater}
         />
       </SafeAreaView>
-    </GestureHandlerRootView >
   );
 }
 
