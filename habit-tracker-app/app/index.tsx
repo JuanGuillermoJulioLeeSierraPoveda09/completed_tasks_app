@@ -4,6 +4,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router'; 
 import * as Haptics from 'expo-haptics';
 import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
 import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllHabitReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
@@ -20,6 +21,7 @@ import RelapseModal from '../src/components/RelapseModal';
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const dragInfo = useSharedValue<InfoMap>({});
@@ -279,6 +281,11 @@ export default function HomeScreen() {
 
   const handleCloseStreaks = useCallback(() => setIsStreaksModalVisible(false), []);
 
+  const handleSettingsPress = useCallback(() => {
+    setActiveMenuHabitId(null);
+    router.push('/settings');
+  }, [router]);
+
   const isTodayCompleted = useMemo(() => {
     const progress = getDayProgress(new Date());
     return progress.total > 0 && progress.done >= progress.total;
@@ -296,6 +303,7 @@ export default function HomeScreen() {
             streak={streakStats.perfectCurrent}
             onDatePress={handleHeaderDatePress}
             onStreakPress={handleStreakPress}
+            onSettingsPress={handleSettingsPress}
           />
           <ScrollView
             style={styles.mainContent}

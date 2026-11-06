@@ -9,7 +9,8 @@ const MainHeader = React.memo<{
   streak: number;
   onDatePress: () => void;
   onStreakPress: () => void;
-}>(({ dateText, isTodayCompleted, streak, onDatePress, onStreakPress }) => (
+  onSettingsPress: () => void;
+}>(({ dateText, isTodayCompleted, streak, onDatePress, onStreakPress, onSettingsPress }) => (
   <View style={styles.navbar}>
     <TouchableOpacity style={styles.dateSelector} onPress={onDatePress}>
       <Text style={styles.dateText}>{dateText}</Text>
@@ -22,7 +23,7 @@ const MainHeader = React.memo<{
         <Text style={styles.streakText}>{streak}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.settingsButton}>
+      <TouchableOpacity style={styles.settingsButton} onPress={onSettingsPress}>
         <Ionicons name="settings-outline" size={22} color="#1F2937" />
       </TouchableOpacity>
     </View>

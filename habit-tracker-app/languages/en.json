@@ -96,5 +96,14 @@
     "notifSettingsOnBody": "Reminders are on. To turn them off, open your phone's settings and disable notifications for this app.",
     "notifSettingsOffBody": "Reminders are off. To turn them on, open your phone's settings and allow notifications for this app.",
     "notNow": "Not now",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "settings": "Settings",
+    "account": "Account",
+    "preferences": "Preferences",
+    "editProfile": "Edit profile",
+    "accountAndSecurity": "Account and security",
+    "language": "Language",
+    "theme": "Theme",
+    "weekStartsOn": "Week starts on",
+    "reminders": "Reminders"
 }
