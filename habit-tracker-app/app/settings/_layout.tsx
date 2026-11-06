@@ -8,6 +8,7 @@ export default function SettingsLayout() {
     return (
         <Stack
             screenOptions={{
+                animation: 'slide_from_right',
                 headerStyle: { backgroundColor: '#F9F9F7' },
                 headerShadowVisible: false,
                 headerTintColor: '#1F2937',
