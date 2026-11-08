@@ -4,10 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet } from 'react-native';
 import SettingsSection from '../../src/components/settings/SettingSection';
 import SettingsRow from '../../src/components/settings/SettingsRow';
+import { useSettingsStore } from '../../src/stores/settingsStore';
+import { LANGUAGE_OPTIONS } from '../../src/constants/languages';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+    const currentLanguageName = LANGUAGE_OPTIONS.find((option) => option.code === i18n.language)?.nativeName;
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -28,6 +32,7 @@ export default function SettingsScreen() {
                 <SettingsRow 
                     icon="language-outline"
                     label={t('language')}
+                    value={currentLanguageName}
                     onPress={() => router.push('/settings/language')}
                 />
                 <SettingsRow 
@@ -38,6 +43,7 @@ export default function SettingsScreen() {
                 <SettingsRow 
                     icon="calendar-outline"
                     label={t('weekStartsOn')}
+                    value={t(weekStartsOn === 0 ? 'Sunday' : 'Monday')}
                     onPress={() => router.push('/settings/week-start')}
                 />
                 <SettingsRow 

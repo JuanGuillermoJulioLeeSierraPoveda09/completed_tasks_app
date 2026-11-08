@@ -5,9 +5,10 @@ import { FONTS } from '../../../fonts';
 type SettingsSectionProps = {
     title: string;
     children: React.ReactNode;
+    dividerInset?: number;
 };
 
-const SettingsSection = ({ title, children }: SettingsSectionProps) => {
+const SettingsSection = ({ title, children, dividerInset = 56 }: SettingsSectionProps) => {
     const rows = React.Children.toArray(children);
 
     return (
@@ -16,7 +17,7 @@ const SettingsSection = ({ title, children }: SettingsSectionProps) => {
             <View style={styles.card}>
                 {rows.map((row, index) => (
                     <React.Fragment key={index}>
-                        {index > 0 ? <View style={styles.divider} /> : null}
+                        {index > 0 ? <View style={[styles.divider, { marginLeft: dividerInset }]} /> : null}
                         {row}
                     </React.Fragment>
                 ))}
@@ -46,7 +47,6 @@ const styles = StyleSheet.create({
     divider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: '#E5E7EB',
-        marginLeft: 56,
     },
 });
 

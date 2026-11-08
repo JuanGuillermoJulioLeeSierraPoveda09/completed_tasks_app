@@ -17,7 +17,7 @@ export default function WeekStartScreen() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <SettingsSection title={t('weekStartsOn')}>
+            <SettingsSection title={t('weekStartsOn')} dividerInset={16}>
                 {WEEK_START_OPTIONS.map((option) => (
                     <OptionRow
                         key={option.value}

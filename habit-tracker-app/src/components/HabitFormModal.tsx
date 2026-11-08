@@ -13,6 +13,8 @@ import { AVAILABLE_COLORS, COLOR_ROWS, ICON_CATEGORIES } from '../constants/habi
 import { type FrequencyType, everyWeekDay, formatMonthDaysDisplay, describeWeekDays } from '../utils/frequency';
 import CustomTimePickerModal from './CustomTimePickerModal';
 import { toLocaleTag } from '../utils/locale';
+import { useSettingsStore } from '../stores/settingsStore';
+import { rotateWeekDays } from '../utils/week';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -105,6 +107,8 @@ const HabitFormBody: React.FC<{
   const { t, i18n } = useTranslation();
   const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
+  const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const weekDayOrder = useMemo(() => rotateWeekDays([0, 1, 2, 3, 4, 5, 6], weekStartsOn), [weekStartsOn]);
 
   const [form, setForm] = useState<HabitFormState>(() => makeInitialForm(habit, t('everyday')));
   const patch = (changes: Partial<HabitFormState>) => setForm((f) => ({ ...f, ...changes }));
@@ -477,7 +481,8 @@ const HabitFormBody: React.FC<{
 
               {form.frequencyType === 'days_of_week' && (
                 <View style={styles.weekDaysPickerRow} >
-                  {WEEK_DAYS.map((day, idx) => {
+                  {weekDayOrder.map((idx) => {
+                    const day = WEEK_DAYS[idx];
                     const isSelected = form.weekDays[idx];
                     return (
                       <TouchableOpacity

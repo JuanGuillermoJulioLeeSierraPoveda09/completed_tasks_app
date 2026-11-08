@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
 import type { WeekStart } from '../stores/settingsStore';
 import { getDayColumn } from '../utils/week';
+import { capitalize } from '../utils/locale';
 
 import { FONTS } from '../../fonts';
 const MONTHS_EACH_SIDE = 240;
@@ -113,7 +114,7 @@ function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, on
   const cellWidth = width / 7;
   const todayKey = formatDateKey(new Date());
 
-  const title = monthStart(visibleOffset).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+  const title = capitalize(monthStart(visibleOffset).toLocaleDateString(locale, { month: 'long', year: 'numeric' }), locale);
 
   const handleLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
