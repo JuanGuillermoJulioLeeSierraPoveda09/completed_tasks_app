@@ -71,7 +71,7 @@ export const describeWeekDays = (daysArr: boolean[], t: TFn): string => {
 
     if (startIdx !== -1) {
       const endIdx = (startIdx + count - 1) % 7;
-      return `${t('from')}${dayNames[startIdx]} ${t('to')} ${dayNames[endIdx]}`;
+      return `${t('from')} ${dayNames[startIdx]} ${t('to')} ${dayNames[endIdx]}`;
     }
   } else if (count === 0) {
     return t('selectAtLeast1Day');

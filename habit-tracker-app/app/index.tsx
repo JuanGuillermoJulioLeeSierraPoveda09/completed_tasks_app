@@ -19,11 +19,12 @@ import BottomBar from '../src/components/BottomBar';
 import HabitList from '../src/components/HabitList';
 import StreaksModal from '../src/components/StreaksModal';
 import RelapseModal from '../src/components/RelapseModal';
+import { toLocaleTag, capitalize } from '../src/utils/locale';
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
-  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
+  const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const dragInfo = useSharedValue<InfoMap>({});
   const dragId = useSharedValue('');
@@ -113,8 +114,8 @@ export default function HomeScreen() {
   const headerDateText = useMemo(() => {
     const relativeDay = getRelativeDay(activeDate);
     if (relativeDay) return t(relativeDay);
-    const dayName = activeDate.toLocaleDateString(currentLocale, { weekday: 'short' });
-    const monthName = activeDate.toLocaleDateString(currentLocale, { month: 'short' });
+    const dayName = capitalize(activeDate.toLocaleDateString(currentLocale, { weekday: 'long' }), currentLocale);
+  const monthName = capitalize(activeDate.toLocaleDateString(currentLocale, { month: 'short' }), currentLocale);
     return `${dayName} ${monthName} ${activeDate.getDate()}`;
   }, [activeDate, currentLocale, t]);
 

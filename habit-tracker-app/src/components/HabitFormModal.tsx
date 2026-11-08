@@ -12,6 +12,7 @@ import { FONTS } from '../../fonts';
 import { AVAILABLE_COLORS, COLOR_ROWS, ICON_CATEGORIES } from '../constants/habitOptions';
 import { type FrequencyType, everyWeekDay, formatMonthDaysDisplay, describeWeekDays } from '../utils/frequency';
 import CustomTimePickerModal from './CustomTimePickerModal';
+import { toLocaleTag } from '../utils/locale';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -102,7 +103,7 @@ const HabitFormBody: React.FC<{
   onSave: (draft: HabitDraft) => void;
 }> = ({ habit, onClose, onSave }) => {
   const { t, i18n } = useTranslation();
-  const currentLocale = i18n.language === 'es' ? 'es-ES' : i18n.language === 'jp' ? 'ja-JP' : 'en-US';
+  const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
 
   const [form, setForm] = useState<HabitFormState>(() => makeInitialForm(habit, t('everyday')));

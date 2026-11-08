@@ -107,5 +107,8 @@
     "language": "Language",
     "theme": "Theme",
     "weekStartsOn": "Week starts on",
-    "reminders": "Reminders"
+    "reminders": "Reminders",
+    "english": "English",
+    "spanish": "Spanish",
+    "japanese": "Japanese"
 }

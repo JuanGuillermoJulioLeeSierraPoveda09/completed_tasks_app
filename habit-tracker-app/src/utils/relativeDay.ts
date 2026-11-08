@@ -1,4 +1,3 @@
-import { number } from "react-i18next/icu.macro";
 import { formatDateKey  } from "../../habitsStore";
 export type RelativeDay = 'yesterday' | 'today' | 'tomorrow';
 
