@@ -110,5 +110,17 @@
     "reminders": "Recordatorios",
     "english": "Inglés",
     "spanish": "Español",
-    "japanese": "Japonés"
+    "japanese": "Japonés",
+    "dailyReminders": "Recordatorios diarios",
+    "general": "General",
+    "notifications": "Notificaciones",
+    "notificationsDescription": "Apágalo para silenciar todos los recordatorios, incluidos los de tus hábitos.",
+    "on": "Activado",
+    "off": "Desactivado",
+    "morningNotifTitle": "¡Buenos días! ☀️",
+    "morningNotifBody": "Echa un vistazo a tus hábitos de hoy.",
+    "afternoonNotifTitle": "Revisión de la tarde",
+    "afternoonNotifBody": "¿Cómo van tus hábitos de hoy?",
+    "eveningNotifTitle": "Revisión de la noche",
+    "eveningNotifBody": "Aún estás a tiempo de completar tus hábitos de hoy."
 }

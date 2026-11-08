@@ -110,5 +110,17 @@
     "reminders": "Reminders",
     "english": "English",
     "spanish": "Spanish",
-    "japanese": "Japanese"
+    "japanese": "Japanese",
+    "dailyReminders": "Daily reminders",
+    "general": "General",
+    "notifications": "Notifications",
+    "notificationsDescription": "Turn off to mute every reminder, including your habits.",
+    "on": "On",
+    "off": "Off",
+    "morningNotifTitle": "Good morning ☀️",
+    "morningNotifBody": "Take a look at your habits for today.",
+    "afternoonNotifTitle": "Afternoon check-in",
+    "afternoonNotifBody": "How are today's habits going?",
+    "eveningNotifTitle": "Evening check-in",
+    "eveningNotifBody": "There's still time to finish today's habits."
 }
