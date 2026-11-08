@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateStorage} from 'zustand/middleware';
 import { createMMKV } from 'react-native-mmkv';
 import type { HabitReminder } from '../../habitsStore';
-import { areNotificationsEnabled } from '../../notifications';
 
 const mmkv = createMMKV({ id: 'settings-storage' });
 
