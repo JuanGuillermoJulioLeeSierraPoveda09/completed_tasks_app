@@ -3,7 +3,7 @@ export type FrequencyType = 'days_of_week' | 'days_of_month' | 'some_days';
 export const everyWeekDay = () => [true, true, true, true, true, true, true];
 
 export const getOrdinalSuffix = (day: number, t: TFn) => {
-  if (day > 3 && day < 21) return `${day}th`;
+  if (day > 3 && day < 21) return `${day}${t('th')}`;
   switch (day % 10) {
     case 1: return `${day}${t('first')}`;
     case 2: return `${day}${t('second')}`;

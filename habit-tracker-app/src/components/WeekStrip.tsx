@@ -4,6 +4,8 @@ import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
+import type { WeekStart } from '../stores/settingsStore';
+import { getDateAt } from '../utils/week';
 
 import { FONTS } from '../../fonts';
 const BRAND = '#00B763';
@@ -15,16 +17,8 @@ const SPRING = { damping: 20, stiffness: 220, mass: 0.6 };
 
 type DayProgress = { total: number; done: number };
 
-const getWeekDates = (weekOffset: number) => {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - start.getDay() + weekOffset * 7);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d;
-  });
-};
+const getWeekDates = (weekOffset: number, weekStartsOn: WeekStart) =>
+  Array.from({ length: 7 }, (_, i) => getDateAt(weekOffset, i, weekStartsOn));
 
 const statusColor = ({ total, done }: DayProgress) => {
   if (total === 0) return 'transparent';
@@ -35,6 +29,7 @@ const statusColor = ({ total, done }: DayProgress) => {
 
 interface WeekPageProps {
   weekOffset: number;
+  weekStartsOn: WeekStart;
   width: number;
   columnWidth: number;
   todayKey: string;
@@ -42,8 +37,8 @@ interface WeekPageProps {
   onSelectDay: (index: number) => void;
 }
 
-const WeekPage = memo(({ weekOffset, width, columnWidth, todayKey, getDayProgress, onSelectDay }: WeekPageProps) => {
-  const dates = getWeekDates(weekOffset);
+const WeekPage = memo(({ weekOffset, weekStartsOn, width, columnWidth, todayKey, getDayProgress, onSelectDay }: WeekPageProps) => {
+  const dates = getWeekDates(weekOffset, weekStartsOn);
   return (
     <View style={[styles.weekPage, { width }]}>
       {dates.map((date, index) => {
@@ -72,6 +67,7 @@ const WeekPage = memo(({ weekOffset, width, columnWidth, todayKey, getDayProgres
 
 interface WeekStripProps {
   weekOffset: number;
+  weekStartsOn: WeekStart;
   selectedDayIndex: number;
   weekDayLabels: string[];
   getDayProgress: (date: Date) => DayProgress;
@@ -81,6 +77,7 @@ interface WeekStripProps {
 
 function WeekStrip({
   weekOffset,
+  weekStartsOn,
   selectedDayIndex,
   weekDayLabels,
   getDayProgress,
@@ -171,6 +168,7 @@ function WeekStrip({
           renderItem={({ item }) => (
             <WeekPage
               weekOffset={item}
+              weekStartsOn={weekStartsOn}
               width={width}
               columnWidth={columnWidth}
               todayKey={todayKey}

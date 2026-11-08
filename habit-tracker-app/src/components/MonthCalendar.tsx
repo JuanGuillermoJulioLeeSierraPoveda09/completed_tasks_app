@@ -4,6 +4,8 @@ import type { GestureResponderEvent, LayoutChangeEvent, NativeScrollEvent, Nativ
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
+import type { WeekStart } from '../stores/settingsStore';
+import { getDayColumn } from '../utils/week';
 
 import { FONTS } from '../../fonts';
 const MONTHS_EACH_SIDE = 240;
@@ -20,11 +22,11 @@ const monthStart = (monthOffset: number) => {
   return new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
 };
 
-const getMonthCells = (monthOffset: number) => {
+const getMonthCells = (monthOffset: number, weekStartsOn: WeekStart) => {
   const first = monthStart(monthOffset);
   const month = first.getMonth();
   return Array.from({ length: CELLS_PER_MONTH }, (_, i) => {
-    const date = new Date(first.getFullYear(), month, 1 - first.getDay() + i);
+    const date = new Date(first.getFullYear(), month, 1 - getDayColumn(first, weekStartsOn) + i);
     return { date, isCurrentMonth: date.getMonth() === month };
   });
 };
@@ -51,6 +53,7 @@ const getCachedProgress = (getDayProgress: (date: Date) => DayProgress, date: Da
 
 interface MonthPageProps {
   monthOffset: number;
+  weekStartsOn: WeekStart;
   width: number;
   cellWidth: number;
   todayKey: string;
@@ -58,8 +61,8 @@ interface MonthPageProps {
   onSelectDate: (date: Date) => void;
 }
 
-const MonthPage = memo(({ monthOffset, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => {
-  const cells = getMonthCells(monthOffset);
+const MonthPage = memo(({ monthOffset, weekStartsOn, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => {
+  const cells = getMonthCells(monthOffset, weekStartsOn);
   const gridHeight = useRef(0);
   const handlePress = (e: GestureResponderEvent) => {
     if (gridHeight.current === 0 || cellWidth === 0) return;
@@ -96,12 +99,13 @@ const MonthPage = memo(({ monthOffset, width, cellWidth, todayKey, getDayProgres
 
 interface MonthCalendarProps {
   weekDayLabels: string[];
+  weekStartsOn: WeekStart;
   locale: string;
   getDayProgress: (date: Date) => DayProgress;
   onSelectDate: (date: Date) => void;
 }
 
-function MonthCalendar({ weekDayLabels, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
+function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
   const [width, setWidth] = useState(0);
   const [visibleOffset, setVisibleOffset] = useState(0);
   const visibleOffsetRef = useRef(0);
@@ -173,6 +177,7 @@ function MonthCalendar({ weekDayLabels, locale, getDayProgress, onSelectDate }: 
           renderItem={({ item }) => (
             <MonthPage
               monthOffset={item}
+              weekStartsOn={weekStartsOn}
               width={width}
               cellWidth={cellWidth}
               todayKey={todayKey}

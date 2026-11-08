@@ -4,7 +4,7 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router'; 
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
 import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllHabitReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
@@ -20,12 +20,16 @@ import HabitList from '../src/components/HabitList';
 import StreaksModal from '../src/components/StreaksModal';
 import RelapseModal from '../src/components/RelapseModal';
 import { toLocaleTag, capitalize } from '../src/utils/locale';
+import { useSettingsStore } from '../src/stores/settingsStore';
+import { getDayColumn, getDateAt, getWeekOffset, rotateWeekDays } from '../src/utils/week';
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
+  const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const WEEK_LABELS = useMemo(() => rotateWeekDays(WEEK_DAYS, weekStartsOn), [WEEK_DAYS, weekStartsOn]);
   const dragInfo = useSharedValue<InfoMap>({});
   const dragId = useSharedValue('');
   const dragTo = useSharedValue(-1);
@@ -44,7 +48,7 @@ export default function HomeScreen() {
   const deleteHabit = useHabitsStore((s) => s.deleteHabit);
   const reorderHabit = useHabitsStore((s) => s.reorderHabit);
   const [weekOffset, setWeekOffset] = useState<number>(0);
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(new Date().getDay());
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(() => getDayColumn(new Date(), weekStartsOn));
   const [isRelapseModalVisible, setIsRelapseModalVisible] = useState(false);
   const [relapsingHabitId, setRelapsingHabitId] = useState<string | null>(null);
   const [isNotificationPromptVisible, setIsNotificationPromptVisible] = useState(false);
@@ -99,23 +103,28 @@ export default function HomeScreen() {
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [formSession, setFormSession] = useState(0);
 
-  const activeDate = useMemo(() => {
-    const today = new Date();
-    const currentDayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - currentDayOfWeek + weekOffset * 7);
+  const activeDate = useMemo(
+    () => getDateAt(weekOffset, selectedDayIndex, weekStartsOn),
+    [weekOffset, selectedDayIndex, weekStartsOn]
+  );
 
-    const selectedDate = new Date(startOfWeek);
-    selectedDate.setDate(startOfWeek.getDate() + selectedDayIndex);
-    return selectedDate;
-  }, [weekOffset, selectedDayIndex]);
+  const prevWeekStartsOn = useRef(weekStartsOn);
+  useEffect(() => {
+    const previous = prevWeekStartsOn.current;
+    if (previous === weekStartsOn) return;
+    prevWeekStartsOn.current = weekStartsOn;
+    const date = getDateAt(weekOffset, selectedDayIndex, previous);
+    setWeekOffset(getWeekOffset(date, weekStartsOn));
+    setSelectedDayIndex(getDayColumn(date, weekStartsOn));
+  }, [weekStartsOn]);
+
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
   const headerDateText = useMemo(() => {
     const relativeDay = getRelativeDay(activeDate);
     if (relativeDay) return t(relativeDay);
     const dayName = capitalize(activeDate.toLocaleDateString(currentLocale, { weekday: 'long' }), currentLocale);
-  const monthName = capitalize(activeDate.toLocaleDateString(currentLocale, { month: 'short' }), currentLocale);
+    const monthName = capitalize(activeDate.toLocaleDateString(currentLocale, { month: 'short' }), currentLocale);
     return `${dayName} ${monthName} ${activeDate.getDate()}`;
   }, [activeDate, currentLocale, t]);
 
@@ -126,7 +135,7 @@ export default function HomeScreen() {
     setActiveMenuHabitId(null);
     if (activeStr !== todayStr) {
       setWeekOffset(0);
-      setSelectedDayIndex(today.getDay());
+      setSelectedDayIndex(getDayColumn(today, weekStartsOn));
     } else {
       setIsStreaksModalVisible(true);
     }
@@ -249,24 +258,11 @@ export default function HomeScreen() {
   const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs), [habits, habitLogs, relapseLogs]);
 
   const handleSelectedCalendarDay = useCallback((targetDate: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(targetDate);
-    target.setHours(0, 0, 0, 0);
-    const startOfCurrentWeek = new Date(today);
-    startOfCurrentWeek.setDate(today.getDate() - today.getDay());
-    const startOfTargetWeek = new Date(target);
-    startOfTargetWeek.setDate(target.getDate() - target.getDay());
-    const diffInDays = Math.round(
-      (startOfTargetWeek.getTime() - startOfCurrentWeek.getTime()) / (1000 * 3600 * 24)
-    );
-    const computedWeekOffset = Math.round(diffInDays / 7);
-
-    setSelectedDayIndex(target.getDay());
-    setWeekOffset(computedWeekOffset);
+    setSelectedDayIndex(getDayColumn(targetDate, weekStartsOn));
+    setWeekOffset(getWeekOffset(targetDate, weekStartsOn));
     setIsStreaksModalVisible(false);
     setActiveMenuHabitId(null);
-  }, []);
+  }, [weekStartsOn]);
 
   const getLocale = (languageCode: string) => {
     switch (languageCode) {
@@ -295,90 +291,92 @@ export default function HomeScreen() {
   }, [getDayProgress]);
 
   return (
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
-        <View
-          style={{ flex: 1 }}
-        >
-          <MainHeader
-            dateText={headerDateText}
-            isTodayCompleted={isTodayCompleted}
-            streak={streakStats.perfectCurrent}
-            onDatePress={handleHeaderDatePress}
-            onStreakPress={handleStreakPress}
-            onSettingsPress={handleSettingsPress}
-          />
-          <ScrollView
-            style={styles.mainContent}
-            showsVerticalScrollIndicator={false}
-            onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
-            <View style={styles.calendarShadowBox}>
-              <View style={styles.calendarContainer}>
-                <WeekStrip
-                  weekOffset={weekOffset}
-                  selectedDayIndex={selectedDayIndex}
-                  weekDayLabels={WEEK_DAYS}
-                  getDayProgress={getDayProgress}
-                  onChangeWeek={setWeekOffset}
-                  onSelectDay={handleSelectWeekDay}
-                />
-              </View>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
+      <View
+        style={{ flex: 1 }}
+      >
+        <MainHeader
+          dateText={headerDateText}
+          isTodayCompleted={isTodayCompleted}
+          streak={streakStats.perfectCurrent}
+          onDatePress={handleHeaderDatePress}
+          onStreakPress={handleStreakPress}
+          onSettingsPress={handleSettingsPress}
+        />
+        <ScrollView
+          style={styles.mainContent}
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={() => activeMenuHabitId && setActiveMenuHabitId(null)}>
+          <View style={styles.calendarShadowBox}>
+            <View style={styles.calendarContainer}>
+              <WeekStrip
+                weekOffset={weekOffset}
+                weekStartsOn={weekStartsOn}
+                selectedDayIndex={selectedDayIndex}
+                weekDayLabels={WEEK_DAYS}
+                getDayProgress={getDayProgress}
+                onChangeWeek={setWeekOffset}
+                onSelectDay={handleSelectWeekDay}
+              />
             </View>
+          </View>
 
-            <HabitList
-              activeDate={activeDate}
-              activeDateKey={activeDateKey}
-              activeMenuHabitId={activeMenuHabitId}
-              isEditMode={isEditMode}
-              dragCtx={dragCtx}
-              handleToggle={handleToggle}
-              handleRelapse={handleRelapse}
-              handleLongPress={handleLongPress}
-              handleReorder={handleReorder}
-              handleDragCancel={handleDragCancel}
-              handleToggleMenu={handleToggleMenu}
-              handleStartEdit={handleStartEdit}
-              handleDeleteHabit={handleDeleteHabit}
-              handleGroupIds={handleGroupIds}
-              openCreateForm={openCreateForm}
-            />
-          </ScrollView>
-
-          <BottomBar
-            onCreate={openCreateForm}
-            onMe={handleMePress}
+          <HabitList
+            activeDate={activeDate}
+            activeDateKey={activeDateKey}
+            activeMenuHabitId={activeMenuHabitId}
+            isEditMode={isEditMode}
+            dragCtx={dragCtx}
+            handleToggle={handleToggle}
+            handleRelapse={handleRelapse}
+            handleLongPress={handleLongPress}
+            handleReorder={handleReorder}
+            handleDragCancel={handleDragCancel}
+            handleToggleMenu={handleToggleMenu}
+            handleStartEdit={handleStartEdit}
+            handleDeleteHabit={handleDeleteHabit}
+            handleGroupIds={handleGroupIds}
+            openCreateForm={openCreateForm}
           />
-        </View>
-        <HabitFormModal
-          visible={isModalVisible}
-          sessionKey={formSession}
-          habit={editingHabitId ? habits.find((h) => h.id === editingHabitId) : undefined}
-          onClose={handleCloseForm}
-          onSave={handleSaveHabit}
-        />
+        </ScrollView>
 
-        <StreaksModal
-          visible={isStreaksModalVisible}
-          stats={streakStats}
-          weekDayLabels={WEEK_DAYS}
-          locale={currentLocale}
-          getDayProgress={getDayProgress}
-          onSelectDate={handleSelectedCalendarDay}
-          onClose={handleCloseStreaks}
+        <BottomBar
+          onCreate={openCreateForm}
+          onMe={handleMePress}
         />
+      </View>
+      <HabitFormModal
+        visible={isModalVisible}
+        sessionKey={formSession}
+        habit={editingHabitId ? habits.find((h) => h.id === editingHabitId) : undefined}
+        onClose={handleCloseForm}
+        onSave={handleSaveHabit}
+      />
 
-        <RelapseModal
-          visible={isRelapseModalVisible}
-          onCancel={cancelRelapse}
-          onConfirm={confirmRelapse}
-        />
+      <StreaksModal
+        visible={isStreaksModalVisible}
+        stats={streakStats}
+        weekDayLabels={WEEK_DAYS}
+        weekStartsOn={weekStartsOn}
+        locale={currentLocale}
+        getDayProgress={getDayProgress}
+        onSelectDate={handleSelectedCalendarDay}
+        onClose={handleCloseStreaks}
+      />
 
-        <NotificationPermissionModal
-          visible={isNotificationPromptVisible}
-          onEnable={handleEnableNotifications}
-          onLater={handleNotificationPromptLater}
-        />
-      </SafeAreaView>
+      <RelapseModal
+        visible={isRelapseModalVisible}
+        onCancel={cancelRelapse}
+        onConfirm={confirmRelapse}
+      />
+
+      <NotificationPermissionModal
+        visible={isNotificationPromptVisible}
+        onEnable={handleEnableNotifications}
+        onLater={handleNotificationPromptLater}
+      />
+    </SafeAreaView>
   );
 }
 

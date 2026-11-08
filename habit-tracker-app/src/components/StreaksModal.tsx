@@ -6,16 +6,18 @@ import { useTranslation } from 'react-i18next';
 import { computeStreakStats } from '../../habitsStore';
 import MonthCalendar from './MonthCalendar';
 import { FONTS } from '../../fonts';
+import type { WeekStart } from '../stores/settingsStore';
 
 const StreaksModal = React.memo<{
   visible: boolean;
   stats: ReturnType<typeof computeStreakStats>;
   weekDayLabels: string[];
+  weekStartsOn: WeekStart;
   locale: string;
   getDayProgress: (date: Date) => { total: number; done: number };
   onSelectDate: (date: Date) => void;
   onClose: () => void;
-}>(({ visible, stats, weekDayLabels, locale, getDayProgress, onSelectDate, onClose }) => {
+}>(({ visible, stats, weekDayLabels, weekStartsOn, locale, getDayProgress, onSelectDate, onClose }) => {
   const { t } = useTranslation();
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent={true}>
@@ -58,6 +60,7 @@ const StreaksModal = React.memo<{
           <View style={styles.calendarSectionBox}>
             <MonthCalendar 
               weekDayLabels={weekDayLabels}
+              weekStartsOn={weekStartsOn}
               locale={locale}
               getDayProgress={getDayProgress}
               onSelectDate={onSelectDate}
