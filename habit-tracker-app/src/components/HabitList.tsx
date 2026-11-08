@@ -47,6 +47,7 @@ const HabitList = React.memo<{
   const habits = useHabitsStore((s) => s.habits);
   const habitLogs = useHabitsStore((s) => s.habitLogs);
   const relapseLogs = useHabitsStore((s) => s.relapseLogs);
+  const uncheckedLogs = useHabitsStore((s) => s.uncheckedLogs);
   const QUIT_QUOTES_KEYS = useMemo(() => [
     t('youCanDoItSoldier'),
     t('stayStrongOneDayAtATime'),
@@ -81,7 +82,7 @@ const HabitList = React.memo<{
         (() => {
           const todayStr = formatDateKey(new Date());
           const isHabitCompleted = (h: Habit) =>
-            isHabitDone(h, activeDateKey, habitLogs, relapseLogs, todayStr);
+            isHabitDone(h, activeDateKey, habitLogs, relapseLogs, uncheckedLogs, todayStr);
           const relapsedIds = relapseLogs[activeDateKey] || [];
           const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
           const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));

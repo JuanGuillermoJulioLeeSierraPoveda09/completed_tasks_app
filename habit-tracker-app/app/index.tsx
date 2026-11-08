@@ -41,6 +41,7 @@ export default function HomeScreen() {
   const habits = useHabitsStore((s) => s.habits);
   const habitLogs = useHabitsStore((s) => s.habitLogs);
   const relapseLogs = useHabitsStore((s) => s.relapseLogs);
+  const uncheckedLogs = useHabitsStore((s) => s.uncheckedLogs);
   const toggleCompletion = useHabitsStore((s) => s.toggleCompletion);
   const confirmRelapseInStore = useHabitsStore((s) => s.confirmRelapse);
   const createHabit = useHabitsStore((s) => s.createHabit);
@@ -142,8 +143,8 @@ export default function HomeScreen() {
   }, [activeDate]);
 
   const getDayProgress = useCallback(
-    (date: Date) => dayProgress(habits, habitLogs, relapseLogs, date),
-    [habits, habitLogs, relapseLogs]
+    (date: Date) => dayProgress(habits, habitLogs, relapseLogs, uncheckedLogs, date),
+    [habits, habitLogs, relapseLogs, uncheckedLogs]
   );
   const activeDateKeyRef = useRef(activeDateKey);
   activeDateKeyRef.current = activeDateKey;
@@ -255,7 +256,7 @@ export default function HomeScreen() {
     setActiveMenuHabitId(null);
   }, []);
 
-  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs), [habits, habitLogs, relapseLogs]);
+  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs, uncheckedLogs), [habits, habitLogs, relapseLogs, uncheckedLogs]);
 
   const handleSelectedCalendarDay = useCallback((targetDate: Date) => {
     setSelectedDayIndex(getDayColumn(targetDate, weekStartsOn));
@@ -314,7 +315,7 @@ export default function HomeScreen() {
                 weekOffset={weekOffset}
                 weekStartsOn={weekStartsOn}
                 selectedDayIndex={selectedDayIndex}
-                weekDayLabels={WEEK_DAYS}
+                weekDayLabels={WEEK_LABELS}
                 getDayProgress={getDayProgress}
                 onChangeWeek={setWeekOffset}
                 onSelectDay={handleSelectWeekDay}
@@ -357,7 +358,7 @@ export default function HomeScreen() {
       <StreaksModal
         visible={isStreaksModalVisible}
         stats={streakStats}
-        weekDayLabels={WEEK_DAYS}
+        weekDayLabels={WEEK_LABELS}
         weekStartsOn={weekStartsOn}
         locale={currentLocale}
         getDayProgress={getDayProgress}

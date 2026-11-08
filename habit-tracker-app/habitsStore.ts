@@ -41,6 +41,7 @@ export interface Habit {
 export type HabitDraft = Omit<Habit, 'id' | 'createdAt' | 'quoteOrder' | 'order'>;
 export type HabitLogs = Record<string, string[]>;
 export type RelapseLogs = Record<string, string[]>;
+export type UncheckedLogs = Record<string, string[]>;
 
 export const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -66,6 +67,9 @@ export const getHabitsForDate = (habits: Habit[], date: Date): Habit[] => {
         if (habit.type === 'Task') {
             return habit.targetDate === dateKey;
         }
+        if (habit.createdAt && dateKey < habit.createdAt) {
+            return false;
+        }
         if (habit.selectedWeekDays) {
             return habit.selectedWeekDays[dayOfWeek];
         }
@@ -76,32 +80,42 @@ export const getHabitsForDate = (habits: Habit[], date: Date): Habit[] => {
     });
 };
 
+export const isQuitPastDay = (habit: Habit, dateKey: string, todayKey: string): boolean =>
+    habit.type === 'Quit a habit' &&
+    !!habit.createdAt &&
+    dateKey < todayKey &&
+    dateKey >= habit.createdAt;
+
 export const isQuitAutoCompleted = (
     habit: Habit,
     dateKey: string,
     relapseLogs: RelapseLogs,
+    uncheckedLogs: UncheckedLogs,
     todayKey: string
 ): boolean =>
-    habit.type === 'Quit a habit' &&
-    !!habit.createdAt &&
-    dateKey < todayKey &&
-    dateKey >= habit.createdAt &&
-    !(relapseLogs[dateKey] || []).includes(habit.id);
+    isQuitPastDay(habit, dateKey, todayKey) &&
+    !(relapseLogs[dateKey] || []).includes(habit.id) &&
+    !(uncheckedLogs[dateKey] || []).includes(habit.id);
 
 export const isHabitDone = (
     habit: Habit,
     dateKey: string,
     habitLogs: HabitLogs,
     relapseLogs: RelapseLogs,
+    uncheckedLogs: UncheckedLogs,
     todayKey: string
-): boolean =>
-    (habitLogs[dateKey] || []).includes(habit.id) ||
-    isQuitAutoCompleted(habit, dateKey, relapseLogs, todayKey);
+): boolean => {
+    if (isQuitPastDay(habit, dateKey, todayKey)) {
+        return isQuitAutoCompleted(habit, dateKey, relapseLogs, uncheckedLogs, todayKey);
+    }
+    return (habitLogs[dateKey] || []).includes(habit.id);
+};
 
 export const getDayProgress = (
     habits: Habit[],
     habitLogs: HabitLogs,
     relapseLogs: RelapseLogs,
+    uncheckedLogs: UncheckedLogs,
     date: Date
 ): { total: number; done: number } => {
     const dateKey = formatDateKey(date);
@@ -109,7 +123,7 @@ export const getDayProgress = (
     const scheduled = getHabitsForDate(habits, date);
     let done = 0;
     for (const habit of scheduled) {
-        if (isHabitDone(habit, dateKey, habitLogs, relapseLogs, todayKey)) done++;
+        if (isHabitDone(habit, dateKey, habitLogs, relapseLogs, uncheckedLogs, todayKey)) done++;
     }
     return { total: scheduled.length, done };
 };
@@ -145,7 +159,12 @@ export const getQuitStreak = (habit: Habit, relapseLogs: RelapseLogs, activeDate
     return streak;
 };
 
-export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs, relapseLogs: RelapseLogs) => {
+export const computeStreakStats = (
+    habits: Habit[],
+    habitLogs: HabitLogs,
+    relapseLogs: RelapseLogs,
+    uncheckedLogs: UncheckedLogs
+) => {
     if (habits.length === 0) {
         return { loggedCurrent: 0, loggedBest: 0, perfectCurrent: 0, perfectBest: 0 };
     }
@@ -153,7 +172,7 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs, relaps
     const MAX_DAYS = 3660;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const progressOn = (date: Date) => getDayProgress(habits, habitLogs, relapseLogs, date);
+    const progressOn = (date: Date) => getDayProgress(habits, habitLogs, relapseLogs, uncheckedLogs, date);
     const isPerfect = (p: { total: number; done: number }) => p.total > 0 && p.done >= p.total;
 
     const todayProgress = progressOn(today);
@@ -211,10 +230,17 @@ export const computeStreakStats = (habits: Habit[], habitLogs: HabitLogs, relaps
     };
 };
 
+const toggleIdInLog = (logs: Record<string, string[]>, dateKey: string, id: string) => {
+    const current = logs[dateKey] || [];
+    const updated = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    return { ...logs, [dateKey]: updated };
+};
+
 interface HabitsState {
     habits: Habit[];
     habitLogs: HabitLogs;
     relapseLogs: RelapseLogs;
+    uncheckedLogs: UncheckedLogs;
     toggleCompletion: (habitId: string, dateKey: string) => void;
     confirmRelapse: (habitId: string, dateKey: string) => void;
     createHabit: (draft: HabitDraft, dateKey: string) => Habit;
@@ -229,14 +255,16 @@ export const useHabitsStore = create<HabitsState>()(
             habits: [],
             habitLogs: {},
             relapseLogs: {},
+            uncheckedLogs: {},
             toggleCompletion: (habitId, dateKey) => {
-                if (dateKey > formatDateKey(new Date())) return;
-                set((s) => {
-                    const currentCompleted = s.habitLogs[dateKey] || [];
-                    const exists = currentCompleted.includes(habitId);
-                    const updated = exists ? currentCompleted.filter((id) => id !== habitId) : [...currentCompleted, habitId];
-                    return { habitLogs: { ...s.habitLogs, [dateKey]: updated } };
-                });
+                const todayKey = formatDateKey(new Date());
+                if (dateKey > todayKey) return;
+                const habit = get().habits.find((h) => h.id === habitId);
+                if (habit && isQuitPastDay(habit, dateKey, todayKey)) {
+                    set((s) => ({ uncheckedLogs: toggleIdInLog(s.uncheckedLogs, dateKey, habitId) }));
+                    return;
+                }
+                set((s) => ({ habitLogs: toggleIdInLog(s.habitLogs, dateKey, habitId) }));
             },
             confirmRelapse: (habitId, dateKey) => {
                 set((s) => {
@@ -285,6 +313,7 @@ export const useHabitsStore = create<HabitsState>()(
                         habits: s.habits.filter((h) => h.id !== habitId),
                         habitLogs: prune(s.habitLogs),
                         relapseLogs: prune(s.relapseLogs),
+                        uncheckedLogs: prune(s.uncheckedLogs),
                     };
                 });
             },
@@ -318,6 +347,7 @@ export const useHabitsStore = create<HabitsState>()(
                 habits: s.habits,
                 habitLogs: s.habitLogs,
                 relapseLogs: s.relapseLogs,
+                uncheckedLogs: s.uncheckedLogs,
             }),
         }
     )
