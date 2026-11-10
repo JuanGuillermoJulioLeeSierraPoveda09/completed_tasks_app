@@ -76,7 +76,7 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsNotificationPromptVisible(false);
     const granted = await requestNotificationPermission();
-    if (!granted) rescheduleAllReminders(useHabitsStore.getState().habits);
+    if (granted) rescheduleAllReminders(useHabitsStore.getState().habits);
     else snoozeNotificationPrompt();
   }, []);
 

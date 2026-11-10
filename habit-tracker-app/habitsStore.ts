@@ -137,11 +137,18 @@ export const getQuitQuoteIndex = (habit: Habit, dateKey: string): number | null 
     return habit.quoteOrder[diffDays % QUIT_QUOTE_COUNT];
 };
 
-export const getQuitStreak = (habit: Habit, relapseLogs: RelapseLogs, activeDate: Date): number => {
+export const getQuitStreak = (
+    habit: Habit,
+    habitLogs: HabitLogs,
+    relapseLogs: RelapseLogs,
+    uncheckedLogs: UncheckedLogs,
+    activeDate: Date
+): number => {
     if (!habit.createdAt) return 0;
     let streak = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayKey = formatDateKey(today);
     const currentActiveDate = new Date(activeDate);
     currentActiveDate.setHours(0, 0, 0, 0);
     const checkDate = currentActiveDate > today ? new Date(today) : new Date(currentActiveDate);
@@ -149,11 +156,14 @@ export const getQuitStreak = (habit: Habit, relapseLogs: RelapseLogs, activeDate
 
     while (checkDate >= startDate) {
         const key = formatDateKey(checkDate);
-        const relapses = relapseLogs[key] || [];
-        if (relapses.includes(habit.id)) {
+        if ((relapseLogs[key] || []).includes(habit.id)) break;
+
+        const done = isHabitDone(habit, key, habitLogs, relapseLogs, uncheckedLogs, todayKey);
+        if (done) {
+            streak++;
+        } else if (key !== todayKey) {
             break;
         }
-        streak++;
         checkDate.setDate(checkDate.getDate() - 1);
     }
     return streak;

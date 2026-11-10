@@ -57,7 +57,7 @@ const HabitList = React.memo<{
     t('keepGoingYoureDoingGreat')
   ], [t]);
   const visibleHabits = useMemo(() => habitsForDate(habits, activeDate), [habits, activeDate]);
-  const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, relapseLogs, activeDate);
+  const getQuitStreak = (habit: Habit) => computeQuitStreak(habit, habitLogs, relapseLogs, uncheckedLogs, activeDate);
 
   const getDisplayDescription = (habit: Habit) => {
     const quoteIndex = getQuitQuoteIndex(habit, activeDateKey);
