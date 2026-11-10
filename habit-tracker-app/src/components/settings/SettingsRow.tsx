@@ -10,10 +10,18 @@ type SettingsRowProps = {
     onPress: () => void;
     icon?: IoniconName;
     value?: string;
+    disabled?: boolean;
 };
 
-const SettingsRow = ({ label, onPress, icon, value }: SettingsRowProps) => (
-    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.6}>
+const SettingsRow = ({ label, onPress, icon, value, disabled = false }: SettingsRowProps) => (
+    <TouchableOpacity 
+        style={[styles.row, disabled && styles.rowDisabled]} 
+        onPress={onPress} 
+        activeOpacity={0.6}
+        disabled={disabled}
+        accessibilityRole='button'
+        accessibilityState={{ disabled }}
+    >
         {icon ? (
             <View style={styles.iconBox}>
                 <Ionicons name={icon} size={20} color="#1F2937" />
@@ -32,6 +40,9 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
+    },
+    rowDisabled: {
+        opacity: 0.4,
     },
     iconBox: {
         width: 28,

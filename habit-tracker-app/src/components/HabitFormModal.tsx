@@ -125,7 +125,7 @@ const HabitFormBody: React.FC<{
     if (!turningOn) return;
     const granted = await requestNotificationPermission();
     if (!granted) {
-      Alert.alert(t('reminderBlockedTitle'), t('remindersBlockedBody'), [
+      Alert.alert(t('remindersBlockedTitle'), t('remindersBlockedBody'), [
         { text: t('notNow'), style: 'cancel' },
         { text: t('openSettings'), onPress: openNotificationSettings },
       ]);
