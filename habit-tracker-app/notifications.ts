@@ -2,8 +2,9 @@ import { Linking, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { createMMKV } from 'react-native-mmkv';
 import i18n from './i18n';
-import { parseDateKey} from './habitsStore';
-import type { Habit, HabitDraft } from './habitsStore';
+import { parseDateKey } from './habitsStore';
+import type { Habit, HabitDraft, HabitReminder } from './habitsStore';
+import { useSettingsStore, REMINDER_SLOTS, type ReminderSlot } from './src/stores/settingsStore';
 
 const prefs = createMMKV({ id: 'notification-prefs' });
 const PROMPT_SNOOZED_AT = 'promptSnoozedAt';
@@ -62,6 +63,12 @@ export function openNotificationSettings() {
     Linking.openSettings();
 }
 
+export function to24Hour(reminder: HabitReminder) {
+    const hour = (parseInt(reminder.hour, 10) % 12) + (reminder.period === 'PM' ? 12 : 0);
+    const minute = parseInt(reminder.minute, 10);
+    return { hour, minute };
+}
+
 export async function cancelHabitReminders(habitId: string) {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const HabitReminders = scheduled.filter((n) => n.content.data?.habitId === habitId);
@@ -93,26 +100,64 @@ function buildReminderTriggers(habit: HabitDraft, hour: number, minute: number):
 export async function scheduleHabitReminder(habitId: string, habit: HabitDraft) {
     await cancelHabitReminders(habitId);
     if (!habit.reminder) return;
-    const { granted } = await Notifications.getPermissionsAsync();
-    if (!granted) return;
+    if (!(await areNotificationsEnabled())) return;
 
     await ensureReminderChannel();
-    const hour = (parseInt(habit.reminder.hour, 10) % 12) + (habit.reminder.period === 'PM' ? 12 : 0);
-    const minute = parseInt(habit.reminder.minute, 10);
+    const { hour, minute } = to24Hour(habit.reminder);
     const content = {
         title: i18n.t('reminderNotifTitle', { habit: habit.title }),
         body: i18n.t('reminderNotifBody'),
         sound: true,
-        data: {habitId },
+        data: { habitId },
     };
 
     await Promise.all(
         buildReminderTriggers(habit, hour, minute).map((trigger) => Notifications.scheduleNotificationAsync({ content, trigger }))
-    )
+    );
 }
 
-export async function rescheduleAllHabitReminders(habits: Habit[]) {
+const slotNotificationId = (slot: ReminderSlot) => `slot-reminder-${slot}`;
+
+export async function cancelSlotReminder(slot: ReminderSlot) {
+    await Notifications.cancelScheduledNotificationAsync(slotNotificationId(slot));
+}
+
+export async function scheduleSlotReminder(slot: ReminderSlot) {
+    await cancelSlotReminder(slot);
+
+    const { notificationsEnabled, slotReminders } = useSettingsStore.getState();
+    const slotReminder = slotReminders[slot];
+    if (!notificationsEnabled || !slotReminder.enabled) return;
+    if (!(await areNotificationsEnabled())) return;
+
+    await ensureReminderChannel();
+    const { hour, minute } = to24Hour(slotReminder.time);
+    await Notifications.scheduleNotificationAsync({
+        identifier: slotNotificationId(slot),
+        content: {
+            title: i18n.t(`${slot}NotifTitle`),
+            body: i18n.t(`${slot}NotifBody`),
+            sound: true,
+            data: { slot },
+        },
+        trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour,
+            minute,
+            channelId: REMINDERS_CHANNEL_ID,
+        },
+    });
+}
+
+export async function rescheduleSlotReminders() {
+    await Promise.all(REMINDER_SLOTS.map((slot) => scheduleSlotReminder(slot)));
+}
+
+export async function rescheduleAllReminders(habits: Habit[]) {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    if(!(await areNotificationsEnabled())) return;
-    await Promise.all(habits.map((habit) => scheduleHabitReminder(habit.id, habit)));
+    if (!(await areNotificationsEnabled())) return;
+    await Promise.all([
+        ...habits.map((habit) => scheduleHabitReminder(habit.id, habit)),
+        rescheduleSlotReminders(),
+    ]);
 }

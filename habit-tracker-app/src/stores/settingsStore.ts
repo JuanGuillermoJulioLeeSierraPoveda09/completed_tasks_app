@@ -18,6 +18,7 @@ export type AppLanguage = 'en' | 'es' | 'ja';
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type WeekStart = 0 | 1;
 export type ReminderSlot = 'morning' | 'afternoon' | 'evening';
+export const REMINDER_SLOTS: ReminderSlot[] = ['morning', 'afternoon', 'evening'];
 
 export interface SlotReminder {
     enabled: boolean;

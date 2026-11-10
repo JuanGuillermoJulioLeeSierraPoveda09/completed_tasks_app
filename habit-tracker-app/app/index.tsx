@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
-import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllHabitReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
+import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
 import NotificationPermissionModal from '../src/components/NotificationPermissionModal';
 import WeekStrip from '../src/components/WeekStrip';
 import { triggerHaptic, triggerButtonHaptics } from '../src/utils/haptics';
@@ -65,9 +65,9 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+    rescheduleAllReminders(useHabitsStore.getState().habits);
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+      if (state === 'active') rescheduleAllReminders(useHabitsStore.getState().habits);
     });
     return () => subscription.remove();
   }, []);
@@ -76,7 +76,7 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsNotificationPromptVisible(false);
     const granted = await requestNotificationPermission();
-    if (!granted) rescheduleAllHabitReminders(useHabitsStore.getState().habits);
+    if (!granted) rescheduleAllReminders(useHabitsStore.getState().habits);
     else snoozeNotificationPrompt();
   }, []);
 
