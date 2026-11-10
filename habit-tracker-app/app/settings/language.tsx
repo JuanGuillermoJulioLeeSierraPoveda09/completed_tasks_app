@@ -5,6 +5,7 @@ import SettingsSection from '../../src/components/settings/SettingSection';
 import OptionRow from '../../src/components/settings/OptionRow';
 import { useSettingsStore, type AppLanguage } from '../../src/stores/settingsStore';
 import { LANGUAGE_OPTIONS } from '../../src/constants/languages';
+import { ensureReminderChannel } from '../../notifications';
 
 export default function LanguageScreen() {
   const { t, i18n } = useTranslation();
@@ -14,7 +15,7 @@ export default function LanguageScreen() {
   const handleSelect = (code: AppLanguage) => {
     if (code === currentLanguage ) return;
     setLanguage(code);
-    i18n.changeLanguage(code);
+    i18n.changeLanguage(code).then(() => ensureReminderChannel());
   };
 
   return (

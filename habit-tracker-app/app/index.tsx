@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useHabitsStore, formatDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
+import { useHabitsStore, formatDateKey, parseDateKey, getDayProgress as dayProgress, computeStreakStats, type HabitDraft } from '../habitsStore';
 import { ensureReminderChannel, shouldShowNotificationPrompt, snoozeNotificationPrompt, requestNotificationPermission, scheduleHabitReminder, cancelHabitReminders, rescheduleAllReminders, areNotificationsEnabled, openNotificationSettings } from '../notifications';
 import NotificationPermissionModal from '../src/components/NotificationPermissionModal';
 import WeekStrip from '../src/components/WeekStrip';
@@ -22,6 +22,7 @@ import RelapseModal from '../src/components/RelapseModal';
 import { toLocaleTag, capitalize } from '../src/utils/locale';
 import { useSettingsStore } from '../src/stores/settingsStore';
 import { getDayColumn, getDateAt, getWeekOffset, rotateWeekDays } from '../src/utils/week';
+import { useTodayKey } from '../src/hooks/useTodayKey';
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
@@ -29,6 +30,7 @@ export default function HomeScreen() {
   const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+  const todayKey = useTodayKey();
   const WEEK_LABELS = useMemo(() => rotateWeekDays(WEEK_DAYS, weekStartsOn), [WEEK_DAYS, weekStartsOn]);
   const dragInfo = useSharedValue<InfoMap>({});
   const dragId = useSharedValue('');
@@ -121,13 +123,24 @@ export default function HomeScreen() {
 
   const activeDateKey = useMemo(() => formatDateKey(activeDate), [activeDate]);
 
+  const prevTodayKey = useRef(todayKey);
+  useEffect(() => {
+    const previous = prevTodayKey.current;
+    if (previous === todayKey) return;
+    prevTodayKey.current = todayKey;
+    const wasViewingToday = activeDateKey === previous;
+    const date = parseDateKey(wasViewingToday ? todayKey : activeDateKey);
+    setWeekOffset(getWeekOffset(date, weekStartsOn));
+    setSelectedDayIndex(getDayColumn(date, weekStartsOn));
+  }, [todayKey]);
+
   const headerDateText = useMemo(() => {
     const relativeDay = getRelativeDay(activeDate);
     if (relativeDay) return t(relativeDay);
     const dayName = capitalize(activeDate.toLocaleDateString(currentLocale, { weekday: 'long' }), currentLocale);
     const monthName = capitalize(activeDate.toLocaleDateString(currentLocale, { month: 'short' }), currentLocale);
     return `${dayName} ${monthName} ${activeDate.getDate()}`;
-  }, [activeDate, currentLocale, t]);
+  }, [activeDate, currentLocale, t, todayKey]);
 
   const handleHeaderDatePress = useCallback(() => {
     const today = new Date();
@@ -144,7 +157,7 @@ export default function HomeScreen() {
 
   const getDayProgress = useCallback(
     (date: Date) => dayProgress(habits, habitLogs, relapseLogs, uncheckedLogs, date),
-    [habits, habitLogs, relapseLogs, uncheckedLogs]
+    [habits, habitLogs, relapseLogs, uncheckedLogs, todayKey]
   );
   const activeDateKeyRef = useRef(activeDateKey);
   activeDateKeyRef.current = activeDateKey;
@@ -256,7 +269,7 @@ export default function HomeScreen() {
     setActiveMenuHabitId(null);
   }, []);
 
-  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs, uncheckedLogs), [habits, habitLogs, relapseLogs, uncheckedLogs]);
+  const streakStats = useMemo(() => computeStreakStats(habits, habitLogs, relapseLogs, uncheckedLogs), [habits, habitLogs, relapseLogs, uncheckedLogs, todayKey]);
 
   const handleSelectedCalendarDay = useCallback((targetDate: Date) => {
     setSelectedDayIndex(getDayColumn(targetDate, weekStartsOn));
@@ -264,15 +277,6 @@ export default function HomeScreen() {
     setIsStreaksModalVisible(false);
     setActiveMenuHabitId(null);
   }, [weekStartsOn]);
-
-  const getLocale = (languageCode: string) => {
-    switch (languageCode) {
-      case 'es': return 'es-ES';
-      case 'jp': return 'ja-JP';
-      case 'en':
-      default: return 'en-US';
-    }
-  };
 
   const handleStreakPress = useCallback(() => {
     setIsStreaksModalVisible(true);
@@ -287,9 +291,9 @@ export default function HomeScreen() {
   }, [router]);
 
   const isTodayCompleted = useMemo(() => {
-    const progress = getDayProgress(new Date());
+    const progress = getDayProgress(parseDateKey(todayKey));
     return progress.total > 0 && progress.done >= progress.total;
-  }, [getDayProgress]);
+  }, [getDayProgress, todayKey]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -326,6 +330,7 @@ export default function HomeScreen() {
           <HabitList
             activeDate={activeDate}
             activeDateKey={activeDateKey}
+            todayKey={todayKey}
             activeMenuHabitId={activeMenuHabitId}
             isEditMode={isEditMode}
             dragCtx={dragCtx}

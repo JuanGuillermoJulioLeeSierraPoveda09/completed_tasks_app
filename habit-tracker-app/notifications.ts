@@ -24,7 +24,7 @@ Notifications.setNotificationHandler({
 export async function ensureReminderChannel() {
     if (Platform.OS !== 'android') return;
     await Notifications.setNotificationChannelAsync(REMINDERS_CHANNEL_ID, {
-        name: 'Habit reminders',
+        name: i18n.t('remindersChannelName'),
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#00B763',

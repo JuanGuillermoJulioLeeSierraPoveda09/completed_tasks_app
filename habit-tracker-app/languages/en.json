@@ -122,5 +122,6 @@
     "afternoonNotifBody": "How are today's habits going?",
     "eveningNotifTitle": "Evening check-in",
     "eveningNotifBody": "There's still time to finish today's habits",
-    "notificationsMutedBody": "Notifications are turned off in {{settings}} > {{reminders}}. Your reminder is saved, but it won't arrive until you turn them back on"
+    "notificationsMutedBody": "Notifications are turned off in {{settings}} > {{reminders}}. Your reminder is saved, but it won't arrive until you turn them back on",
+    "remindersChannelName": "Habit reminders"
 }

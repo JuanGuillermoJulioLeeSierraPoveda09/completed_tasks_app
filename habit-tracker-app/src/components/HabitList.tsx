@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useHabitsStore, formatDateKey, getHabitsForDate as habitsForDate, isHabitDone, getQuitQuoteIndex, getQuitStreak as computeQuitStreak, type Habit } from '../../habitsStore';
+import { useHabitsStore, getHabitsForDate as habitsForDate, isHabitDone, getQuitQuoteIndex, getQuitStreak as computeQuitStreak, type Habit } from '../../habitsStore';
 import { FONTS } from '../../fonts';
 import { type DragContext } from '../utils/dragLayout';
 import SwipeableHabitCard from './SwipeableHabitCard';
@@ -13,6 +13,7 @@ import PendingGroupList from './PendingGroupList';
 const HabitList = React.memo<{
   activeDate: Date;
   activeDateKey: string;
+  todayKey: string;
   activeMenuHabitId: string | null;
   isEditMode: boolean;
   dragCtx: DragContext;
@@ -29,6 +30,7 @@ const HabitList = React.memo<{
 }>(({
   activeDate,
   activeDateKey,
+  todayKey,
   activeMenuHabitId,
   isEditMode,
   dragCtx,
@@ -80,9 +82,8 @@ const HabitList = React.memo<{
         </View>
       ) : (
         (() => {
-          const todayStr = formatDateKey(new Date());
           const isHabitCompleted = (h: Habit) =>
-            isHabitDone(h, activeDateKey, habitLogs, relapseLogs, uncheckedLogs, todayStr);
+            isHabitDone(h, activeDateKey, habitLogs, relapseLogs, uncheckedLogs, todayKey);
           const relapsedIds = relapseLogs[activeDateKey] || [];
           const sortedHabits = [...visibleHabits].sort((a, b) => (a.order || 0) - (b.order || 0));
           const relapsedHabits = sortedHabits.filter(h => relapsedIds.includes(h.id));

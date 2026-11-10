@@ -16,6 +16,7 @@ import AnimatedSwitch from './AnimatedSwitch';
 import { toLocaleTag } from '../utils/locale';
 import { useSettingsStore } from '../stores/settingsStore';
 import { rotateWeekDays } from '../utils/week';
+import { formatReminderTime } from '../utils/time';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -56,7 +57,7 @@ const makeInitialForm = (habit: Habit | undefined, everyday: string): HabitFormS
       timeOfDay: undefined,
       taskDate: new Date(),
       reminderEnabled: false,
-      reminderHour: '05',
+      reminderHour: '5',
       reminderMinute: '00',
       reminderPeriod: 'AM',
     };
@@ -74,7 +75,7 @@ const makeInitialForm = (habit: Habit | undefined, everyday: string): HabitFormS
     timeOfDay: habit.timeOfDay,
     taskDate: habit.targetDate ? parseDateKey(habit.targetDate) : new Date(),
     reminderEnabled: !!habit.reminder,
-    reminderHour: habit.reminder ? habit.reminder.hour : '05',
+    reminderHour: habit.reminder ? habit.reminder.hour : '5',
     reminderMinute: habit.reminder ? habit.reminder.minute : '00',
     reminderPeriod: habit.reminder ? habit.reminder.period : 'AM',
   };
@@ -376,7 +377,7 @@ const HabitFormBody: React.FC<{
                   <View style={styles.reminderDivider} />
                   <TouchableOpacity style={styles.reminderTimeButton} onPress={() => setIsReminderPickerVisible(true)}>
                     <Text style={styles.reminderTimeButtonText}>
-                      {`${form.reminderHour}:${form.reminderMinute} ${form.reminderPeriod}`}
+                      {formatReminderTime({ hour: form.reminderHour, minute: form.reminderMinute, period: form.reminderPeriod })}
                     </Text>
                   </TouchableOpacity>
                 </Animated.View>

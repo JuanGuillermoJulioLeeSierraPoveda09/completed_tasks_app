@@ -7,7 +7,8 @@ import SettingsRow from '../../src/components/settings/SettingsRow';
 import SwitchRow from '../../src/components/settings/SwitchRow';
 import CustomTimePickerModal from '../../src/components/CustomTimePickerModal';
 import { useSettingsStore, REMINDER_SLOTS, type ReminderSlot } from '../../src/stores/settingsStore';
-import { useHabitsStore, type HabitReminder } from '../../habitsStore';
+import { useHabitsStore } from '../../habitsStore';
+import { formatReminderTime } from '../../src/utils/time';
 import {
   openNotificationSettings,
   requestNotificationPermission,
@@ -22,8 +23,6 @@ const SLOT_ICONS: Record<ReminderSlot, IoniconName> = {
   afternoon: 'partly-sunny-outline',
   evening: 'moon-outline',
 };
-
-const formatTime = (time: HabitReminder) => `${time.hour}:${time.minute} ${time.period}`;
 
 export default function RemindersScreen() {
   const { t } = useTranslation();
@@ -87,7 +86,7 @@ export default function RemindersScreen() {
               <SettingsRow
                 icon="time-outline"
                 label={t('time')}
-                value={formatTime(reminder.time)}
+                value={formatReminderTime(reminder.time)}
                 disabled={!notificationsEnabled || !reminder.enabled}
                 onPress={() => setEditingSlot(slot)}
               />

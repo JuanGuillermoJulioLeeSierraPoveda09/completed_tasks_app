@@ -214,8 +214,9 @@ export const computeStreakStats = (
     let tempLogged = 0;
     let tempPerfect = 0;
     const historicDate = new Date(today);
+    const historyDays = getHistoryDays(habits, today, MAX_DAYS);
 
-    for (let i = 0; i < 365; i++) {
+    for (let i = 0; i < historyDays; i++) {
         const progress = progressOn(historicDate);
 
         if (progress.done > 0) {
@@ -234,10 +235,25 @@ export const computeStreakStats = (
     }
     return {
         loggedCurrent: countLogged,
-        loggedBest,
+        loggedBest: Math.max(loggedBest, countLogged),
         perfectCurrent: countPerfect,
-        perfectBest,
+        perfectBest: Math.max(perfectBest, countPerfect),
     };
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_HISTORY_DAYS = 365;
+
+const getHistoryDays = (habits: Habit[], today: Date, maxDays: number): number => {
+    let earliestKey: string | null = null;
+    for (const habit of habits) {
+        for (const key of [habit.createdAt, habit.targetDate]) {
+            if (key && (earliestKey === null || key < earliestKey)) earliestKey = key;
+        }
+    }
+    if (earliestKey === null) return DEFAULT_HISTORY_DAYS;
+    const days = Math.round((today.getTime() - parseDateKey(earliestKey).getTime()) / DAY_MS) + 1;
+    return Math.min(Math.max(days, 1), maxDays);
 };
 
 const toggleIdInLog = (logs: Record<string, string[]>, dateKey: string, id: string) => {
