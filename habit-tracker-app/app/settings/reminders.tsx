@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';;
+import { useTranslation } from 'react-i18next';
 import SettingsSection from '../../src/components/settings/SettingSection';
 import SettingsRow from '../../src/components/settings/SettingsRow';
 import SwitchRow from '../../src/components/settings/SwitchRow';
 import CustomTimePickerModal from '../../src/components/CustomTimePickerModal';
 import { useSettingsStore, REMINDER_SLOTS, type ReminderSlot } from '../../src/stores/settingsStore';
+import { useHabitsStore, type HabitReminder } from '../../habitsStore';
 import {
   openNotificationSettings,
   requestNotificationPermission,
-  rescheduleSlotReminders,
+  rescheduleAllReminders,
   scheduleSlotReminder,
 } from '../../notifications';
-import type { HabitReminder } from '../../habitsStore';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -52,9 +52,12 @@ export default function RemindersScreen() {
 
   const handleToggleNotifications = async (enabled: boolean) => {
     setNotificationsEnabled(enabled);
-    const anySlotEnabled = REMINDER_SLOTS.some((slot) => slotReminders[slot].enabled);
-    if (enabled && anySlotEnabled) await warnIfPermissionMissing();
-    await rescheduleSlotReminders();
+    const habits = useHabitsStore.getState().habits;
+    const hasAnyReminder =
+      REMINDER_SLOTS.some((slot) => slotReminders[slot].enabled) ||
+      habits.some((habit) => habit.reminder);
+    if (enabled && hasAnyReminder) await warnIfPermissionMissing();
+    await rescheduleAllReminders(habits);
   };
 
   const handleConfirmTime = (hour: string, minute: string, period: 'AM' | 'PM') => {
@@ -77,7 +80,7 @@ export default function RemindersScreen() {
               <SwitchRow
                 icon={SLOT_ICONS[slot]}
                 label={t('reminder')}
-                value={reminder.enabled}
+                value={notificationsEnabled && reminder.enabled}
                 disabled={!notificationsEnabled}
                 onValueChange={(enabled) => handleToggleSlot(slot, enabled)}
               />

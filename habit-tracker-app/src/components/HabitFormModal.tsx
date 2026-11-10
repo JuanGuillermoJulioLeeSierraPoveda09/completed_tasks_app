@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Modal, TextInput, Dimensions, Switch, Platform, LayoutAnimation, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Modal, TextInput, Dimensions, Platform, LayoutAnimation, Alert } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { FONTS } from '../../fonts';
 import { AVAILABLE_COLORS, COLOR_ROWS, ICON_CATEGORIES } from '../constants/habitOptions';
 import { type FrequencyType, everyWeekDay, formatMonthDaysDisplay, describeWeekDays } from '../utils/frequency';
 import CustomTimePickerModal from './CustomTimePickerModal';
+import AnimatedSwitch from './AnimatedSwitch';
 import { toLocaleTag } from '../utils/locale';
 import { useSettingsStore } from '../stores/settingsStore';
 import { rotateWeekDays } from '../utils/week';
@@ -123,6 +124,14 @@ const HabitFormBody: React.FC<{
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setForm((f) => ({ ...f, reminderEnabled: !f.reminderEnabled }));
     if (!turningOn) return;
+    if (!useSettingsStore.getState().notificationsEnabled) {
+      Alert.alert(
+        t('remindersBlockedTitle'),
+        t('notificationsMutedBody', { settings: t('settings'), reminders: t('reminders') }),
+        [{ text: t('done') }]
+      );
+      return;
+    }
     const granted = await requestNotificationPermission();
     if (!granted) {
       Alert.alert(t('remindersBlockedTitle'), t('remindersBlockedBody'), [
@@ -353,12 +362,10 @@ const HabitFormBody: React.FC<{
             <View style={styles.reminderCardContainer}>
               <View style={styles.reminderHeaderRow}>
                 <Text style={styles.frequencyValueText}>{t('reminder')}</Text>
-                <Switch
-                  trackColor={{ false: '#767577', true: form.color + '10' }}
-                  thumbColor={form.reminderEnabled ? form.color : '#F4F3F4'}
-                  ios_backgroundColor="#3E3E3E"
-                  onValueChange={toggleSwitch}
+                <AnimatedSwitch
                   value={form.reminderEnabled}
+                  onValueChange={toggleSwitch}
+                  activeColor={form.color}
                 />
               </View>
 

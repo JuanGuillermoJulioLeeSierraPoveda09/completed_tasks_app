@@ -69,6 +69,11 @@ export function to24Hour(reminder: HabitReminder) {
     return { hour, minute };
 }
 
+async function canSendReminders() {
+    if (!useSettingsStore.getState().notificationsEnabled) return false;
+    return areNotificationsEnabled();
+}
+
 export async function cancelHabitReminders(habitId: string) {
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
     const HabitReminders = scheduled.filter((n) => n.content.data?.habitId === habitId);
@@ -100,7 +105,7 @@ function buildReminderTriggers(habit: HabitDraft, hour: number, minute: number):
 export async function scheduleHabitReminder(habitId: string, habit: HabitDraft) {
     await cancelHabitReminders(habitId);
     if (!habit.reminder) return;
-    if (!(await areNotificationsEnabled())) return;
+    if (!(await canSendReminders())) return;
 
     await ensureReminderChannel();
     const { hour, minute } = to24Hour(habit.reminder);
@@ -125,10 +130,9 @@ export async function cancelSlotReminder(slot: ReminderSlot) {
 export async function scheduleSlotReminder(slot: ReminderSlot) {
     await cancelSlotReminder(slot);
 
-    const { notificationsEnabled, slotReminders } = useSettingsStore.getState();
-    const slotReminder = slotReminders[slot];
-    if (!notificationsEnabled || !slotReminder.enabled) return;
-    if (!(await areNotificationsEnabled())) return;
+    const slotReminder = useSettingsStore.getState().slotReminders[slot];
+    if (!slotReminder.enabled) return;
+    if (!(await canSendReminders())) return;
 
     await ensureReminderChannel();
     const { hour, minute } = to24Hour(slotReminder.time);
@@ -155,7 +159,7 @@ export async function rescheduleSlotReminders() {
 
 export async function rescheduleAllReminders(habits: Habit[]) {
     await Notifications.cancelAllScheduledNotificationsAsync();
-    if (!(await areNotificationsEnabled())) return;
+    if (!(await canSendReminders())) return;
     await Promise.all([
         ...habits.map((habit) => scheduleHabitReminder(habit.id, habit)),
         rescheduleSlotReminders(),

@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FONTS } from'../../../fonts';
+import { FONTS } from '../../../fonts';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -14,12 +14,11 @@ type SettingsRowProps = {
 };
 
 const SettingsRow = ({ label, onPress, icon, value, disabled = false }: SettingsRowProps) => (
-    <TouchableOpacity 
-        style={[styles.row, disabled && styles.rowDisabled]} 
-        onPress={onPress} 
-        activeOpacity={0.6}
+    <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.rowPressed, disabled && styles.rowDisabled]}
+        onPress={onPress}
         disabled={disabled}
-        accessibilityRole='button'
+        accessibilityRole="button"
         accessibilityState={{ disabled }}
     >
         {icon ? (
@@ -30,7 +29,7 @@ const SettingsRow = ({ label, onPress, icon, value, disabled = false }: Settings
         <Text style={styles.label} numberOfLines={1}>{label}</Text>
         {value ? <Text style={styles.value} numberOfLines={1}>{value}</Text> : null}
         <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-    </TouchableOpacity>
+    </Pressable>
 );
 
 const styles = StyleSheet.create({
@@ -40,6 +39,9 @@ const styles = StyleSheet.create({
         gap: 12,
         paddingHorizontal: 16,
         paddingVertical: 14,
+    },
+    rowPressed: {
+        opacity: 0.6,
     },
     rowDisabled: {
         opacity: 0.4,

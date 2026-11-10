@@ -113,7 +113,7 @@
     "japanese": "Japanese",
     "general": "General",
     "notifications": "Notifications",
-    "notificationsDescription": "Turn off to mute the daily reminders. Your habit reminders won't change",
+    "notificationsDescription": "Turn off to mute all reminders, including your habits",
     "on": "On",
     "off": "Off",
     "morningNotifTitle": "Good morning ☀️",
@@ -121,5 +121,6 @@
     "afternoonNotifTitle": "Afternoon check-in",
     "afternoonNotifBody": "How are today's habits going?",
     "eveningNotifTitle": "Evening check-in",
-    "eveningNotifBody": "There's still time to finish today's habits"
+    "eveningNotifBody": "There's still time to finish today's habits",
+    "notificationsMutedBody": "Notifications are turned off in {{settings}} > {{reminders}}. Your reminder is saved, but it won't arrive until you turn them back on"
 }

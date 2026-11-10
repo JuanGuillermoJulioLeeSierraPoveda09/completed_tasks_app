@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Switch, View, Text, TouchableOpacity } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AnimatedSwitch from '../AnimatedSwitch';
 import { FONTS } from '../../../fonts';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -15,36 +16,28 @@ type SwitchRowProps = {
 };
 
 const SwitchRow = ({ label, value, onValueChange, icon, description, disabled = false }: SwitchRowProps) => (
-    <TouchableOpacity
-        style={[styles.row, disabled && styles.rowDisabled]}
+    <Pressable
+        style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         onPress={() => onValueChange(!value)}
-        activeOpacity={0.6}
         disabled={disabled}
         accessibilityRole="switch"
         accessibilityState={{ checked: value, disabled }}
     >
         {icon ? (
-            <View style={styles.iconBox}>
+            <View style={[styles.iconBox, disabled && styles.contentDisabled]}>
                 <Ionicons name={icon} size={20} color="#1F2937" />
             </View>
         ) : null}
 
-        <View style={styles.texts}>
+        <View style={[styles.texts, disabled && styles.contentDisabled]}>
             <Text style={styles.label} numberOfLines={1}>{label}</Text>
             {description ? (
                 <Text style={styles.description}>{description}</Text>
             ) : null}
         </View>
 
-        <Switch
-            value={value}
-            onValueChange={onValueChange}
-            disabled={disabled}
-            trackColor={{ false: '#E5E7EB', true: '#00B763' }}
-            thumbColor="#FFFFFF"
-            ios_backgroundColor="#E5E7EB"
-        />
-    </TouchableOpacity>
+        <AnimatedSwitch value={value} onValueChange={onValueChange} disabled={disabled} />
+    </Pressable>
 );
 
 const styles = StyleSheet.create({
@@ -55,7 +48,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 10,
     },
-    rowDisabled: {
+    rowPressed: {
+        opacity: 0.6,
+    },
+    contentDisabled: {
         opacity: 0.4,
     },
     iconBox: {

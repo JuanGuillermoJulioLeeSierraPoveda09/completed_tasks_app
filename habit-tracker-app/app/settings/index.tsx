@@ -11,6 +11,7 @@ export default function SettingsScreen() {
     const router = useRouter();
     const { t, i18n } = useTranslation();
     const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
+    const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
     const currentLanguageName = LANGUAGE_OPTIONS.find((option) => option.code === i18n.language)?.nativeName;
 
     return (
@@ -49,6 +50,7 @@ export default function SettingsScreen() {
                 <SettingsRow 
                     icon="notifications-outline"
                     label={t('reminders')}
+                    value={t(notificationsEnabled ? 'on' : 'off')}
                     onPress={() => router.push('/settings/reminders')}
                 />
             </SettingsSection>

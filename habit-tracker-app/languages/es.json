@@ -113,7 +113,7 @@
     "japanese": "Japonés",
     "general": "General",
     "notifications": "Notificaciones",
-    "notificationsDescription": "Apágalo para silenciar los recordatorios diarios. Los de tus hábitos no cambian",
+    "notificationsDescription": "Apágalo para silenciar todos los recordatorios, incluidos los de tus hábitos",
     "on": "Activado",
     "off": "Desactivado",
     "morningNotifTitle": "¡Buenos días! ☀️",
@@ -121,5 +121,6 @@
     "afternoonNotifTitle": "Revisión de la tarde",
     "afternoonNotifBody": "¿Cómo van tus hábitos de hoy?",
     "eveningNotifTitle": "Revisión de la noche",
-    "eveningNotifBody": "Aún estás a tiempo de completar tus hábitos de hoy"
+    "eveningNotifBody": "Aún estás a tiempo de completar tus hábitos de hoy",
+    "notificationsMutedBody": "Las notificaciones están apagadas en {{settings}} > {{reminders}}. Tu recordatorio está guardado, pero no llegará hasta que las vuelvas a encender"
 }
