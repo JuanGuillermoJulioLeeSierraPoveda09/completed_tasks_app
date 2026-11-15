@@ -6,6 +6,7 @@ import SettingsSection from '../../src/components/settings/SettingSection';
 import SettingsRow from '../../src/components/settings/SettingsRow';
 import { useSettingsStore } from '../../src/stores/settingsStore';
 import { LANGUAGE_OPTIONS } from '../../src/constants/languages';
+import { THEME_OPTIONS } from '../../src/constants/themes';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -13,6 +14,8 @@ export default function SettingsScreen() {
     const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
     const notificationsEnabled = useSettingsStore((s) => s.notificationsEnabled);
     const currentLanguageName = LANGUAGE_OPTIONS.find((option) => option.code === i18n.language)?.nativeName;
+    const themePreference = useSettingsStore((s) => s.theme);
+    const themeOption = THEME_OPTIONS.find((option) => option.value === themePreference);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -39,6 +42,7 @@ export default function SettingsScreen() {
                 <SettingsRow 
                     icon="color-palette-outline"
                     label={t('theme')}
+                    value={themeOption ? t(themeOption.translationKey) : undefined}
                     onPress={() => router.push('/settings/theme')}
                 />
                 <SettingsRow 

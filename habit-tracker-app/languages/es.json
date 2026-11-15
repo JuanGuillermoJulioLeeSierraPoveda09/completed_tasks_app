@@ -123,5 +123,9 @@
     "eveningNotifTitle": "Revisión de la noche",
     "eveningNotifBody": "Aún estás a tiempo de completar tus hábitos de hoy",
     "notificationsMutedBody": "Las notificaciones están apagadas en {{settings}} > {{reminders}}. Tu recordatorio está guardado, pero no llegará hasta que las vuelvas a encender",
-    "remindersChannelName": "Recordatorios de hábitos"
+    "remindersChannelName": "Recordatorios de hábitos",
+    "themeSystem": "Sistema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeSystemDescription": "Igual que tu teléfono"
 }
