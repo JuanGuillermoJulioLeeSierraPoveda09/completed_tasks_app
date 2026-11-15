@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View, Dimensions, Platform, type LayoutChangeEvent } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, runOnJS, runOnUI, cancelAnimation, useAnimatedReaction, FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,9 @@ import * as Haptics from 'expo-haptics';
 import { type Habit } from '../../habitsStore';
 import { CARD_GAP, CARD_FALLBACK_HEIGHT, type DragContext, groupIdsSorted, virtualOrder, topOf, stackHeight, dropIndex, GroupMeasureContext } from '../utils/dragLayout';
 import HabitCardMenu from './HabitCardMenu';
-import { cardStyles } from '../styles/habitCardStyles';
+import { createCardStyles } from '../styles/habitCardStyles';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -57,6 +59,9 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
   drag,
   onDragCancel
 }) => {
+  const { colors } = useTheme();
+  const cardStyles = useMemo(() => createCardStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { info, dragId, dragTo, committing } = drag;
   const reportHeight = React.useContext(GroupMeasureContext);
   const habitId = habit.id;
@@ -224,7 +229,7 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
       info.value = { ...m, [id]: { g, i: old ? old.i : i, h: height } };
     })(habitId, groupKey, index, h);
   };
-  return (
+    return (
     <Animated.View
       onLayout={groupKey ? handleLayout : undefined}
       style={[
@@ -236,11 +241,11 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
       {!isCompleted && (
         <>
           <Animated.View style={[styles.swipeBackground, { backgroundColor: habit.color }, rBackgroundRightStyle]}>
-            <Ionicons name={"trophy-outline"} size={32} color="#FFFFFF" />
+            <Ionicons name={"trophy-outline"} size={32} color={colors.onPrimary} />
           </Animated.View>
           {isQuitHabit && (
             <Animated.View style={[styles.swipeBackgroundLeft, rBackgroundLeftStyle]}>
-              <Ionicons name="close-circle-outline" size={34} color="#FFFFFF" />
+              <Ionicons name="close-circle-outline" size={34} color={colors.onPrimary} />
             </Animated.View>
           )}
         </>
@@ -255,11 +260,11 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
         ]}>
           <View style={[
             cardStyles.iconContainerGesture,
-            { backgroundColor: isCompleted ? '#F3F4F6' : (isFailed ? '#FEE2E2' : habit.color + '15') }]}>
+            { backgroundColor: isCompleted ? colors.fill : (isFailed ? colors.dangerBorder : habit.color + '15') }]}>
             <Ionicons
               name={isCompleted ? 'checkmark-circle' : (habit.icon as any)}
               size={24}
-              color={isCompleted ? '#9CA3AF' : (isFailed ? '#DC2626' : habit.color)}
+              color={isCompleted ? colors.textMuted : (isFailed ? colors.danger : habit.color)}
             />
           </View>
           <View style={cardStyles.habitInfo}>
@@ -275,13 +280,13 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
 
           {isEditMode && !isCompleted && !isFailed ? (
             <Animated.View entering={FadeIn} style={styles.reorderControls}>
-              <Ionicons name="menu-outline" size={26} color="#9CA3AF" />
+              <Ionicons name="menu-outline" size={26} color={colors.textMuted} />
             </Animated.View>
           ) : (
             <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
               {isQuitHabit && !isFailed && streak !== undefined && (
                 <View style={[cardStyles.streakBadgeMini, { backgroundColor: habit.color }]}>
-                  <Ionicons name="flame" size={12} color="#FFFFFF" />
+                  <Ionicons name="flame" size={12} color={colors.onPrimary} />
                   <Text style={cardStyles.streakBadgeMiniText}>{streak}</Text>
                 </View>
               )}
@@ -305,46 +310,47 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
 
 const SwipeableHabitCard = React.memo(SwipeableHabitCardBase);
 
-const styles = StyleSheet.create({
-  reorderControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
-  },
-  positionedContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    marginBottom: 0,
-  },
-  swipeBackground: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 20,
-  },
-  swipeBackgroundLeft: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingRight: 20,
-    backgroundColor: '#DC2626',
-  },
-  habitCardFailedGestural: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
-    elevation: 0,
-    shadowOpacity: 0
-  },
-  habitTitleFailed: {
-    color: '#9CA3AF',
-    textDecorationLine: 'line-through'
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    reorderControls: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginLeft: 8,
+    },
+    positionedContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      marginBottom: 0,
+    },
+    swipeBackground: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingLeft: 20,
+    },
+    swipeBackgroundLeft: {
+      ...StyleSheet.absoluteFill,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      paddingRight: 20,
+      backgroundColor: colors.danger,
+    },
+    habitCardFailedGestural: {
+      backgroundColor: colors.dangerSoft,
+      borderColor: colors.dangerBorder,
+      elevation: 0,
+      shadowOpacity: 0
+    },
+    habitTitleFailed: {
+      color: colors.textMuted,
+      textDecorationLine: 'line-through'
+    },
+  });
+  
 export default SwipeableHabitCard;

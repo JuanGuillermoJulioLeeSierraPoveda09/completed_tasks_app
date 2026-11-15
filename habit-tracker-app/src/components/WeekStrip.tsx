@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -6,9 +6,10 @@ import * as Haptics from 'expo-haptics';
 import { formatDateKey } from '../../habitsStore';
 import type { WeekStart } from '../stores/settingsStore';
 import { getDateAt } from '../utils/week';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 import { FONTS } from '../../fonts';
-const BRAND = '#00B763';
 const HORIZONTAL_PADDING = 8;
 const WEEKS_EACH_SIDE = 520;
 const CENTER_INDEX = WEEKS_EACH_SIDE;
@@ -20,11 +21,11 @@ type DayProgress = { total: number; done: number };
 const getWeekDates = (weekOffset: number, weekStartsOn: WeekStart) =>
   Array.from({ length: 7 }, (_, i) => getDateAt(weekOffset, i, weekStartsOn));
 
-const statusColor = ({ total, done }: DayProgress) => {
+const statusColor = ({ total, done }: DayProgress, colors: ThemeColors) => {
   if (total === 0) return 'transparent';
-  if (done >= total) return '#10B981';
-  if (done > 0) return '#F59E0B';
-  return '#E5E7EB';
+  if (done >= total) return colors.success;
+  if (done > 0) return colors.warning;
+  return colors.inactive;
 };
 
 interface WeekPageProps {
@@ -38,7 +39,10 @@ interface WeekPageProps {
 }
 
 const WeekPage = memo(({ weekOffset, weekStartsOn, width, columnWidth, todayKey, getDayProgress, onSelectDay }: WeekPageProps) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dates = getWeekDates(weekOffset, weekStartsOn);
+
   return (
     <View style={[styles.weekPage, { width }]}>
       {dates.map((date, index) => {
@@ -56,7 +60,7 @@ const WeekPage = memo(({ weekOffset, weekStartsOn, width, columnWidth, todayKey,
               {date.getDate()}
             </Text>
             <View
-              style={[styles.statusDot, { backgroundColor: isFuture ? 'transparent' : statusColor(getDayProgress(date)) }]}
+              style={[styles.statusDot, { backgroundColor: isFuture ? 'transparent' : statusColor(getDayProgress(date), colors) }]}
             />
           </Pressable>
         );
@@ -84,6 +88,8 @@ function WeekStrip({
   onChangeWeek,
   onSelectDay,
 }: WeekStripProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [width, setWidth] = useState(0);
   const listRef = useRef<FlatList<number>>(null);
   const visibleOffset = useRef(weekOffset);
@@ -186,75 +192,76 @@ export default memo(WeekStrip);
 const LETTER_SIZE = 30;
 const LETTERS_ROW_TOP = 10;
 
-const styles = StyleSheet.create({
-  container: {
-    paddingBottom: 8,
-  },
-  columnHighlight: {
-    position: 'absolute',
-    top: 4,
-    bottom: 2,
-    left: 0,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
-  },
-  letterIndicatorTrack: {
-    position: 'absolute',
-    top: LETTERS_ROW_TOP,
-    left: 0,
-    height: LETTER_SIZE,
-    alignItems: 'center',
-  },
-  letterIndicator: {
-    width: LETTER_SIZE,
-    height: LETTER_SIZE,
-    borderRadius: LETTER_SIZE / 2,
-    backgroundColor: '#000000',
-  },
-  lettersRow: {
-    flexDirection: 'row',
-    paddingHorizontal: HORIZONTAL_PADDING,
-    marginTop: LETTERS_ROW_TOP,
-    marginBottom: 6,
-  },
-  letterCell: {
-    height: LETTER_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  letterText: {
-    fontSize: 13,
-    fontFamily: FONTS.bold,
-    color: '#6B7280',
-  },
-  letterTextSelected: {
-    color: '#FFFFFF',
-  },
-  weekPage: {
-    flexDirection: 'row',
-    paddingHorizontal: HORIZONTAL_PADDING,
-  },
-  dayCell: {
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateNumber: {
-    fontSize: 16,
-    fontFamily: FONTS.semiBold,
-    color: '#1F2937',
-  },
-  dateNumberFuture: {
-    color: '#9CA3AF',
-  },
-  dateNumberToday: {
-    color: BRAND,
-    fontFamily: FONTS.extraBold,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 5,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      paddingBottom: 8,
+    },
+    columnHighlight: {
+      position: 'absolute',
+      top: 4,
+      bottom: 2,
+      left: 0,
+      borderRadius: 16,
+      backgroundColor: colors.fill,
+    },
+    letterIndicatorTrack: {
+      position: 'absolute',
+      top: LETTERS_ROW_TOP,
+      left: 0,
+      height: LETTER_SIZE,
+      alignItems: 'center',
+    },
+    letterIndicator: {
+      width: LETTER_SIZE,
+      height: LETTER_SIZE,
+      borderRadius: LETTER_SIZE / 2,
+      backgroundColor: colors.inverse,
+    },
+    lettersRow: {
+      flexDirection: 'row',
+      paddingHorizontal: HORIZONTAL_PADDING,
+      marginTop: LETTERS_ROW_TOP,
+      marginBottom: 6,
+    },
+    letterCell: {
+      height: LETTER_SIZE,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    letterText: {
+      fontSize: 13,
+      fontFamily: FONTS.bold,
+      color: colors.textSecondary,
+    },
+    letterTextSelected: {
+      color: colors.onInverse,
+    },
+    weekPage: {
+      flexDirection: 'row',
+      paddingHorizontal: HORIZONTAL_PADDING,
+    },
+    dayCell: {
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dateNumber: {
+      fontSize: 16,
+      fontFamily: FONTS.semiBold,
+      color: colors.text,
+    },
+    dateNumberFuture: {
+      color: colors.textMuted,
+    },
+    dateNumberToday: {
+      color: colors.primary,
+      fontFamily: FONTS.extraBold,
+    },
+    statusDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      marginTop: 5,
+    },
+  });
