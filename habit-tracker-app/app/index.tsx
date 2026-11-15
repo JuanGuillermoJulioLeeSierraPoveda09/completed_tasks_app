@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { StyleSheet, View, StatusBar, Platform, Alert, AppState } from 'react-native';
+import { StyleSheet, View, Platform, Alert, AppState } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useSharedValue } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,10 +23,14 @@ import { toLocaleTag, capitalize } from '../src/utils/locale';
 import { useSettingsStore } from '../src/stores/settingsStore';
 import { getDayColumn, getDateAt, getWeekOffset, rotateWeekDays } from '../src/utils/week';
 import { useTodayKey } from '../src/hooks/useTodayKey';
+import { useTheme } from '../src/theme/useTheme';
+import type { ThemeColors } from '../src/theme/colors';
 
 export default function HomeScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
+    const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
@@ -297,10 +301,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f7" />
-      <View
-        style={{ flex: 1 }}
-      >
+      <View style={{ flex: 1 }}>
         <MainHeader
           dateText={headerDateText}
           isTodayCompleted={isTodayCompleted}
@@ -386,28 +387,29 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9f9f7' },
-  mainContent: { flex: 1 },
-  calendarContainer: {
-    paddingVertical: 4,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-  },
-  calendarShadowBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 0,
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    mainContent: { flex: 1 },
+    calendarContainer: {
+      paddingVertical: 4,
+      borderRadius: 16,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 3,
-  },
-});
+    calendarShadowBox: {
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      marginHorizontal: 16,
+      marginTop: 6,
+      marginBottom: 16,
+      shadowColor: colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 0,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 16,
+      elevation: 3,
+    },
+  });
