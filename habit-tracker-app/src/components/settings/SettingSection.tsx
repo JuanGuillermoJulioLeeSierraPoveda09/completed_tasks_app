@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { FONTS } from '../../../fonts';
+import { useTheme } from '../../theme/useTheme';
+import type { ThemeColors } from '../../theme/colors';
 
 type SettingsSectionProps = {
     title: string;
@@ -9,6 +11,8 @@ type SettingsSectionProps = {
 };
 
 const SettingsSection = ({ title, children, dividerInset = 56 }: SettingsSectionProps) => {
+    const { colors } = useTheme();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const rows = React.Children.toArray(children);
 
     return (
@@ -26,28 +30,29 @@ const SettingsSection = ({ title, children, dividerInset = 56 }: SettingsSection
     );
 };
 
-const styles = StyleSheet.create({
-    section: {
-        marginBottom: 24,
-    },
-    title: {
-        fontSize: 12,
-        fontFamily: FONTS.bold,
-        color: '#6B7280',
-        textTransform: 'uppercase',
-        letterSpacing: 0.8,
-        marginLeft: 16,
-        marginBottom: 8,
-    },
-    card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        overflow: 'hidden',
-    },
-    divider: {
-        height: StyleSheet.hairlineWidth,
-        backgroundColor: '#E5E7EB',
-    },
-});
+const createStyles = (colors: ThemeColors) =>
+    StyleSheet.create({
+        section: {
+            marginBottom: 24,
+        },
+        title: {
+            fontSize: 12,
+            fontFamily: FONTS.bold,
+            color: colors.textSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+            marginLeft: 16,
+            marginBottom: 8,
+        },
+        card: {
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            overflow: 'hidden',
+        },
+        divider: {
+            height: StyleSheet.hairlineWidth,
+            backgroundColor: colors.border,
+        },
+    });
 
 export default SettingsSection;
