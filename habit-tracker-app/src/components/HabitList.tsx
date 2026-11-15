@@ -9,6 +9,8 @@ import { type DragContext } from '../utils/dragLayout';
 import SwipeableHabitCard from './SwipeableHabitCard';
 import CompletedHabitCard from './CompletedHabitCard';
 import PendingGroupList from './PendingGroupList';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 const HabitList = React.memo<{
   activeDate: Date;
@@ -46,6 +48,8 @@ const HabitList = React.memo<{
   openCreateForm,
 }) => {
   const { t } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const habits = useHabitsStore((s) => s.habits);
   const habitLogs = useHabitsStore((s) => s.habitLogs);
   const relapseLogs = useHabitsStore((s) => s.relapseLogs);
@@ -191,60 +195,60 @@ const HabitList = React.memo<{
         })()
       )}
       <TouchableOpacity style={styles.createHabitButton} onPress={openCreateForm}>
-        <Ionicons name="add" size={22} color="#FFFFFF" />
+        <Ionicons name="add" size={22} color={colors.onPrimary} />
       </TouchableOpacity>
     </View>
   );
 });
 
-const styles = StyleSheet.create({
-  habitsSection: { paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 18, fontFamily: FONTS.bold, color: '#1F2937', marginBottom: 12 },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  editModeOverlay: {
-    position: 'absolute',
-    top: -2000,
-    bottom: -2000,
-    left: -1000,
-    right: -1000,
-    //backgroundColor: 'rgba(0,0,0,0.4)',
-    zIndex: 0,
-    elevation: 0
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 10,
-  },
-  emptyText: { color: '#4B5563', fontFamily: FONTS.semiBold, fontSize: 14 },
-  emptySubtext: { color: '#9CA3AF', fontSize: 12, fontFamily: FONTS.regular, marginTop: 4 },
-  createHabitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 22,
-    backgroundColor: '#00B763',
-    marginTop: 8,
-    marginBottom: 16,
-    gap: 8,
-  },
-  timeOfDayHeader: {
-    fontSize: 16,
-    fontFamily: FONTS.bold,
-    color: '#1F2937',
-    marginTop: 12,
-    marginBottom: 10
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    habitsSection: { paddingHorizontal: 16 },
+    sectionTitle: { fontSize: 18, fontFamily: FONTS.bold, color: colors.text, marginBottom: 12 },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    editModeOverlay: {
+      position: 'absolute',
+      top: -2000,
+      bottom: -2000,
+      left: -1000,
+      right: -1000,
+      zIndex: 0,
+      elevation: 0
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      paddingVertical: 24,
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 10,
+    },
+    emptyText: { color: colors.textSecondary, fontFamily: FONTS.semiBold, fontSize: 14 },
+    emptySubtext: { color: colors.textMuted, fontSize: 12, fontFamily: FONTS.regular, marginTop: 4 },
+    createHabitButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      marginTop: 8,
+      marginBottom: 16,
+      gap: 8,
+    },
+    timeOfDayHeader: {
+      fontSize: 16,
+      fontFamily: FONTS.bold,
+      color: colors.text,
+      marginTop: 12,
+      marginBottom: 10
+    },
+  });
 
 export default HabitList;

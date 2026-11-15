@@ -3,6 +3,7 @@ export const lightColors = {
     background: '#F9F9F7',
     surface: '#FFFFFF',
     surfaceMuted: '#F9FAFB',
+    surfaceElevated: '#FFFFFF',
     fill: '#F3F4F6',
     border: '#E5E7EB',
 
@@ -40,6 +41,7 @@ export const darkColors: ThemeColors = {
     background: '#121413',
     surface: '#1C1F1E',
     surfaceMuted: '#171A19',
+    surfaceElevated: '#262A28',
     fill: '#262A28',
     border: '#2E3331',
 

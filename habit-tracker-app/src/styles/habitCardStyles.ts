@@ -24,7 +24,7 @@ export const createCardStyles = (colors: ThemeColors) =>
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
       shadowRadius: 5,
-      elevation: 2,
+      //elevation: 4,
     },
     habitCardCompletedGestural: {
       backgroundColor: colors.surfaceMuted,
