@@ -245,7 +245,7 @@ const SwipeableHabitCardBase: React.FC<SwipeableHabitCardProps> = ({
           </Animated.View>
           {isQuitHabit && (
             <Animated.View style={[styles.swipeBackgroundLeft, rBackgroundLeftStyle]}>
-              <Ionicons name="close-circle-outline" size={34} color={colors.onPrimary} />
+              <Ionicons name="close-circle-outline" size={34} color={colors.onDanger} />
             </Animated.View>
           )}
         </>

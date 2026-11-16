@@ -1,4 +1,4 @@
-import React, { memo, useRef, useState } from 'react';
+import React, { memo, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { GestureResponderEvent, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import { formatDateKey } from '../../habitsStore';
 import type { WeekStart } from '../stores/settingsStore';
 import { getDayColumn } from '../utils/week';
 import { capitalize } from '../utils/locale';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 import { FONTS } from '../../fonts';
 const MONTHS_EACH_SIDE = 240;
@@ -32,9 +34,9 @@ const getMonthCells = (monthOffset: number, weekStartsOn: WeekStart) => {
   });
 };
 
-const statusColor = ({ total, done }: DayProgress) => {
-  if (done === 0) return '#CBD5E1';
-  return total > 0 && done >= total ? '#10B981' : '#F59E0B';
+const statusColor = ({ total, done }: DayProgress, colors: ThemeColors) => {
+  if (done === 0) return colors.inactive;
+  return total > 0 && done >= total ? colors.success : colors.warning;
 };
 const progressCaches = new WeakMap<(date: Date) => DayProgress, Map<string, DayProgress>>();
 const getCachedProgress = (getDayProgress: (date: Date) => DayProgress, date: Date, dateKey: string, todayKey: string) => {
@@ -63,6 +65,8 @@ interface MonthPageProps {
 }
 
 const MonthPage = memo(({ monthOffset, weekStartsOn, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const cells = getMonthCells(monthOffset, weekStartsOn);
   const gridHeight = useRef(0);
   const handlePress = (e: GestureResponderEvent) => {
@@ -87,7 +91,7 @@ const MonthPage = memo(({ monthOffset, weekStartsOn, width, cellWidth, todayKey,
               <View
                 style={[
                   styles.statusDot,
-                  { backgroundColor: isCurrentMonth ? statusColor(getCachedProgress(getDayProgress, date, dateKey, todayKey)) : 'transparent' },
+                  { backgroundColor: isCurrentMonth ? statusColor(getCachedProgress(getDayProgress, date, dateKey, todayKey), colors) : 'transparent' },
                 ]}
               />
             </View>
@@ -107,6 +111,8 @@ interface MonthCalendarProps {
 }
 
 function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [width, setWidth] = useState(0);
   const [visibleOffset, setVisibleOffset] = useState(0);
   const visibleOffsetRef = useRef(0);
@@ -141,13 +147,13 @@ function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, on
     <View>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => goToMonth(visibleOffsetRef.current - 1, true)} style={styles.navButton}>
-          <Ionicons name="chevron-back" size={20} color="#1F2937" />
+          <Ionicons name="chevron-back" size={20} color={colors.text} />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleTitlePress}>
           <Text style={styles.title}>{title}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => goToMonth(visibleOffsetRef.current + 1, true)} style={styles.navButton}>
-          <Ionicons name="chevron-forward" size={20} color="#1F2937" />
+          <Ionicons name="chevron-forward" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -193,59 +199,60 @@ function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, on
 }
 export default memo(MonthCalendar);
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  navButton: {
-    padding: 6,
-  },
-  title: {
-    fontSize: 16,
-    fontFamily: FONTS.bold,
-    color: '#1F2937',
-    textTransform: 'capitalize',
-  },
-  weekDaysRow: {
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  weekDayCell: {
-    alignItems: 'center',
-  },
-  weekDayText: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontFamily: FONTS.semiBold,
-  },
-  monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  dayCell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  dayNumber: {
-    color: '#1F2937',
-    fontSize: 14,
-    fontFamily: FONTS.semiBold,
-  },
-  dayNumberOutside: {
-    color: '#9CA3AF',
-  },
-  dayNumberToday: {
-    color: '#00B763',
-    fontFamily: FONTS.extraBold,
-  },
-  statusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginTop: 3,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 25,
+    },
+    navButton: {
+      padding: 6,
+    },
+    title: {
+      fontSize: 16,
+      fontFamily: FONTS.bold,
+      color: colors.text,
+      textTransform: 'capitalize',
+    },
+    weekDaysRow: {
+      flexDirection: 'row',
+      marginBottom: 6,
+    },
+    weekDayCell: {
+      alignItems: 'center',
+    },
+    weekDayText: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontFamily: FONTS.semiBold,
+    },
+    monthGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+    },
+    dayCell: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+    },
+    dayNumber: {
+      color: colors.text,
+      fontSize: 14,
+      fontFamily: FONTS.semiBold,
+    },
+    dayNumberOutside: {
+      color: colors.textMuted,
+    },
+    dayNumberToday: {
+      color: colors.primary,
+      fontFamily: FONTS.extraBold,
+    },
+    statusDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+      marginTop: 3,
+    },
+  });

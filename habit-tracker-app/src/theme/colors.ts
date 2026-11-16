@@ -26,6 +26,7 @@ export const lightColors = {
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#DC2626',
+    onDanger: '#FFFFFF',
     dangerSoft: '#FEF2F2',
     dangerBorder: '#FEE2E2',
 
@@ -41,7 +42,7 @@ export const darkColors: ThemeColors = {
     background: '#121413',
     surface: '#1C1F1E',
     surfaceMuted: '#171A19',
-    surfaceElevated: '#262A28',
+    surfaceElevated: '#323735',
     fill: '#262A28',
     border: '#2E3331',
 
@@ -64,6 +65,7 @@ export const darkColors: ThemeColors = {
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#F87171',
+    onDanger: '#111111',
     dangerSoft: '#3A1A1A',
     dangerBorder: '#5A2323',
 
