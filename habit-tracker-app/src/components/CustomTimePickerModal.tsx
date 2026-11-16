@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, FlatList } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, runOnJS, cancelAnimation } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView, GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import { FONTS } from '../../fonts';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 interface CustomTimePickerModalProps {
   visible: boolean;
@@ -28,6 +30,8 @@ const PADDED_MINUTES = ['', ...INFINITE_MINUTES, ''];
 const PADDED_PERIODS = ['', ...REMINDER_PERIODS, ''];
 
 const MemorizedPickerItem = React.memo(({ item, isSelected }: { item: string; isSelected: boolean }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   if (item === '') return <View style={{ height: REMINDER_ITEM_HEIGHT }} />;
   return (
     <View style={{ height: REMINDER_ITEM_HEIGHT, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
@@ -113,6 +117,8 @@ const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   onClose,
 }) => {
   const { t, i18n } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [hour, setHour] = useState(reminderSelectedHour);
   const [minute, setMinute] = useState(reminderSelectedMinute);
   const [period, setPeriod] = useState<'AM' | 'PM'>(reminderSelectedPeriod);
@@ -187,7 +193,7 @@ const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
           <View style={styles.reminderCardHeader}>
             <Text style={styles.reminderCardTitle}>{t('time')}</Text>
             <TouchableOpacity onPress={onClose} style={styles.reminderCloseButton}>
-              <Ionicons name="close" size={24} color="#6B7280" />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -283,90 +289,91 @@ const CustomTimePickerModal: React.FC<CustomTimePickerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  reminderSaveButton: {
-    width: '100%',
-    backgroundColor: '#00B763',
-    paddingVertical: 14,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  reminderSaveButtonText: {
-    fontSize: 16,
-    fontFamily: FONTS.semiBold,
-    color: '#FFFFFF',
-  },
-  reminderWindowCardContainer: {
-    width: '80%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  reminderCardHeader: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  reminderCardTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.semiBold,
-    color: '#000000',
-  },
-  reminderCloseButton: {
-    position: 'absolute',
-    right: 0,
-    padding: 4,
-  },
-  reminderPickerWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: CONTAINER_HEIGHT,
-    width: '100%',
-    marginVertical: 15,
-  },
-  reminderPickerItem: {
-    height: REMINDER_ITEM_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 60,
-  },
-  reminderPickerText: {
-    fontSize: 18,
-    color: '#D1D5DB',
-    fontFamily: FONTS.regular,
-    lineHeight: REMINDER_ITEM_HEIGHT,
-    textAlign: 'center',
-  },
-  reminderPickerTextSelected: {
-    fontSize: 20,
-    color: '#000000',
-    fontFamily: FONTS.semiBold,
-    lineHeight: REMINDER_ITEM_HEIGHT,
-    marginHorizontal: 10,
-    textAlign: 'center',
-  },
-  reminderTimeSeparator: {
-    color: '#000000',
-    fontSize: 24,
-    fontFamily: FONTS.bold,
-    lineHeight: REMINDER_ITEM_HEIGHT,
-    textAlign: 'center',
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    reminderSaveButton: {
+      width: '100%',
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: 25,
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    reminderSaveButtonText: {
+      fontSize: 16,
+      fontFamily: FONTS.semiBold,
+      color: colors.onPrimary,
+    },
+    reminderWindowCardContainer: {
+      width: '80%',
+      backgroundColor: colors.surfaceElevated,
+      borderRadius: 28,
+      paddingHorizontal: 24,
+      paddingTop: 24,
+      paddingBottom: 20,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    reminderCardHeader: {
+      width: '100%',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    reminderCardTitle: {
+      fontSize: 18,
+      fontFamily: FONTS.semiBold,
+      color: colors.text,
+    },
+    reminderCloseButton: {
+      position: 'absolute',
+      right: 0,
+      padding: 4,
+    },
+    reminderPickerWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: CONTAINER_HEIGHT,
+      width: '100%',
+      marginVertical: 15,
+    },
+    reminderPickerItem: {
+      height: REMINDER_ITEM_HEIGHT,
+      justifyContent: 'center',
+      alignItems: 'center',
+      width: 60,
+    },
+    reminderPickerText: {
+      fontSize: 18,
+      color: colors.textMuted,
+      fontFamily: FONTS.regular,
+      lineHeight: REMINDER_ITEM_HEIGHT,
+      textAlign: 'center',
+    },
+    reminderPickerTextSelected: {
+      fontSize: 20,
+      color: colors.text,
+      fontFamily: FONTS.semiBold,
+      lineHeight: REMINDER_ITEM_HEIGHT,
+      marginHorizontal: 10,
+      textAlign: 'center',
+    },
+    reminderTimeSeparator: {
+      color: colors.text,
+      fontSize: 24,
+      fontFamily: FONTS.bold,
+      lineHeight: REMINDER_ITEM_HEIGHT,
+      textAlign: 'center',
+    },
+  });
 
 export default CustomTimePickerModal;

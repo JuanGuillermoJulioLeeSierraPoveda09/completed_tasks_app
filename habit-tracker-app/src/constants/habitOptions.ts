@@ -71,3 +71,10 @@ export const ICON_CATEGORIES = {
     'star-outline', 'happy-outline'
   ],
 };
+
+export const ICON_CATEGORY_LABEL_KEYS: Record<keyof typeof ICON_CATEGORIES, string> = {
+  All: 'iconCategoryAll',
+  Food: 'iconCategoryFood',
+  Lifestyle: 'iconCategoryLifestyle',
+  Hobby: 'iconCategoryHobby',
+};

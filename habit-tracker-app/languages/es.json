@@ -127,5 +127,9 @@
     "themeSystem": "Sistema",
     "themeLight": "Claro",
     "themeDark": "Oscuro",
-    "themeSystemDescription": "Igual que tu teléfono"
+    "themeSystemDescription": "Igual que tu teléfono",
+    "iconCategoryAll": "Todos",
+    "iconCategoryFood": "Comida",
+    "iconCategoryLifestyle": "Estilo de vida",
+    "iconCategoryHobby": "Pasatiempos"
 }

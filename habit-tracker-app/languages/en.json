@@ -127,5 +127,9 @@
     "themeSystem": "System",
     "themeLight": "Light",
     "themeDark": "Dark",
-    "themeSystemDescription": "Same as your phone"
+    "themeSystemDescription": "Same as your phone",
+    "iconCategoryAll": "All",
+    "iconCategoryFood": "Food",
+    "iconCategoryLifestyle": "Lifestyle",
+    "iconCategoryHobby": "Hobby"
 }

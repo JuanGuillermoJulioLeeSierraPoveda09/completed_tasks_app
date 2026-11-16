@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Modal, TextInput, Dimensions, Platform, LayoutAnimation, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Modal, TextInput, Dimensions, Platform, LayoutAnimation, Alert } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDateKey, parseDateKey, type Habit, type HabitDraft, type HabitType } from '../../habitsStore';
 import { requestNotificationPermission, openNotificationSettings } from '../../notifications';
 import { FONTS } from '../../fonts';
-import { AVAILABLE_COLORS, COLOR_ROWS, ICON_CATEGORIES } from '../constants/habitOptions';
+import { AVAILABLE_COLORS, COLOR_ROWS, ICON_CATEGORIES, ICON_CATEGORY_LABEL_KEYS } from '../constants/habitOptions';
 import { type FrequencyType, everyWeekDay, formatMonthDaysDisplay, describeWeekDays } from '../utils/frequency';
 import CustomTimePickerModal from './CustomTimePickerModal';
 import AnimatedSwitch from './AnimatedSwitch';
@@ -17,6 +17,8 @@ import { toLocaleTag } from '../utils/locale';
 import { useSettingsStore } from '../stores/settingsStore';
 import { rotateWeekDays } from '../utils/week';
 import { formatReminderTime } from '../utils/time';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeColors } from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -107,6 +109,8 @@ const HabitFormBody: React.FC<{
   onSave: (draft: HabitDraft) => void;
 }> = ({ habit, onClose, onSave }) => {
   const { t, i18n } = useTranslation();
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const currentLocale = toLocaleTag(i18n.language);
   const WEEK_DAYS = useMemo(() => [t('sunday'), t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday')], [t]);
   const weekStartsOn = useSettingsStore((s) => s.weekStartsOn);
@@ -188,10 +192,9 @@ const HabitFormBody: React.FC<{
   return (
     <>
       <SafeAreaView style={styles.createHabitModalContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.createHabitHeader}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={26} color="#1F2937" />
+            <Ionicons name="close" size={26} color={colors.text} />
           </TouchableOpacity>
 
           <View style={styles.dropdownWrapper}>
@@ -208,7 +211,7 @@ const HabitFormBody: React.FC<{
                 style={[styles.iconCircleButton, { backgroundColor: form.color }]}
                 onPress={() => setIsIconPickerOpen(true)}
               >
-                <Ionicons name={form.icon as any} size={28} color="#FFFFFF" />
+                <Ionicons name={form.icon as any} size={28} color={colors.onPrimary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -271,7 +274,7 @@ const HabitFormBody: React.FC<{
                         style={[styles.colorOption, { backgroundColor: color }, isSelected && styles.colorOptionSelected]}
                         onPress={() => patch({ color })}
                       >
-                        {isSelected && <Ionicons name="checkmark" size={18} color="#FFFFFF" />}
+                        {isSelected && <Ionicons name="checkmark" size={18} color={colors.onPrimary} />}
                       </TouchableOpacity>
                     );
                   })}
@@ -284,14 +287,14 @@ const HabitFormBody: React.FC<{
             <View style={styles.formGroup}>
               <Text style={styles.fieldLabel}>{t('frequency')}</Text>
               {form.type === 'Quit a habit' ? (
-                <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: '#E5E7EB' }]}>
+                <TouchableOpacity style={[styles.frequencyInputSelector, { backgroundColor: colors.inactive }]}>
                   <Text style={styles.frequencyValueText}>{t('everyday')}</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity style={styles.frequencyInputSelector} onPress={() => setIsFrequencyModalOpen(true)}>
                   <Text style={styles.frequencyValueText}>{form.frequencyDisplay}</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -315,7 +318,7 @@ const HabitFormBody: React.FC<{
                       ]}
                       onPress={() => patch({ timeOfDay: isSelected ? undefined : time })}
                     >
-                      <Text style={[styles.timeOfDayText, isSelected && { color: '#FFFFFF' }]}>
+                      <Text style={[styles.timeOfDayText, isSelected && { color: colors.onPrimary }]}>
                         {displayTime}
                       </Text>
                     </TouchableOpacity>
@@ -335,7 +338,7 @@ const HabitFormBody: React.FC<{
                 <Text style={styles.frequencyValueText}>
                   {t('doItOn')}: {form.taskDate.toLocaleDateString(currentLocale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
-                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+                <Ionicons name="calendar-outline" size={18} color={colors.textMuted} />
               </TouchableOpacity>
 
               {isDatePickerVisible && (
@@ -405,7 +408,7 @@ const HabitFormBody: React.FC<{
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
-              <Ionicons name="close" size={26} color="#1F2937" />
+              <Ionicons name="close" size={26} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>{t('selectIcon')}</Text>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
@@ -424,7 +427,7 @@ const HabitFormBody: React.FC<{
                     onPress={() => setActiveIconCategory(cat)}
                   >
                     <Text style={[styles.categoryTabText, isActive && styles.categoryTabTextActive]}>
-                      {cat}
+                      {t(ICON_CATEGORY_LABEL_KEYS[cat])}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -446,7 +449,7 @@ const HabitFormBody: React.FC<{
                       patch({ icon: iconName })
                     }}
                   >
-                    <Ionicons name={iconName as any} size={30} color={isSelected ? form.color : '#374151'} />
+                    <Ionicons name={iconName as any} size={30} color={isSelected ? form.color : colors.text} />
                   </TouchableOpacity>
                 );
               })}
@@ -461,7 +464,7 @@ const HabitFormBody: React.FC<{
             <TouchableOpacity
               onPress={handleCloseFrequencyModal}
             >
-              <Ionicons name="close" size={26} color="#1F2937" />
+              <Ionicons name="close" size={26} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.fullscreenModalTitle}>{t('frequency')}</Text>
             <TouchableOpacity
@@ -482,7 +485,7 @@ const HabitFormBody: React.FC<{
                 <Ionicons
                   name={form.frequencyType === 'days_of_week' ? 'radio-button-on' : 'radio-button-off'}
                   size={20}
-                  color={form.frequencyType === 'days_of_week' ? form.color : '#9CA3AF'}
+                  color={form.frequencyType === 'days_of_week' ? form.color : colors.textMuted}
                 />
                 <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheWeek')}</Text>
               </View>
@@ -501,7 +504,7 @@ const HabitFormBody: React.FC<{
                         ]}
                         onPress={() => toggleWeekDaySelection(idx)}
                       >
-                        <Text style={[styles.weekDayCircleText, isSelected && { color: '#FFFFFF' }]}>
+                        <Text style={[styles.weekDayCircleText, isSelected && { color: colors.onPrimary }]}>
                           {day}
                         </Text>
                       </TouchableOpacity>
@@ -521,7 +524,7 @@ const HabitFormBody: React.FC<{
                 <Ionicons
                   name={form.frequencyType === 'days_of_month' ? 'radio-button-on' : 'radio-button-off'}
                   size={20}
-                  color={form.frequencyType === 'days_of_month' ? form.color : '#9CA3AF'}
+                  color={form.frequencyType === 'days_of_month' ? form.color : colors.textMuted}
                 />
                 <Text style={styles.frequencyOptionTitle}>{t('specificDaysOfTheMonth')}</Text>
               </View>
@@ -540,7 +543,7 @@ const HabitFormBody: React.FC<{
                           ]}
                           onPress={() => toggleMonthDaySelection(day)}
                         >
-                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                          <Text style={[styles.monthDayText, isSelected && { color: colors.onPrimary }]}>
                             {day}
                           </Text>
                         </TouchableOpacity>
@@ -565,7 +568,7 @@ const HabitFormBody: React.FC<{
                             ]}
                             onPress={() => toggleMonthDaySelection(day)}
                           >
-                            <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                            <Text style={[styles.monthDayText, isSelected && { color: colors.onPrimary }]}>
                               {day}
                             </Text>
                           </TouchableOpacity>
@@ -585,7 +588,7 @@ const HabitFormBody: React.FC<{
                           ]}
                           onPress={() => toggleMonthDaySelection(day)}
                         >
-                          <Text style={[styles.monthDayText, isSelected && { color: '#FFFFFF' }]}>
+                          <Text style={[styles.monthDayText, isSelected && { color: colors.onPrimary }]}>
                             {day}
                           </Text>
                         </TouchableOpacity>
@@ -614,300 +617,302 @@ const HabitFormModal = React.memo<{
   </Modal>
 ));
 
-const styles = StyleSheet.create({
-  saveButtonText: { color: '#FFFFFF', fontFamily: FONTS.semiBold },
-  createHabitModalContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF'
-  },
-  createHabitHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    zIndex: 10,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  dropdownWrapper: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  dropdownTitle: {
-    fontSize: 17,
-    fontFamily: FONTS.bold,
-    color: '#1F2937',
-  },
-  createHabitBody: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  iconSelectionSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  iconBoxBackground: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconCircleButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  typeSelectorContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 24,
-  },
-  typeSelectorButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  typeSelectorButtonSelected: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  typeSelectorText: {
-    fontSize: 15,
-    fontFamily: FONTS.semiBold,
-    color: '#6B7280'
-  },
-  formGroup: {
-    marginBottom: 24,
-  },
-  fieldLabel: {
-    fontSize: 15,
-    fontFamily: FONTS.bold,
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  formInput: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    fontFamily: FONTS.regular,
-    color: '#1F2937',
-  },
-  frequencyInputSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  frequencyValueText: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
-  colorGrid: {
-    gap: 12,
-    marginTop: 4,
-  },
-  colorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  colorOption: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colorOptionSelected: {
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  timeOfDayContainer: {
-    flexDirection: 'row',
-    gap: 8
-  },
-  timeOfDayButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  timeOfDayText: {
-    fontSize: 14,
-    fontFamily: FONTS.semiBold,
-    color: '#1F2937'
-  },
-  createHabitFooter: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  saveHabitButton: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  fullscreenModalContainer: { flex: 1, backgroundColor: '#FFFFFF' },
-  fullscreenModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  fullscreenModalTitle: { fontSize: 18, fontFamily: FONTS.bold, color: '#1F2937' },
-  headerDoneText: { fontSize: 16, fontFamily: FONTS.bold, color: '#00B763' },
-  categoryNavbar: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FAFAFA'
-  },
-  categoryNavContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  categoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB'
-  },
-  categoryTabActive: { backgroundColor: '#1F2937' },
-  categoryTabText: { fontSize: 13, fontFamily: FONTS.semiBold, color: '#4B5563' },
-  categoryTabTextActive: { color: '#FFFFFF' },
-  iconScrollContainer: { flex: 1, padding: 16 },
-  iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 25 },
-  iconTile: {
-    width: (SCREEN_WIDTH - 64) / 6,
-    height: (SCREEN_WIDTH - 64) / 6,
-    borderRadius: 16,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  frequencyBody: { flex: 1, padding: 16 },
-  frequencyOptionCard: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  frequencyOptionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  frequencyOptionTitle: { fontSize: 15, fontFamily: FONTS.semiBold, color: '#1F2937' },
-  weekDaysPickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
-  weekDayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekDayCircleText: { fontSize: 13, fontFamily: FONTS.bold, color: '#4B5563' },
-  monthDaysGridContainer: {
-    marginTop: 16,
-    alignItems: 'center',
-    width: '100%'
-  },
-  monthDaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 8,
-    width: '100%'
-  },
-  monthDaysRowFirst: {
-    justifyContent: 'flex-end',
-    paddingRight: 9
-  },
-  monthDaysRowEnd: {
-    justifyContent: 'flex-start',
-    paddingLeft: 9
-  },
-  monthDayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  monthDayText: {
-    fontSize: 13,
-    fontFamily: FONTS.bold,
-    color: '#4B5563'
-  },
-  reminderCardContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 5,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-  },
-  reminderHeaderRow: {
-    paddingVertical: 9,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reminderDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    zIndex: 10,
-    marginBottom: 16
-  },
-  reminderExpandedContent: {
-    paddingBottom: 12,
-  },
-  reminderTimeButton: {
-    backgroundColor: '#E5E7EB',
-    paddingVertical: 12,
-    marginHorizontal: 45,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  reminderTimeButtonText: {
-    fontSize: 16,
-    fontFamily: FONTS.semiBold,
-    color: '#1F2937',
-  },
-});
-
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    saveButtonText: { color: colors.onPrimary, fontFamily: FONTS.semiBold },
+    createHabitModalContainer: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+    createHabitHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.fill,
+      zIndex: 10,
+    },
+    closeButton: {
+      padding: 4,
+    },
+    dropdownWrapper: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    dropdownTitle: {
+      fontSize: 17,
+      fontFamily: FONTS.bold,
+      color: colors.text,
+    },
+    createHabitBody: {
+      flex: 1,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+    },
+    iconSelectionSection: {
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    iconBoxBackground: {
+      width: 72,
+      height: 72,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconCircleButton: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    typeSelectorContainer: {
+      flexDirection: 'row',
+      backgroundColor: colors.fill,
+      borderRadius: 16,
+      padding: 4,
+      marginBottom: 24,
+    },
+    typeSelectorButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    typeSelectorButtonSelected: {
+      backgroundColor: colors.surfaceElevated,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    typeSelectorText: {
+      fontSize: 15,
+      fontFamily: FONTS.semiBold,
+      color: colors.textSecondary,
+    },
+    formGroup: {
+      marginBottom: 24,
+    },
+    fieldLabel: {
+      fontSize: 15,
+      fontFamily: FONTS.bold,
+      color: colors.text,
+      marginBottom: 8,
+    },
+    formInput: {
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      fontSize: 15,
+      fontFamily: FONTS.regular,
+      color: colors.text,
+    },
+    frequencyInputSelector: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    frequencyValueText: { fontSize: 15, fontFamily: FONTS.semiBold, color: colors.text },
+    colorGrid: {
+      gap: 12,
+      marginTop: 4,
+    },
+    colorRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    colorOption: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    colorOptionSelected: {
+      borderWidth: 3,
+      borderColor: colors.surface,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    timeOfDayContainer: {
+      flexDirection: 'row',
+      gap: 8
+    },
+    timeOfDayButton: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    timeOfDayText: {
+      fontSize: 14,
+      fontFamily: FONTS.semiBold,
+      color: colors.text,
+    },
+    createHabitFooter: {
+      padding: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.fill,
+    },
+    saveHabitButton: {
+      paddingVertical: 14,
+      borderRadius: 14,
+      alignItems: 'center',
+    },
+    fullscreenModalContainer: { flex: 1, backgroundColor: colors.surface },
+    fullscreenModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.fill,
+    },
+    fullscreenModalTitle: { fontSize: 18, fontFamily: FONTS.bold, color: colors.text },
+    headerDoneText: { fontSize: 16, fontFamily: FONTS.bold, color: colors.primary },
+    categoryNavbar: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.fill,
+      backgroundColor: colors.surfaceMuted,
+    },
+    categoryNavContent: { paddingHorizontal: 8 },
+    categoryTab: {
+      paddingHorizontal: 12,
+      paddingTop: 12,
+      paddingBottom: 10,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent',
+    },
+    categoryTabActive: { borderBottomColor: colors.primary },
+    categoryTabText: { fontSize: 13, fontFamily: FONTS.semiBold, color: colors.textSecondary },
+    categoryTabTextActive: { color: colors.primary, fontFamily: FONTS.bold },
+    iconScrollContainer: { flex: 1, padding: 16 },
+    iconCategoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginBottom: 25 },
+    iconTile: {
+      width: (SCREEN_WIDTH - 64) / 6,
+      height: (SCREEN_WIDTH - 64) / 6,
+      borderRadius: 16,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    frequencyBody: { flex: 1, padding: 16 },
+    frequencyOptionCard: {
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
+    },
+    frequencyOptionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    frequencyOptionTitle: { fontSize: 15, fontFamily: FONTS.semiBold, color: colors.text },
+    weekDaysPickerRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
+    weekDayCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.inactive,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    weekDayCircleText: { fontSize: 13, fontFamily: FONTS.bold, color: colors.textSecondary },
+    monthDaysGridContainer: {
+      marginTop: 16,
+      alignItems: 'center',
+      width: '100%'
+    },
+    monthDaysRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+      marginBottom: 8,
+      width: '100%'
+    },
+    monthDaysRowFirst: {
+      justifyContent: 'flex-end',
+      paddingRight: 9
+    },
+    monthDaysRowEnd: {
+      justifyContent: 'flex-start',
+      paddingLeft: 9
+    },
+    monthDayCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.inactive,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    monthDayText: {
+      fontSize: 13,
+      fontFamily: FONTS.bold,
+      color: colors.textSecondary,
+    },
+    reminderCardContainer: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 5,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    reminderHeaderRow: {
+      paddingVertical: 9,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    reminderDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      zIndex: 10,
+      marginBottom: 16
+    },
+    reminderExpandedContent: {
+      paddingBottom: 12,
+    },
+    reminderTimeButton: {
+      backgroundColor: colors.inactive,
+      paddingVertical: 12,
+      marginHorizontal: 45,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    reminderTimeButtonText: {
+      fontSize: 16,
+      fontFamily: FONTS.semiBold,
+      color: colors.text,
+    },
+  });
+  
 export default HabitFormModal;
