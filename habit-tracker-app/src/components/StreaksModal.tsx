@@ -16,10 +16,11 @@ const StreaksModal = React.memo<{
   weekDayLabels: string[];
   weekStartsOn: WeekStart;
   locale: string;
+  todayKey: string;
   getDayProgress: (date: Date) => { total: number; done: number };
   onSelectDate: (date: Date) => void;
   onClose: () => void;
-}>(({ visible, stats, weekDayLabels, weekStartsOn, locale, getDayProgress, onSelectDate, onClose }) => {
+}>(({ visible, stats, weekDayLabels, weekStartsOn, locale, todayKey, getDayProgress, onSelectDate, onClose }) => {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -66,6 +67,7 @@ const StreaksModal = React.memo<{
             weekDayLabels={weekDayLabels}
             weekStartsOn={weekStartsOn}
             locale={locale}
+            todayKey={todayKey}
             getDayProgress={getDayProgress}
             onSelectDate={onSelectDate}
           />

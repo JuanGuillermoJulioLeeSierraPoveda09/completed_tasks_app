@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'r
 import type { GestureResponderEvent, LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { formatDateKey } from '../../habitsStore';
+import { formatDateKey, parseDateKey } from '../../habitsStore';
 import type { WeekStart } from '../stores/settingsStore';
 import { getDayColumn } from '../utils/week';
 import { capitalize } from '../utils/locale';
@@ -20,13 +20,13 @@ const CELLS_PER_MONTH = DAYS_PER_ROW * ROWS_PER_MONTH;
 
 type DayProgress = { total: number; done: number };
 
-const monthStart = (monthOffset: number) => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+const monthStart = (monthOffset: number, todayKey: string) => {
+  const today = parseDateKey(todayKey);
+  return new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
 };
 
-const getMonthCells = (monthOffset: number, weekStartsOn: WeekStart) => {
-  const first = monthStart(monthOffset);
+const getMonthCells = (monthOffset: number, weekStartsOn: WeekStart, todayKey: string) => {
+  const first = monthStart(monthOffset, todayKey);
   const month = first.getMonth();
   return Array.from({ length: CELLS_PER_MONTH }, (_, i) => {
     const date = new Date(first.getFullYear(), month, 1 - getDayColumn(first, weekStartsOn) + i);
@@ -67,7 +67,7 @@ interface MonthPageProps {
 const MonthPage = memo(({ monthOffset, weekStartsOn, width, cellWidth, todayKey, getDayProgress, onSelectDate }: MonthPageProps) => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const cells = getMonthCells(monthOffset, weekStartsOn);
+  const cells = getMonthCells(monthOffset, weekStartsOn, todayKey);
   const gridHeight = useRef(0);
   const handlePress = (e: GestureResponderEvent) => {
     if (gridHeight.current === 0 || cellWidth === 0) return;
@@ -106,11 +106,12 @@ interface MonthCalendarProps {
   weekDayLabels: string[];
   weekStartsOn: WeekStart;
   locale: string;
+  todayKey: string;
   getDayProgress: (date: Date) => DayProgress;
   onSelectDate: (date: Date) => void;
 }
 
-function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, onSelectDate }: MonthCalendarProps) {
+function MonthCalendar({ weekDayLabels, weekStartsOn, locale, todayKey, getDayProgress, onSelectDate }: MonthCalendarProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [width, setWidth] = useState(0);
@@ -118,9 +119,8 @@ function MonthCalendar({ weekDayLabels, weekStartsOn, locale, getDayProgress, on
   const visibleOffsetRef = useRef(0);
   const listRef = useRef<FlatList<number>>(null);
   const cellWidth = width / 7;
-  const todayKey = formatDateKey(new Date());
 
-  const title = capitalize(monthStart(visibleOffset).toLocaleDateString(locale, { month: 'long', year: 'numeric' }), locale);
+  const title = capitalize(monthStart(visibleOffset, todayKey).toLocaleDateString(locale, { month: 'long', year: 'numeric' }), locale);
 
   const handleLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 

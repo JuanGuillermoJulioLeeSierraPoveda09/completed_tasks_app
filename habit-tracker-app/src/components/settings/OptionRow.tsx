@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS } from '../../../fonts';
 import { useTheme } from '../../theme/useTheme';
@@ -17,10 +17,9 @@ const OptionRow = ({ label, selected, onPress, description }: OptionRowProps) =>
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     return (
-        <TouchableOpacity
-            style={styles.row}
+        <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             onPress={onPress}
-            activeOpacity={0.6}
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
         >
@@ -38,7 +37,7 @@ const OptionRow = ({ label, selected, onPress, description }: OptionRowProps) =>
             <View style={styles.checkBox}>
                 {selected ? <Ionicons name="checkmark" size={20} color={colors.primary} /> : null}
             </View>
-        </TouchableOpacity>
+        </Pressable>
     );
 };
 
@@ -50,6 +49,9 @@ const createStyles = (colors: ThemeColors) =>
             gap: 12,
             paddingHorizontal: 16,
             paddingVertical: 14,
+        },
+        rowPressed: {
+            opacity: 0.6,
         },
         texts: {
             flex: 1,

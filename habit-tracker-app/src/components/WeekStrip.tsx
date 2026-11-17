@@ -74,6 +74,7 @@ interface WeekStripProps {
   weekStartsOn: WeekStart;
   selectedDayIndex: number;
   weekDayLabels: string[];
+  todayKey: string;
   getDayProgress: (date: Date) => DayProgress;
   onChangeWeek: (weekOffset: number) => void;
   onSelectDay: (index: number) => void;
@@ -84,6 +85,7 @@ function WeekStrip({
   weekStartsOn,
   selectedDayIndex,
   weekDayLabels,
+  todayKey,
   getDayProgress,
   onChangeWeek,
   onSelectDay,
@@ -94,7 +96,6 @@ function WeekStrip({
   const listRef = useRef<FlatList<number>>(null);
   const visibleOffset = useRef(weekOffset);
   const columnWidth = width > 0 ? (width - HORIZONTAL_PADDING * 2) / 7 : 0;
-  const todayKey = formatDateKey(new Date());
 
   const indicatorX = useSharedValue(0);
   useEffect(() => {

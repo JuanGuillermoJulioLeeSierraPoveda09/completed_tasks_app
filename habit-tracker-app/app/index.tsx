@@ -321,6 +321,7 @@ export default function HomeScreen() {
                 weekStartsOn={weekStartsOn}
                 selectedDayIndex={selectedDayIndex}
                 weekDayLabels={WEEK_LABELS}
+                todayKey={todayKey}
                 getDayProgress={getDayProgress}
                 onChangeWeek={setWeekOffset}
                 onSelectDay={handleSelectWeekDay}
@@ -367,6 +368,7 @@ export default function HomeScreen() {
         weekDayLabels={WEEK_LABELS}
         weekStartsOn={weekStartsOn}
         locale={currentLocale}
+        todayKey={todayKey}
         getDayProgress={getDayProgress}
         onSelectDate={handleSelectedCalendarDay}
         onClose={handleCloseStreaks}
