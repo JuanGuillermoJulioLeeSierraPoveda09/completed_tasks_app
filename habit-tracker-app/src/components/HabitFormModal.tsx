@@ -404,7 +404,7 @@ const HabitFormBody: React.FC<{
         </View>
       </SafeAreaView>
 
-      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true}>
+      <Modal visible={isIconPickerOpen} transparent={false} animationType="slide" statusBarTranslucent={true} onRequestClose={() => setIsIconPickerOpen(false)}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity onPress={() => setIsIconPickerOpen(false)}>
@@ -458,7 +458,7 @@ const HabitFormBody: React.FC<{
         </SafeAreaView>
       </Modal>
 
-      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true}>
+      <Modal visible={isFrequencyModalOpen} animationType="slide" transparent={false} statusBarTranslucent={true} onRequestClose={handleCloseFrequencyModal}>
         <SafeAreaView style={styles.fullscreenModalContainer}>
           <View style={styles.fullscreenModalHeader}>
             <TouchableOpacity
@@ -612,7 +612,7 @@ const HabitFormModal = React.memo<{
   onClose: () => void;
   onSave: (draft: HabitDraft) => void;
 }>(({ visible, sessionKey, habit, onClose, onSave }) => (
-  <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent={true}>
+  <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent={true} onRequestClose={onClose}>
     <HabitFormBody key={sessionKey} habit={habit} onClose={onClose} onSave={onSave} />
   </Modal>
 ));

@@ -22,6 +22,7 @@ const RelapseModal = React.memo<{
       transparent={true}
       animationType='fade'
       statusBarTranslucent={true}
+      onRequestClose={onCancel}
     >
       <View style={styles.modalOverlay}>
         <Animated.View entering={FadeInUp.duration(300)} style={styles.relapseModalCard}>

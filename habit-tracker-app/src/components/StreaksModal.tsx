@@ -26,7 +26,7 @@ const StreaksModal = React.memo<{
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent={true}>
+    <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent={true} onRequestClose={onClose}>
       <SafeAreaView style={styles.streaksContainer}>
         <View style={styles.streaksHeader}>
           <TouchableOpacity onPress={onClose}>
